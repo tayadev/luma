@@ -1,1 +1,6 @@
 /target
+
+# Docusaurus
+/docs/node_modules
+/docs/.docusaurus
+/docs/build
