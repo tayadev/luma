@@ -1,0 +1,9 @@
+Program(
+  statements: [
+    DestructuringVarDecl(
+      mutable: false,
+      pattern: TablePattern(["name", "age"]),
+      value: Identifier("person"),
+    ),
+  ],
+)

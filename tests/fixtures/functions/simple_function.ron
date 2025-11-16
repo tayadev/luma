@@ -1,0 +1,21 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "greet",
+            value: Function(
+                arguments: [
+                    Argument(
+                        name: "name",
+                        type: TypeIdent("String"),
+                        default: None,
+                    ),
+                ],
+                return_type: Some(TypeIdent("String")),
+                body: [
+                      Return(Concat([String("Hello "), Identifier("name")])),
+                ],
+            ),
+        ),
+    ],
+)

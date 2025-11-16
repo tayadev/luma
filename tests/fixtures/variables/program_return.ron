@@ -1,0 +1,15 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: false,
+      name: "a",
+      value: Number(1.0),
+    ),
+    VarDecl(
+      mutable: false,
+      name: "b",
+      value: Number(2.0),
+    ),
+    Return(Identifier("b")),
+  ],
+)

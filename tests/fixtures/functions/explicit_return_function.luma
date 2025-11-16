@@ -1,0 +1,1 @@
+let f = fn(a: Number, b: Number): Number do return a + b end

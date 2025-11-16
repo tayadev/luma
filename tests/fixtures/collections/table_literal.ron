@@ -1,0 +1,11 @@
+Program(
+  statements: [
+    Return(Table([
+      ("a", Number(1.0)),
+      ("b", Boolean(true)),
+      ("c", Table([
+        ("nested", Null),
+      ])),
+    ])),
+  ],
+)

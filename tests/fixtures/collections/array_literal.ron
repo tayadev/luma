@@ -1,0 +1,5 @@
+Program(
+  statements: [
+    Return(Array([Number(1.0), Number(2.0), Boolean(true), Null])),
+  ],
+)

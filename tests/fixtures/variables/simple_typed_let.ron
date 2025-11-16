@@ -1,0 +1,10 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: false,
+      name: "greeting",
+      type: Some(TypeIdent("String")),
+      value: String("Hello"),
+    ),
+  ],
+)

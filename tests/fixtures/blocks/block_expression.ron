@@ -1,0 +1,25 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: false,
+      name: "val",
+      value: Block([
+        VarDecl(
+          mutable: false,
+          name: "a",
+          value: Number(1.0),
+        ),
+        VarDecl(
+          mutable: false,
+          name: "b",
+          value: Number(2.0),
+        ),
+        Return(Binary(
+          left: Identifier("a"),
+          op: Add,
+          right: Identifier("b"),
+        )),
+      ]),
+    ),
+  ],
+)

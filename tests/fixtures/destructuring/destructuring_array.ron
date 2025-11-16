@@ -1,0 +1,12 @@
+Program(
+  statements: [
+    DestructuringVarDecl(
+      mutable: false,
+      pattern: ArrayPattern(
+        elements: [Ident("head")],
+        rest: Some("tail"),
+      ),
+      value: Array([Number(1.0), Number(2.0), Number(3.0)]),
+    ),
+  ],
+)

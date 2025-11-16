@@ -1,0 +1,30 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: false,
+      name: "f",
+      value: Function(
+        arguments: [
+          Argument(
+            name: "a",
+            type: TypeIdent("Number"),
+            default: None,
+          ),
+          Argument(
+            name: "b",
+            type: TypeIdent("Number"),
+            default: None,
+          ),
+        ],
+        return_type: Some(TypeIdent("Number")),
+        body: [
+          Return(Binary(
+            left: Identifier("a"),
+            op: Add,
+            right: Identifier("b"),
+          )),
+        ],
+      ),
+    ),
+  ],
+)

@@ -1,0 +1,10 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: true,
+      name: "count",
+      type: Some(TypeIdent("Number")),
+      value: Number(42.0),
+    ),
+  ],
+)
