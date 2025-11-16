@@ -1,6 +1,3 @@
-pub mod ast;
-pub mod parser;
-
 use std::env;
 use std::fs;
 use std::process;
@@ -23,7 +20,7 @@ fn main() {
         }
     };
     
-    match parser::parse(&source) {
+    match luma::parser::parse(&source) {
         Ok(ast) => println!("{:#?}", ast),
         Err(errors) => {
             for error in errors {
