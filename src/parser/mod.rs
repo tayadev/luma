@@ -125,7 +125,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
 
     let var_decl = var_decl_token
         .then(expr_ref.clone())
-        .map(|((((mutable, (pattern, name)), opt_type)), value)| {
+        .map(|(((mutable, (pattern, name)), opt_type), value)| {
             if let Some(pattern) = pattern {
                 Stmt::DestructuringVarDecl { mutable, pattern, value }
             } else {
@@ -242,6 +242,6 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     )
 }
 
-pub fn parse(source: &str) -> Result<Program, Vec<Rich<char>>> {
+pub fn parse(source: &str) -> Result<Program, Vec<Rich<'_, char>>> {
     parser().parse(source).into_result()
 }
