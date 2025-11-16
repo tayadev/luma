@@ -29,6 +29,56 @@ impl Compiler {
             Stmt::Return(expr) => {
                 self.emit_expr(expr);
             }
+            Stmt::If { condition, then_block, elif_blocks, else_block } => {
+                // if cond then ... elif ... else ... end
+                self.emit_expr(condition);
+                let jf_main = self.emit_jump_if_false();
+
+                // then block
+                for st in then_block { self.emit_stmt(st); }
+                let j_end = self.emit_jump();
+
+                // else/elif chain
+                let mut next_start = self.current_ip();
+                self.patch_jump(jf_main, next_start);
+
+                // elif blocks
+                for (elif_cond, elif_body) in elif_blocks {
+                    self.emit_expr(elif_cond);
+                    let jf_elif = self.emit_jump_if_false();
+                    for st in elif_body { self.emit_stmt(st); }
+                    let _j_after_elif = self.emit_jump();
+                    // patch jf_elif to the next block start
+                    next_start = self.current_ip();
+                    self.patch_jump(jf_elif, next_start);
+                    // leave j_after_elif as placeholder to be patched to end later
+                }
+
+                // else block
+                if let Some(else_body) = else_block {
+                    for st in else_body { self.emit_stmt(st); }
+                }
+
+                // Patch final end for main then and all elif end jumps
+                let end_ip = self.current_ip();
+                self.patch_jump(j_end, end_ip);
+                // Also patch any Jump(usize::MAX) left from elif bodies to end_ip
+                // Walk back and patch immediate previous Jump placeholders
+                for instr in &mut self.chunk.instructions {
+                    if let Instruction::Jump(addr) = instr { if *addr == usize::MAX { *addr = end_ip; } }
+                }
+            }
+            Stmt::While { condition, body } => {
+                let loop_start = self.current_ip();
+                self.emit_expr(condition);
+                let jf_end = self.emit_jump_if_false();
+                for st in body { self.emit_stmt(st); }
+                // jump back to loop start
+                let start = loop_start;
+                self.chunk.instructions.push(Instruction::Jump(start));
+                let end_ip = self.current_ip();
+                self.patch_jump(jf_end, end_ip);
+            }
             Stmt::VarDecl { name, value, .. } => {
                 // globals-only MVP
                 self.emit_expr(value);
@@ -97,6 +147,28 @@ impl Compiler {
             Expr::Null => {
                 let idx = push_const(&mut self.chunk, Constant::Null);
                 self.chunk.instructions.push(Instruction::Const(idx));
+            }
+            Expr::Array(items) => {
+                for item in items { self.emit_expr(item); }
+                self.chunk.instructions.push(Instruction::BuildArray(items.len()));
+            }
+            Expr::Table(fields) => {
+                for (k, v) in fields {
+                    let k_idx = push_const(&mut self.chunk, Constant::String(k.clone()));
+                    self.chunk.instructions.push(Instruction::Const(k_idx));
+                    self.emit_expr(v);
+                }
+                self.chunk.instructions.push(Instruction::BuildTable(fields.len()));
+            }
+            Expr::MemberAccess { object, member } => {
+                self.emit_expr(object);
+                let name_idx = push_const(&mut self.chunk, Constant::String(member.clone()));
+                self.chunk.instructions.push(Instruction::GetProp(name_idx));
+            }
+            Expr::Index { object, index } => {
+                self.emit_expr(object);
+                self.emit_expr(index);
+                self.chunk.instructions.push(Instruction::GetIndex);
             }
             Expr::Identifier(name) => {
                 let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));

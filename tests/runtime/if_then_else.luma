@@ -1,0 +1,5 @@
+var x = 1
+if true do
+  x = x + 1
+end
+x

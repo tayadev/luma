@@ -19,7 +19,8 @@
 	- [x] Codegen: comparisons (`== != < <= > >=`)
 	- [x] Codegen: logical ops with short-circuit (`and`, `or`, `not`)
 	- [x] Codegen: identifiers, assignment (incl. compound) as globals-only
-	- [ ] Codegen: member/index
+	- [x] Codegen: member/index reads
+	- [ ] Codegen: member/index writes
 	- [ ] Control flow: `if/elif/else`, `while`
 	- [ ] `for` over arrays only (lower to while)
 
@@ -28,7 +29,9 @@
 	- [x] Dispatch loop, stack, basic globals placeholder
 	- [x] Implement ops: `CONST/POP/DUP`, arithmetic/comparison/unary, `JUMP/JUMP_IF_FALSE`, `HALT`
 	- [x] Implement ops: GET/SET (global)
-	- [ ] Implement ops: GET/SET (local), GET/SET_PROP, GET/SET_INDEX
+	- [ ] Implement ops: GET/SET (local)
+	- [x] Implement ops: GET_PROP, GET_INDEX
+	- [ ] Implement ops: SET_PROP, SET_INDEX (requires reference semantics)
 	- [ ] BUILD_ARRAY/BUILD_TABLE, LOOP, MAKE_FUNCTION/CALL/RETURN
 
 - [ ] CLI Integration
@@ -38,7 +41,7 @@
 - [ ] Integration Tests (end-to-end)
 	- [ ] `run_arith.rs` — arithmetic, precedence, implicit program return
 	- [ ] `run_strings.rs` — `+` concat and coercion
-	- [ ] `run_arrays_tables.rs` — literals, indexing, nested
+	- [x] arrays/tables — literals, member/index reads, nested
 	- [ ] `run_control.rs` — if/elif/else, while
 	- [ ] `run_functions.rs` — define/call, recursion, implicit returns
 	- [ ] `run_assignments.rs` — let/var, compound ops, member/index assignment

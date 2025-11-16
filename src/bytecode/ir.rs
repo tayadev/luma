@@ -28,6 +28,10 @@ pub enum Instruction {
     JumpIfFalse(usize),
     GetGlobal(usize), // const string name index
     SetGlobal(usize), // const string name index, pops value
+    BuildArray(usize), // n
+    BuildTable(usize), // n pairs
+    GetIndex,          // pops index and object, pushes value
+    GetProp(usize),    // const string name index
     Halt,
 }
 

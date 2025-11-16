@@ -80,6 +80,48 @@ impl VM {
                     let v = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_GLOBAL pop underflow".into()))?;
                     self.globals.insert(name, v);
                 }
+                Instruction::BuildArray(n) => {
+                    if self.stack.len() < n { return Err(VmError::Runtime("BUILD_ARRAY underflow".into())); }
+                    let mut tmp = Vec::with_capacity(n);
+                    for _ in 0..n { tmp.push(self.stack.pop().unwrap()); }
+                    tmp.reverse();
+                    self.stack.push(Value::Array(tmp));
+                }
+                Instruction::BuildTable(n) => {
+                    if self.stack.len() < n * 2 { return Err(VmError::Runtime("BUILD_TABLE underflow".into())); }
+                    let mut map: HashMap<String, Value> = HashMap::with_capacity(n);
+                    for _ in 0..n {
+                        let val = self.stack.pop().unwrap();
+                        let key_v = self.stack.pop().unwrap();
+                        let key = match key_v { Value::String(s) => s, _ => return Err(VmError::Runtime("TABLE key must be string".into())) };
+                        map.insert(key, val);
+                    }
+                    self.stack.push(Value::Table(map));
+                }
+                Instruction::GetIndex => {
+                    let index = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_INDEX index underflow".into()))?;
+                    let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_INDEX obj underflow".into()))?;
+                    match (obj, index) {
+                        (Value::Array(arr), Value::Number(n)) => {
+                            let i = n as i64;
+                            if i < 0 { return Err(VmError::Runtime("Array index negative".into())); }
+                            let i = i as usize;
+                            match arr.get(i) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Array index out of bounds".into())) }
+                        }
+                        (Value::Table(map), Value::String(k)) => {
+                            match map.get(&k) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Table key not found".into())) }
+                        }
+                        _ => return Err(VmError::Runtime("GET_INDEX type error".into())),
+                    }
+                }
+                Instruction::GetProp(idx) => {
+                    let name = match self.chunk.constants.get(idx) { Some(Constant::String(s)) => s.clone(), _ => return Err(VmError::Runtime("GET_PROP expects string const".into())) };
+                    let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_PROP obj underflow".into()))?;
+                    match obj {
+                        Value::Table(map) => match map.get(&name) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Property not found".into())) },
+                        _ => return Err(VmError::Runtime("GET_PROP on non-table".into())),
+                    }
+                }
                 Instruction::Eq => bin_eq(&mut self.stack)?,
                 Instruction::Ne => { bin_eq(&mut self.stack)?; flip_bool(&mut self.stack)?; }
                 Instruction::Lt => bin_cmp(&mut self.stack, |a,b| a<b)?,

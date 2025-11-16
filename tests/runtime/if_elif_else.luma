@@ -1,0 +1,9 @@
+var x = 1
+if false do
+  x = 100
+elif true do
+  x = 2
+else do
+  x = 3
+end
+x
