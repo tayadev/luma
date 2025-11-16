@@ -427,7 +427,18 @@ let [head, ...tail] = [1,2,3]  -- head=1, tail=[2,3]
 
 ---
 
-## 20. Style Guide
+## 20. Function calls
+
+* Parentheses optional for single-argument calls
+* Multiple arguments require parentheses
+* arguments can be named
+```luma
+let result = add(2, 3)
+let result = add(a = 2, b = 3)
+let result = unary 2
+```
+
+## Style Guide
 
 * 2 spaces for indentation
 * `snake_case` for variable and function names
