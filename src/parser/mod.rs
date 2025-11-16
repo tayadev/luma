@@ -1,28 +1,21 @@
 use chumsky::prelude::*;
-use crate::ast::{Program, Stmt, Expr, Argument, Type, BinaryOp, Pattern};
+use crate::ast::{Program, Stmt, Expr, Argument, Type, Pattern};
 
 mod string;
+mod lexer;
+mod operators;
+mod literals;
+mod patterns;
+
 use string::string_parser;
 
 pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, char>>> {
     // Comments and whitespace
-    let line_comment = just("--")
-        .then(none_of("\n").repeated())
-        .ignored();
+    let ws = lexer::ws();
     
-    let block_comment = just("--[[")
-        .then(any().and_is(just("]]").not()).repeated())
-        .then(just("]]"))
-        .ignored();
-    
-    let comment = choice((block_comment, line_comment));
-    let ws_item = comment.or(one_of(" \t\r\n").ignored());
-    let ws = ws_item.repeated();
-    
-    let keywords = ["let", "var", "fn", "do", "end", "return", "true", "false", "null"];
     let ident = text::ident()
         .try_map(move |s: &str, span| {
-            if keywords.contains(&s) {
+            if lexer::KEYWORDS.contains(&s) {
                 Err(Rich::custom(span, format!("'{}' is a keyword and cannot be used as an identifier", s)))
             } else {
                 Ok(s)
@@ -37,12 +30,8 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     let mut stmt_ref = Recursive::declare();
 
     // Boolean and Null literals
-    let boolean = choice((
-        just("true").to(Expr::Boolean(true)),
-        just("false").to(Expr::Boolean(false)),
-    )).padded_by(ws.clone()).boxed();
-    
-    let null = just("null").to(Expr::Null).padded_by(ws.clone()).boxed();
+    let boolean = literals::boolean(ws.clone());
+    let null = literals::null(ws.clone());
 
     // Array literal
     let array = expr_ref.clone()
@@ -85,7 +74,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         .delimited_by(just('(').padded_by(ws.clone()), just(')').padded_by(ws.clone()));
 
     // Pattern parsing for destructuring
-    let pattern_ident = ident.clone().map(|s: &str| Pattern::Ident(s.to_string()));
+    let pattern_ident = patterns::ident_pattern(ident.clone());
     
     let array_pattern = pattern_ident.clone()
         .separated_by(just(',').padded_by(ws.clone()))
@@ -184,30 +173,12 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         block_expr,
         function,
         ident.map(|s: &str| Expr::Identifier(s.to_string())).boxed(),
-    ));
+    )).boxed();
 
     // Binary operators with precedence
-    let op = |c| just(c).padded_by(ws.clone());
-    
-    let mul_op = choice((
-        op('*').to(BinaryOp::Mul),
-        op('/').to(BinaryOp::Div),
-        op('%').to(BinaryOp::Mod),
-    ));
-    
-    let add_op = choice((
-        op('+').to(BinaryOp::Add),
-        op('-').to(BinaryOp::Sub),
-    ));
-    
-    let cmp_op = choice((
-        just("==").padded_by(ws.clone()).to(BinaryOp::Eq),
-        just("!=").padded_by(ws.clone()).to(BinaryOp::Ne),
-        just("<=").padded_by(ws.clone()).to(BinaryOp::Le),
-        just(">=").padded_by(ws.clone()).to(BinaryOp::Ge),
-        op('<').to(BinaryOp::Lt),
-        op('>').to(BinaryOp::Gt),
-    ));
+    let mul_op = operators::mul_op(ws.clone());
+    let add_op = operators::add_op(ws.clone());
+    let cmp_op = operators::cmp_op(ws.clone());
 
     // Build expression with precedence: comparison > addition > multiplication
     let mul_expr = primary.clone()
