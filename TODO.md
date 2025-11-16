@@ -11,47 +11,57 @@
 	- [ ] Check logical ops (`and`, `or`, `not`) → Boolean
 	- [ ] Check functions: params/arity, return type vs implicit return
 
-- [ ] Bytecode IR & Compiler
+- [x] Bytecode IR & Compiler
 	- [x] `Instruction` enum + `Constant` pool; `Chunk`
-	- [ ] Scopes: locals vs globals; enforce `let` immutability at compile time
+	- [x] Scopes: locals vs globals; PopNPreserve for preserving return values
 	- [x] Codegen: literals (Number/String/Boolean/Null)
 	- [x] Codegen: arithmetic binary ops (`+ - * / %`) and unary `-`
 	- [x] Codegen: comparisons (`== != < <= > >=`)
 	- [x] Codegen: logical ops with short-circuit (`and`, `or`, `not`)
-	- [x] Codegen: identifiers, assignment (incl. compound) as globals-only
+	- [x] Codegen: identifiers, assignment (incl. compound) for locals and globals
 	- [x] Codegen: member/index reads
 	- [ ] Codegen: member/index writes
-	- [ ] Control flow: `if/elif/else`, `while`
+	- [x] Control flow: `if/elif/else`, `while` with proper scoping
+	- [x] Functions: definitions and calls with call frames
 	- [ ] `for` over arrays only (lower to while)
 
-- [ ] VM (Stack-based)
-	- [x] `Value`: Number, String, Boolean, Null
-	- [x] Dispatch loop, stack, basic globals placeholder
-	- [x] Implement ops: `CONST/POP/DUP`, arithmetic/comparison/unary, `JUMP/JUMP_IF_FALSE`, `HALT`
+- [x] VM (Stack-based)
+	- [x] `Value`: Number, String, Boolean, Null, Array, Table, Function
+	- [x] Dispatch loop, stack, globals HashMap
+	- [x] Implement ops: `CONST/POP/DUP/PopNPreserve`, arithmetic/comparison/unary, `JUMP/JUMP_IF_FALSE`, `HALT`
 	- [x] Implement ops: GET/SET (global)
-	- [ ] Implement ops: GET/SET (local)
+	- [x] Implement ops: GET/SET (local) with base pointer
 	- [x] Implement ops: GET_PROP, GET_INDEX
 	- [ ] Implement ops: SET_PROP, SET_INDEX (requires reference semantics)
-	- [ ] BUILD_ARRAY/BUILD_TABLE, LOOP, MAKE_FUNCTION/CALL/RETURN
+	- [x] BUILD_ARRAY/BUILD_TABLE
+	- [x] MAKE_FUNCTION/CALL/RETURN with call frames
 
-- [ ] CLI Integration
+- [x] CLI Integration
 	- [x] Flags: `--ast` (print AST), `--check` (typecheck), `--run` (execute)
 	- [x] Pipeline: parse → typecheck → compile → run; concise error reporting
 
 - [ ] Integration Tests (end-to-end)
-	- [ ] `run_arith.rs` — arithmetic, precedence, implicit program return
-	- [ ] `run_strings.rs` — `+` concat and coercion
-	- [x] arrays/tables — literals, member/index reads, nested
-	- [ ] `run_control.rs` — if/elif/else, while
-	- [ ] `run_functions.rs` — define/call, recursion, implicit returns
-	- [ ] `run_assignments.rs` — let/var, compound ops, member/index assignment
-	- [ ] `run_logical.rs` — short-circuit behavior
+	- [x] `test_arith` — arithmetic, precedence, implicit program return
+	- [x] `test_assign` — globals with compound assignment
+	- [x] `test_cmp`, `test_logic_and`, `test_logic_or`, `test_not` — comparisons and logical ops
+	- [x] arrays/tables — literals, member/index reads (`array_read`, `table_read`)
+	- [x] `if_then_else`, `if_elif_else`, `if_local` — if/elif/else control flow with scoping
+	- [x] `while_sum` — while loops
+	- [x] `fn_simple`, `fn_multiarg` — function definitions and calls
 	- [ ] `run_for_arrays.rs` — `for x in [1,2,3]` lowering
+	- [ ] member/index assignment tests
+	- [ ] immutability enforcement (`let` vs `var`)
 
 	## Infra/Housekeeping
 
-	- [x] Test folder reorg: move parser fixtures to `test/parser/fixtures`
-	- [x] Move ad-hoc samples from `tmp/` to `test/runtime/`
+	- [x] Test folder reorg: move parser fixtures to `tests/fixtures`
+	- [x] Move ad-hoc samples from `tmp/` to `tests/runtime/`
+	- [x] Runtime test harness with .ron expectations
+
+## Known Limitations (Current MVP)
+
+- **Recursion**: Functions cannot recursively call themselves by name because the function value is assigned to the global *after* compilation. Requires either forward declarations or a two-pass approach.
+- **Closures**: Captured variables from outer scopes not supported (deferred to v2).
 
 ## Deferred to v2
 

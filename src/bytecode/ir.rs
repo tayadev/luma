@@ -1,13 +1,15 @@
-#[derive(Debug, Clone)]
+use serde::{Serialize, Deserialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Constant {
     Number(f64),
     String(String),
     Boolean(bool),
     Null,
-    // Function bytecode can be added later
+    Function(Chunk),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Instruction {
     Const(usize), // push constant at index
     Add,
@@ -23,6 +25,8 @@ pub enum Instruction {
     Ge,
     Not,
     Pop,
+    // Pop N items but preserve the previous top-of-stack value
+    PopNPreserve(usize),
     Dup,
     Jump(usize),
     JumpIfFalse(usize),
@@ -32,10 +36,15 @@ pub enum Instruction {
     BuildTable(usize), // n pairs
     GetIndex,          // pops index and object, pushes value
     GetProp(usize),    // const string name index
+    GetLocal(usize),
+    SetLocal(usize),
+    MakeFunction(usize), // const index of Function chunk
+    Call(usize),         // arity (number of arguments)
+    Return,              // return top of stack
     Halt,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Chunk {
     pub instructions: Vec<Instruction>,
     pub constants: Vec<Constant>,

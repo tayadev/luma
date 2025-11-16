@@ -7,16 +7,24 @@ pub enum VmError {
     Runtime(String),
 }
 
+struct CallFrame {
+    chunk: Chunk,
+    ip: usize,
+    base: usize,
+}
+
 pub struct VM {
     stack: Vec<Value>,
     ip: usize,
     chunk: Chunk,
     globals: HashMap<String, Value>,
+    base: usize,
+    frames: Vec<CallFrame>,
 }
 
 impl VM {
     pub fn new(chunk: Chunk) -> Self {
-        VM { stack: Vec::new(), ip: 0, chunk, globals: HashMap::new() }
+        VM { stack: Vec::new(), ip: 0, chunk, globals: HashMap::new(), base: 0, frames: Vec::new() }
     }
 
     pub fn run(&mut self) -> Result<Value, VmError> {
@@ -33,12 +41,26 @@ impl VM {
                         Some(Constant::String(s)) => Value::String(s.clone()),
                         Some(Constant::Boolean(b)) => Value::Boolean(*b),
                         Some(Constant::Null) => Value::Null,
+                        Some(Constant::Function(chunk)) => Value::Function {
+                            chunk: chunk.clone(),
+                            arity: chunk.local_count as usize,
+                        },
                         None => return Err(VmError::Runtime("Bad const index".into())),
                     };
                     self.stack.push(v);
                 }
                 Instruction::Pop => {
                     self.stack.pop();
+                }
+                Instruction::PopNPreserve(n) => {
+                    // Preserve the top value, pop n items beneath, then restore the preserved value
+                    let top = self.stack.pop().ok_or_else(|| VmError::Runtime("POPN_PRESERVE on empty stack".into()))?;
+                    for _ in 0..n {
+                        if self.stack.pop().is_none() {
+                            return Err(VmError::Runtime("POPN_PRESERVE underflow".into()));
+                        }
+                    }
+                    self.stack.push(top);
                 }
                 Instruction::Dup => {
                     if let Some(v) = self.stack.last().cloned() {
@@ -122,6 +144,17 @@ impl VM {
                         _ => return Err(VmError::Runtime("GET_PROP on non-table".into())),
                     }
                 }
+                Instruction::GetLocal(slot) => {
+                    let idx = self.base + slot;
+                    let v = self.stack.get(idx).cloned().ok_or_else(|| VmError::Runtime("GET_LOCAL out of range".into()))?;
+                    self.stack.push(v);
+                }
+                Instruction::SetLocal(slot) => {
+                    let v = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_LOCAL pop underflow".into()))?;
+                    let idx = self.base + slot;
+                    if idx >= self.stack.len() { return Err(VmError::Runtime("SET_LOCAL out of range".into())); }
+                    self.stack[idx] = v;
+                }
                 Instruction::Eq => bin_eq(&mut self.stack)?,
                 Instruction::Ne => { bin_eq(&mut self.stack)?; flip_bool(&mut self.stack)?; }
                 Instruction::Lt => bin_cmp(&mut self.stack, |a,b| a<b)?,
@@ -138,6 +171,67 @@ impl VM {
                 Instruction::JumpIfFalse(target) => {
                     let v = self.stack.pop().ok_or_else(|| VmError::Runtime("JUMP_IF_FALSE pop underflow".into()))?;
                     if !truthy(&v) { self.ip = target; }
+                }
+                Instruction::MakeFunction(idx) => {
+                    // Function constant already created during CONST; this is a no-op for now
+                    // In a more complex implementation, we'd capture upvalues here
+                    let v = match self.chunk.constants.get(idx) {
+                        Some(Constant::Function(chunk)) => Value::Function {
+                            chunk: chunk.clone(),
+                            arity: chunk.local_count as usize,
+                        },
+                        _ => return Err(VmError::Runtime("MAKE_FUNCTION expects function constant".into())),
+                    };
+                    self.stack.push(v);
+                }
+                Instruction::Call(arity) => {
+                    // Stack: [... callee arg1 arg2 ... argN]
+                    // After call: [... result]
+                    let callee_idx = self.stack.len() - arity - 1;
+                    let callee = self.stack.get(callee_idx).cloned()
+                        .ok_or_else(|| VmError::Runtime("CALL callee underflow".into()))?;
+                    
+                    match callee {
+                        Value::Function { chunk: fn_chunk, arity: fn_arity } => {
+                            if arity != fn_arity {
+                                return Err(VmError::Runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
+                            }
+                            // Save current frame
+                            let frame = CallFrame {
+                                chunk: self.chunk.clone(),
+                                ip: self.ip,
+                                base: self.base,
+                            };
+                            self.frames.push(frame);
+                            
+                            // Set new base to point to first argument
+                            self.base = callee_idx + 1;
+                            // Switch to function chunk
+                            self.chunk = fn_chunk;
+                            self.ip = 0;
+                        }
+                        _ => return Err(VmError::Runtime("CALL on non-function".into())),
+                    }
+                }
+                Instruction::Return => {
+                    // Pop return value
+                    let ret_val = self.stack.pop().unwrap_or(Value::Null);
+                    
+                    // Pop all locals and arguments (everything from base onwards)
+                    self.stack.truncate(self.base - 1); // Keep everything before the callee
+                    
+                    // Restore previous frame
+                    if let Some(frame) = self.frames.pop() {
+                        self.chunk = frame.chunk;
+                        self.ip = frame.ip;
+                        self.base = frame.base;
+                        
+                        // Push return value
+                        self.stack.push(ret_val);
+                    } else {
+                        // Top-level return (shouldn't happen with well-formed code)
+                        return Ok(ret_val);
+                    }
                 }
                 Instruction::Halt => {
                     return Ok(self.stack.pop().unwrap_or(Value::Null));

@@ -1,5 +1,6 @@
-use crate::ast::{Program, Stmt, Expr, BinaryOp, UnaryOp, LogicalOp, AssignOp};
+use crate::ast::{Program, Stmt, Expr, BinaryOp, UnaryOp, LogicalOp, AssignOp, Argument};
 use super::ir::{Chunk, Instruction, Constant};
+use std::collections::HashMap;
 
 pub fn compile_program(program: &Program) -> Chunk {
     let mut c = Compiler::new("<program>");
@@ -10,6 +11,28 @@ pub fn compile_program(program: &Program) -> Chunk {
     c.chunk.clone()
 }
 
+fn compile_function(arguments: &[Argument], body: &[Stmt]) -> Chunk {
+    let mut c = Compiler::new("<function>");
+    let arity = arguments.len();
+    // Enter scope for function parameters
+    c.enter_scope();
+    // Parameters become locals in order
+    for arg in arguments {
+        let slot = c.local_count;
+        c.scopes.last_mut().unwrap().insert(arg.name.clone(), slot);
+        c.local_count += 1;
+    }
+    // Compile body
+    for stmt in body {
+        c.emit_stmt(stmt);
+    }
+    // Exit scope (pop parameters if needed, but they're handled by caller)
+    c.exit_scope_with_preserve(block_leaves_value(body));
+    c.chunk.instructions.push(Instruction::Return);
+    c.chunk.local_count = arity as u16; // Store arity in the chunk
+    c.chunk
+}
+
 fn push_const(chunk: &mut Chunk, c: Constant) -> usize {
     chunk.constants.push(c);
     chunk.constants.len() - 1
@@ -17,11 +40,13 @@ fn push_const(chunk: &mut Chunk, c: Constant) -> usize {
 
 struct Compiler {
     chunk: Chunk,
+    scopes: Vec<HashMap<String, usize>>, // name -> slot index
+    local_count: usize,
 }
 
 impl Compiler {
     fn new(name: &str) -> Self {
-        Self { chunk: Chunk { name: name.to_string(), ..Default::default() } }
+        Self { chunk: Chunk { name: name.to_string(), ..Default::default() }, scopes: Vec::new(), local_count: 0 }
     }
 
     fn emit_stmt(&mut self, s: &Stmt) {
@@ -31,11 +56,25 @@ impl Compiler {
             }
             Stmt::If { condition, then_block, elif_blocks, else_block } => {
                 // if cond then ... elif ... else ... end
+                // Always leave exactly one value on stack as the if-expression result.
+                // Start with a default Null (used when no branch produces a value).
+                let null_idx = push_const(&mut self.chunk, Constant::Null);
+                self.chunk.instructions.push(Instruction::Const(null_idx));
                 self.emit_expr(condition);
                 let jf_main = self.emit_jump_if_false();
 
                 // then block
+                self.enter_scope();
+                // Remove default Null and compute real value for this branch
+                self.chunk.instructions.push(Instruction::Pop);
                 for st in then_block { self.emit_stmt(st); }
+                let then_preserve = block_leaves_value(then_block);
+                self.exit_scope_with_preserve(then_preserve);
+                if !then_preserve {
+                    // branch produced no value; push Null to keep if result arity
+                    let null_idx = push_const(&mut self.chunk, Constant::Null);
+                    self.chunk.instructions.push(Instruction::Const(null_idx));
+                }
                 let j_end = self.emit_jump();
 
                 // else/elif chain
@@ -46,7 +85,16 @@ impl Compiler {
                 for (elif_cond, elif_body) in elif_blocks {
                     self.emit_expr(elif_cond);
                     let jf_elif = self.emit_jump_if_false();
+                    self.enter_scope();
+                    // Remove default Null and compute real value for this branch
+                    self.chunk.instructions.push(Instruction::Pop);
                     for st in elif_body { self.emit_stmt(st); }
+                    let elif_preserve = block_leaves_value(elif_body);
+                    self.exit_scope_with_preserve(elif_preserve);
+                    if !elif_preserve {
+                        let null_idx = push_const(&mut self.chunk, Constant::Null);
+                        self.chunk.instructions.push(Instruction::Const(null_idx));
+                    }
                     let _j_after_elif = self.emit_jump();
                     // patch jf_elif to the next block start
                     next_start = self.current_ip();
@@ -56,7 +104,16 @@ impl Compiler {
 
                 // else block
                 if let Some(else_body) = else_block {
+                    self.enter_scope();
+                    // Remove default Null and compute real value for this branch
+                    self.chunk.instructions.push(Instruction::Pop);
                     for st in else_body { self.emit_stmt(st); }
+                    let else_preserve = block_leaves_value(else_body);
+                    self.exit_scope_with_preserve(else_preserve);
+                    if !else_preserve {
+                        let null_idx = push_const(&mut self.chunk, Constant::Null);
+                        self.chunk.instructions.push(Instruction::Const(null_idx));
+                    }
                 }
 
                 // Patch final end for main then and all elif end jumps
@@ -72,7 +129,9 @@ impl Compiler {
                 let loop_start = self.current_ip();
                 self.emit_expr(condition);
                 let jf_end = self.emit_jump_if_false();
+                self.enter_scope();
                 for st in body { self.emit_stmt(st); }
+                self.exit_scope_with_preserve(false);
                 // jump back to loop start
                 let start = loop_start;
                 self.chunk.instructions.push(Instruction::Jump(start));
@@ -80,45 +139,43 @@ impl Compiler {
                 self.patch_jump(jf_end, end_ip);
             }
             Stmt::VarDecl { name, value, .. } => {
-                // globals-only MVP
-                self.emit_expr(value);
-                let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
-                self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+                if self.scopes.is_empty() {
+                    // global
+                    self.emit_expr(value);
+                    let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
+                    self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+                } else {
+                    // local: initializer value stays on stack as slot
+                    self.emit_expr(value);
+                    let slot = self.local_count;
+                    self.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                    self.local_count += 1;
+                }
             }
             Stmt::Assignment { target, op, value } => {
                 if let Expr::Identifier(name) = target {
-                    match op {
-                        AssignOp::Assign => {
-                            self.emit_expr(value);
+                    if let Some(slot) = self.lookup_local(name) {
+                        match op {
+                            AssignOp::Assign => self.emit_expr(value),
+                            AssignOp::AddAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Add); }
+                            AssignOp::SubAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Sub); }
+                            AssignOp::MulAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Mul); }
+                            AssignOp::DivAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Div); }
+                            AssignOp::ModAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Mod); }
                         }
-                        AssignOp::AddAssign => {
-                            self.emit_expr(&Expr::Identifier(name.clone()));
-                            self.emit_expr(value);
-                            self.chunk.instructions.push(Instruction::Add);
+                        self.chunk.instructions.push(Instruction::SetLocal(slot));
+                    } else {
+                        match op {
+                            AssignOp::Assign => self.emit_expr(value),
+                            AssignOp::AddAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Add); }
+                            AssignOp::SubAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Sub); }
+                            AssignOp::MulAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Mul); }
+                            AssignOp::DivAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Div); }
+                            AssignOp::ModAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Mod); }
                         }
-                        AssignOp::SubAssign => {
-                            self.emit_expr(&Expr::Identifier(name.clone()));
-                            self.emit_expr(value);
-                            self.chunk.instructions.push(Instruction::Sub);
-                        }
-                        AssignOp::MulAssign => {
-                            self.emit_expr(&Expr::Identifier(name.clone()));
-                            self.emit_expr(value);
-                            self.chunk.instructions.push(Instruction::Mul);
-                        }
-                        AssignOp::DivAssign => {
-                            self.emit_expr(&Expr::Identifier(name.clone()));
-                            self.emit_expr(value);
-                            self.chunk.instructions.push(Instruction::Div);
-                        }
-                        AssignOp::ModAssign => {
-                            self.emit_expr(&Expr::Identifier(name.clone()));
-                            self.emit_expr(value);
-                            self.chunk.instructions.push(Instruction::Mod);
-                        }
+                        let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
+                        self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
                     }
-                    let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
-                    self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
                 } else {
                     // Other assignment targets not yet supported
                 }
@@ -171,8 +228,12 @@ impl Compiler {
                 self.chunk.instructions.push(Instruction::GetIndex);
             }
             Expr::Identifier(name) => {
-                let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
-                self.chunk.instructions.push(Instruction::GetGlobal(name_idx));
+                if let Some(slot) = self.lookup_local(name) {
+                    self.chunk.instructions.push(Instruction::GetLocal(slot));
+                } else {
+                    let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
+                    self.chunk.instructions.push(Instruction::GetGlobal(name_idx));
+                }
             }
             Expr::Unary { op, operand } => {
                 match op {
@@ -235,7 +296,22 @@ impl Compiler {
                     BinaryOp::Ge => self.chunk.instructions.push(Instruction::Ge),
                 }
             }
-            // Other expressions not yet supported in step-1
+            Expr::Function { arguments, body, .. } => {
+                // Compile function body into a new chunk
+                let fn_chunk = compile_function(arguments, body);
+                let idx = push_const(&mut self.chunk, Constant::Function(fn_chunk));
+                self.chunk.instructions.push(Instruction::MakeFunction(idx));
+            }
+            Expr::Call { callee, arguments } => {
+                // Push callee
+                self.emit_expr(callee);
+                // Push arguments
+                for arg in arguments {
+                    self.emit_expr(arg);
+                }
+                self.chunk.instructions.push(Instruction::Call(arguments.len()));
+            }
+            // Other expressions not yet supported
             _ => {
                 let idx = push_const(&mut self.chunk, Constant::Null);
                 self.chunk.instructions.push(Instruction::Const(idx));
@@ -261,4 +337,36 @@ impl Compiler {
         }
     }
     fn current_ip(&self) -> usize { self.chunk.instructions.len() }
+
+    fn enter_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn exit_scope_with_preserve(&mut self, preserve_top: bool) {
+        if let Some(scope) = self.scopes.pop() {
+            let to_pop = scope.len();
+            if to_pop > 0 {
+                if preserve_top {
+                    self.chunk.instructions.push(Instruction::PopNPreserve(to_pop));
+                } else {
+                    for _ in 0..to_pop { self.chunk.instructions.push(Instruction::Pop); }
+                }
+            }
+            self.local_count = self.local_count.saturating_sub(to_pop);
+        }
+    }
+
+    fn lookup_local(&self, name: &str) -> Option<usize> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(&slot) = scope.get(name) { return Some(slot); }
+        }
+        None
+    }
+}
+
+fn block_leaves_value(block: &[Stmt]) -> bool {
+    match block.last() {
+        Some(Stmt::Return(_)) => true,
+        _ => false,
+    }
 }

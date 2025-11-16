@@ -1,0 +1,12 @@
+var makeCounter = fn() do
+  var count = 0
+  fn() do
+    count = count + 1
+    count
+  end
+end
+
+var counter = makeCounter()
+counter()
+counter()
+counter()

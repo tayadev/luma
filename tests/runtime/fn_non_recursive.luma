@@ -1,0 +1,9 @@
+var fac = fn(n: Number) do
+  if n <= 1 do
+    n
+  else do
+    n
+  end
+end
+
+fac(5)

@@ -1,0 +1,5 @@
+var add = fn(x: Number, y: Number) do
+  x + y
+end
+
+add(3, 4)
