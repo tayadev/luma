@@ -11,32 +11,34 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Easy to Use',
+    title: 'Simple and Expressive',
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        Luma features a tiny core syntax with powerful expressiveness.
+        Write clean, readable code with consistent <code>do...end</code> blocks
+        and intuitive semantics.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
+    title: 'Type Safe',
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        Static type checking catches errors before runtime. Define custom types,
+        traits, and inheritance hierarchies. Everything is a value, including types
+        and functions.
       </>
     ),
   },
   {
-    title: 'Powered by React',
+    title: 'Modern Features',
     Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        First-class async/await support, URL-based imports, explicit error handling
+        with Result types, pattern matching, and automatic garbage collection.
       </>
     ),
   },

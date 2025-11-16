@@ -2,46 +2,44 @@
 sidebar_position: 1
 ---
 
-# Tutorial Intro
+# Welcome to Luma
 
-Let's discover **Docusaurus in less than 5 minutes**.
+**Luma** is a typed scripting language designed for simplicity, safety, and expressiveness.
+
+## Core Design Principles
+
+- **Everything is a value** - Functions, types, and modules are all first-class values
+- **No implicit assignment** - All assignments must be explicit
+- **Tiny core syntax** - Simple, consistent syntax that's easy to learn
+- **Explicit error handling** - Errors are values, not exceptions
+- **No magic** - Predictable behavior without hidden complexity
+- **Built-in dependency management** - Import modules via URL
+- **Async/await support** - First-class asynchronous programming
+- **Garbage-collected** - Automatic memory management
+
+## Quick Example
+
+```luma
+let greet = fn(name: String): String do
+  return "Hello, ${name}!"
+end
+
+print(greet("World"))
+```
 
 ## Getting Started
 
-Get started by **creating a new site**.
+To learn more about Luma, explore the documentation:
 
-Or **try Docusaurus immediately** with **[docusaurus.new](https://docusaurus.new)**.
+- **Getting Started** - Learn how to install and use Luma
+- **Basics** - Understand the core language features
+- **Advanced** - Dive into advanced topics like async/await and pattern matching
+- **Reference** - Complete language reference
 
-### What you'll need
+## Language Pipeline
 
-- [Node.js](https://nodejs.org/en/download/) version 20.0 or above:
-  - When installing Node.js, you are recommended to check all checkboxes related to dependencies.
-
-## Generate a new site
-
-Generate a new Docusaurus site using the **classic template**.
-
-The classic template will automatically be added to your project after you run the command:
-
-```bash
-npm init docusaurus@latest my-website classic
+```
+Source → Lexer → Parser → AST → Type Checker → Typed AST → Compiler → Bytecode → VM → Output
 ```
 
-You can type this command into Command Prompt, Powershell, Terminal, or any other integrated terminal of your code editor.
-
-The command also installs all necessary dependencies you need to run Docusaurus.
-
-## Start your site
-
-Run the development server:
-
-```bash
-cd my-website
-npm run start
-```
-
-The `cd` command changes the directory you're working with. In order to work with your newly created Docusaurus site, you'll need to navigate the terminal there.
-
-The `npm run start` command builds your website locally and serves it through a development server, ready for you to view at http://localhost:3000/.
-
-Open `docs/intro.md` (this page) and edit some lines: the site **reloads automatically** and displays your changes.
+The current implementation includes the Lexer, Parser, and AST phases. Type checking, compilation, and VM execution are in development.
