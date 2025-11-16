@@ -184,11 +184,16 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
             .then(expr_ref.clone().or_not())
             .then_ignore(ws.clone())
             .then_ignore(end())
-            .map(|(mut statements, ret)| { 
-                if let Some(expr) = ret { 
-                    statements.push(Stmt::Return(expr)); 
-                } 
-                Program { statements } 
+            .map(|(mut statements, ret)| {
+                if let Some(expr) = ret {
+                    statements.push(Stmt::Return(expr));
+                } else if let Some(last) = statements.pop() {
+                    match last {
+                        Stmt::ExprStmt(e) => statements.push(Stmt::Return(e)),
+                        other => statements.push(other),
+                    }
+                }
+                Program { statements }
             })
     )
 }

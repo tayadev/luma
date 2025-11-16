@@ -17,10 +17,19 @@ where
         .ignore_then(stmt.repeated().collect::<Vec<Stmt>>())
         .then(expr.or_not())
         .then_ignore(just("end").padded_by(ws))
-        .map(|(mut stmts, ret)| { 
-            if let Some(expr) = ret { 
-                stmts.push(Stmt::Return(expr)); 
-            } 
+        .map(|(mut stmts, ret)| {
+            if let Some(expr) = ret {
+                // Explicit trailing expression captured separately
+                stmts.push(Stmt::Return(expr));
+            } else if let Some(last) = stmts.pop() {
+                // No separate trailing expression; convert last ExprStmt into implicit return
+                match last {
+                    Stmt::ExprStmt(e) => stmts.push(Stmt::Return(e)),
+                    other => {
+                        stmts.push(other);
+                    }
+                }
+            }
             Expr::Block(stmts)
         })
         .boxed()
@@ -62,11 +71,16 @@ where
     let body_block = stmt.repeated().collect::<Vec<Stmt>>()
         .then(expr.or_not())
         .then_ignore(just("end").padded_by(ws.clone()))
-        .map(|(mut stmts, ret)| { 
-            if let Some(expr) = ret { 
-                stmts.push(Stmt::Return(expr)); 
-            } 
-            stmts 
+        .map(|(mut stmts, ret)| {
+            if let Some(expr) = ret {
+                stmts.push(Stmt::Return(expr));
+            } else if let Some(last) = stmts.pop() {
+                match last {
+                    Stmt::ExprStmt(e) => stmts.push(Stmt::Return(e)),
+                    other => stmts.push(other),
+                }
+            }
+            stmts
         });
 
     just("fn")
