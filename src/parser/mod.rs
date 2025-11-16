@@ -1,28 +1,23 @@
 use chumsky::prelude::*;
-use crate::ast::{Program, Stmt, Expr, Argument, Type, BinaryOp, Pattern};
+use crate::ast::{Program, Stmt, Expr, Type};
 
 mod string;
+mod lexer;
+mod operators;
+mod literals;
+mod patterns;
+mod statements;
+mod expressions;
+
 use string::string_parser;
 
 pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, char>>> {
     // Comments and whitespace
-    let line_comment = just("--")
-        .then(none_of("\n").repeated())
-        .ignored();
+    let ws = lexer::ws();
     
-    let block_comment = just("--[[")
-        .then(any().and_is(just("]]").not()).repeated())
-        .then(just("]]"))
-        .ignored();
-    
-    let comment = choice((block_comment, line_comment));
-    let ws_item = comment.or(one_of(" \t\r\n").ignored());
-    let ws = ws_item.repeated();
-    
-    let keywords = ["let", "var", "fn", "do", "end", "return", "true", "false", "null"];
     let ident = text::ident()
         .try_map(move |s: &str, span| {
-            if keywords.contains(&s) {
+            if lexer::KEYWORDS.contains(&s) {
                 Err(Rich::custom(span, format!("'{}' is a keyword and cannot be used as an identifier", s)))
             } else {
                 Ok(s)
@@ -37,141 +32,26 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     let mut stmt_ref = Recursive::declare();
 
     // Boolean and Null literals
-    let boolean = choice((
-        just("true").to(Expr::Boolean(true)),
-        just("false").to(Expr::Boolean(false)),
-    )).padded_by(ws.clone()).boxed();
-    
-    let null = just("null").to(Expr::Null).padded_by(ws.clone()).boxed();
+    let boolean = literals::boolean(ws.clone());
+    let null = literals::null(ws.clone());
 
-    // Array literal
-    let array = expr_ref.clone()
-        .separated_by(just(',').padded_by(ws.clone()))
-        .allow_trailing()
-        .collect::<Vec<Expr>>()
-        .delimited_by(just('[').padded_by(ws.clone()), just(']').padded_by(ws.clone()))
-        .map(Expr::Array)
-        .boxed();
-
-    // Table literal
-    let table_entry = ident.clone()
-        .then_ignore(just('=').padded_by(ws.clone()))
-        .then(expr_ref.clone())
-        .map(|(k, v): (&str, Expr)| (k.to_string(), v));
-    
-    let table = table_entry
-        .separated_by(just(',').padded_by(ws.clone()))
-        .allow_trailing()
-        .collect::<Vec<(String, Expr)>>()
-        .delimited_by(just('{').padded_by(ws.clone()), just('}').padded_by(ws.clone()))
-        .map(Expr::Table)
-        .boxed();
-
-    // Argument parsing with default values
-    let argument = ident.clone()
-        .then_ignore(just(':').padded_by(ws.clone()))
-        .then(type_parser.clone())
-        .then(just('=').padded_by(ws.clone()).ignore_then(expr_ref.clone()).or_not())
-        .map(|((name, t), default): ((&str, Type), Option<Expr>)| Argument { 
-            name: name.to_string(), 
-            r#type: t, 
-            default 
-        });
-
-    let arg_list = argument
-        .separated_by(just(',').padded_by(ws.clone()))
-        .allow_trailing()
-        .collect::<Vec<Argument>>()
-        .delimited_by(just('(').padded_by(ws.clone()), just(')').padded_by(ws.clone()));
+    // Array and Table literals
+    let array = literals::array(ws.clone(), expr_ref.clone());
+    let table = literals::table(ws.clone(), ident.clone(), expr_ref.clone());
 
     // Pattern parsing for destructuring
-    let pattern_ident = ident.clone().map(|s: &str| Pattern::Ident(s.to_string()));
+    let pattern = patterns::pattern(ws.clone(), ident.clone());
+
+    // Statement parsers
+    let var_decl = statements::var_decl(ws.clone(), pattern, type_parser.clone(), expr_ref.clone());
+    let return_stmt = statements::return_stmt(ws.clone(), expr_ref.clone());
     
-    let array_pattern = pattern_ident.clone()
-        .separated_by(just(',').padded_by(ws.clone()))
-        .at_least(1)
-        .collect::<Vec<Pattern>>()
-        .then(
-            just(',').padded_by(ws.clone())
-                .ignore_then(just("..."))
-                .ignore_then(ident.clone().map(|s: &str| s.to_string()))
-                .or_not()
-        )
-        .delimited_by(just('[').padded_by(ws.clone()), just(']').padded_by(ws.clone()))
-        .map(|(elements, rest)| Pattern::ArrayPattern { elements, rest })
-        .boxed();
-    
-    let table_pattern = ident.clone()
-        .separated_by(just(',').padded_by(ws.clone()))
-        .at_least(1)
-        .collect::<Vec<&str>>()
-        .delimited_by(just('{').padded_by(ws.clone()), just('}').padded_by(ws.clone()))
-        .map(|fields: Vec<&str>| Pattern::TablePattern(fields.into_iter().map(|s| s.to_string()).collect()))
-        .boxed();
-    
-    let pattern = choice((array_pattern, table_pattern, pattern_ident));
-
-    // Variable declaration (uses expr_ref)
-    let var_decl_token = choice((just("let").to(false), just("var").to(true)))
-        .padded_by(ws.clone())
-        .then(choice((
-            pattern.clone().map(|p| match p {
-                Pattern::Ident(name) => (None, Some(name)),
-                _ => (Some(p), None),
-            }),
-        )))
-        .then(just(':').padded_by(ws.clone()).ignore_then(type_parser.clone()).or_not())
-        .then_ignore(just('=').padded_by(ws.clone()));
-
-    let var_decl = var_decl_token
-        .then(expr_ref.clone())
-        .map(|(((mutable, (pattern, name)), opt_type), value)| {
-            if let Some(pattern) = pattern {
-                Stmt::DestructuringVarDecl { mutable, pattern, value }
-            } else {
-                Stmt::VarDecl { mutable, name: name.unwrap(), r#type: opt_type, value }
-            }
-        });
-
-    // Return statement
-    let return_stmt = just("return")
-        .padded_by(ws.clone())
-        .ignore_then(expr_ref.clone())
-        .map(Stmt::Return)
-        .boxed();
-
-    // Statement definition
-    let stmt = choice((return_stmt, var_decl.clone()));
+    let stmt = choice((return_stmt, var_decl)).boxed();
     stmt_ref.define(stmt.clone());
 
-    // Block expression
-    let block_expr = just("do")
-        .padded_by(ws.clone())
-        .ignore_then(stmt_ref.clone().repeated().collect::<Vec<Stmt>>())
-        .then(expr_ref.clone().or_not())
-        .then_ignore(just("end").padded_by(ws.clone()))
-        .map(|(mut stmts, ret)| { 
-            if let Some(expr) = ret { 
-                stmts.push(Stmt::Return(expr)); 
-            } 
-            Expr::Block(stmts)
-        })
-        .boxed();
-
-    // Function body: statements + optional trailing expression as Return
-    let body_block = stmt_ref.clone().repeated().collect::<Vec<Stmt>>()
-        .then(expr_ref.clone().or_not())
-        .then_ignore(just("end").padded_by(ws.clone()))
-        .map(|(mut stmts, ret)| { if let Some(expr) = ret { stmts.push(Stmt::Return(expr)); } stmts });
-
-    let function = just("fn")
-        .padded_by(ws.clone())
-        .ignore_then(arg_list.clone())
-        .then(just(':').padded_by(ws.clone()).ignore_then(type_parser.clone()).or_not())
-        .then_ignore(just("do").padded_by(ws.clone()))
-        .then(body_block)
-        .map(|((arguments, return_type), body): ((Vec<Argument>, Option<Type>), Vec<Stmt>)| Expr::Function { arguments, return_type, body })
-        .boxed();
+    // Expression parsers (blocks and functions)
+    let block_expr = expressions::block(ws.clone(), stmt_ref.clone(), expr_ref.clone());
+    let function = expressions::function(ws.clone(), ident.clone(), type_parser.clone(), stmt_ref.clone(), expr_ref.clone());
 
     // Primary expressions (atoms)
     let primary = choice((
@@ -184,30 +64,12 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         block_expr,
         function,
         ident.map(|s: &str| Expr::Identifier(s.to_string())).boxed(),
-    ));
+    )).boxed();
 
     // Binary operators with precedence
-    let op = |c| just(c).padded_by(ws.clone());
-    
-    let mul_op = choice((
-        op('*').to(BinaryOp::Mul),
-        op('/').to(BinaryOp::Div),
-        op('%').to(BinaryOp::Mod),
-    ));
-    
-    let add_op = choice((
-        op('+').to(BinaryOp::Add),
-        op('-').to(BinaryOp::Sub),
-    ));
-    
-    let cmp_op = choice((
-        just("==").padded_by(ws.clone()).to(BinaryOp::Eq),
-        just("!=").padded_by(ws.clone()).to(BinaryOp::Ne),
-        just("<=").padded_by(ws.clone()).to(BinaryOp::Le),
-        just(">=").padded_by(ws.clone()).to(BinaryOp::Ge),
-        op('<').to(BinaryOp::Lt),
-        op('>').to(BinaryOp::Gt),
-    ));
+    let mul_op = operators::mul_op(ws.clone());
+    let add_op = operators::add_op(ws.clone());
+    let cmp_op = operators::cmp_op(ws.clone());
 
     // Build expression with precedence: comparison > addition > multiplication
     let mul_expr = primary.clone()
