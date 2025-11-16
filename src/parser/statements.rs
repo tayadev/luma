@@ -1,5 +1,6 @@
 use chumsky::prelude::*;
 use crate::ast::{Stmt, Expr, Pattern, Type};
+use crate::parser::operators;
 
 /// Creates a parser for return statements
 pub fn return_stmt<'a, WS, E>(ws: WS, expr: E) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
@@ -48,4 +49,134 @@ where
             }
         })
         .boxed()
+}
+
+/// Creates a parser for assignment statements (x = value, x += value, etc.)
+pub fn assignment<'a, WS, E>(
+    ws: WS,
+    expr: E,
+) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+    E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    let assign_op = operators::assign_op(ws.clone());
+    
+    expr.clone()
+        .then(assign_op)
+        .then(expr)
+        .map(|((target, op), value)| Stmt::Assignment { target, op, value })
+        .boxed()
+}
+
+/// Creates a parser for if/elif/else statements
+pub fn if_stmt<'a, WS, E, S>(
+    ws: WS,
+    expr: E,
+    stmt: S,
+) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+    E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    S: Parser<'a, &'a str, Stmt, extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    let elif_block = just("elif")
+        .padded_by(ws.clone())
+        .ignore_then(expr.clone())
+        .then_ignore(just("do").padded_by(ws.clone()))
+        .then(stmt.clone().repeated().collect::<Vec<Stmt>>());
+    
+    let else_block = just("else")
+        .padded_by(ws.clone())
+        .then_ignore(just("do").padded_by(ws.clone()))
+        .ignore_then(stmt.clone().repeated().collect::<Vec<Stmt>>());
+    
+    just("if")
+        .padded_by(ws.clone())
+        .ignore_then(expr)
+        .then_ignore(just("do").padded_by(ws.clone()))
+        .then(stmt.repeated().collect::<Vec<Stmt>>())
+        .then(elif_block.repeated().collect::<Vec<(Expr, Vec<Stmt>)>>())
+        .then(else_block.or_not())
+        .then_ignore(just("end").padded_by(ws))
+        .map(|(((condition, then_block), elif_blocks), else_block)| {
+            Stmt::If { condition, then_block, elif_blocks, else_block }
+        })
+        .boxed()
+}
+
+/// Creates a parser for while loop statements
+pub fn while_stmt<'a, WS, E, S>(
+    ws: WS,
+    expr: E,
+    stmt: S,
+) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+    E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    S: Parser<'a, &'a str, Stmt, extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    just("while")
+        .padded_by(ws.clone())
+        .ignore_then(expr)
+        .then_ignore(just("do").padded_by(ws.clone()))
+        .then(stmt.repeated().collect::<Vec<Stmt>>())
+        .then_ignore(just("end").padded_by(ws))
+        .map(|(condition, body)| Stmt::While { condition, body })
+        .boxed()
+}
+
+/// Creates a parser for for loop statements
+pub fn for_stmt<'a, WS, P, E, S>(
+    ws: WS,
+    pattern: P,
+    expr: E,
+    stmt: S,
+) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+    P: Parser<'a, &'a str, Pattern, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    S: Parser<'a, &'a str, Stmt, extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    just("for")
+        .padded_by(ws.clone())
+        .ignore_then(pattern)
+        .then_ignore(just("in").padded_by(ws.clone()))
+        .then(expr)
+        .then_ignore(just("do").padded_by(ws.clone()))
+        .then(stmt.repeated().collect::<Vec<Stmt>>())
+        .then_ignore(just("end").padded_by(ws))
+        .map(|((pattern, iterator), body)| Stmt::For { pattern, iterator, body })
+        .boxed()
+}
+
+/// Creates a parser for break statements
+pub fn break_stmt<'a, WS>(ws: WS) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    just("break")
+        .padded_by(ws)
+        .to(Stmt::Break)
+        .boxed()
+}
+
+/// Creates a parser for continue statements
+pub fn continue_stmt<'a, WS>(ws: WS) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    just("continue")
+        .padded_by(ws)
+        .to(Stmt::Continue)
+        .boxed()
+}
+
+/// Creates a parser for expression statements
+pub fn expr_stmt<'a, E>(expr: E) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
+where
+    E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    expr.map(Stmt::ExprStmt).boxed()
 }

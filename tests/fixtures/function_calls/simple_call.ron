@@ -1,0 +1,12 @@
+Program(
+    statements: [
+        Return(Call(
+            callee: Identifier("foo"),
+            arguments: [
+                Number(1.0),
+                Number(2.0),
+                Number(3.0),
+            ],
+        )),
+    ],
+)

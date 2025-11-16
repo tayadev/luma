@@ -1,0 +1,20 @@
+Program(
+    statements: [
+        If(
+            condition: Binary(
+                left: Identifier("x"),
+                op: Eq,
+                right: Number(5.0),
+            ),
+            then_block: [
+                VarDecl(
+                    mutable: false,
+                    name: "y",
+                    value: Number(10.0),
+                ),
+            ],
+            elif_blocks: [],
+            else_block: None,
+        ),
+    ],
+)

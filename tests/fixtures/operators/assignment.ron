@@ -1,0 +1,9 @@
+Program(
+    statements: [
+        Assignment(
+            target: Identifier("x"),
+            op: Assign,
+            value: Number(10.0),
+        ),
+    ],
+)

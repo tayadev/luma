@@ -33,6 +33,27 @@ pub enum Expr {
         op: BinaryOp,
         right: Box<Expr>,
     },
+    Unary {
+        op: UnaryOp,
+        operand: Box<Expr>,
+    },
+    Logical {
+        left: Box<Expr>,
+        op: LogicalOp,
+        right: Box<Expr>,
+    },
+    Call {
+        callee: Box<Expr>,
+        arguments: Vec<Expr>,
+    },
+    MemberAccess {
+        object: Box<Expr>,
+        member: String,
+    },
+    Index {
+        object: Box<Expr>,
+        index: Box<Expr>,
+    },
     Block(Vec<Stmt>),
 }
 
@@ -49,6 +70,28 @@ pub enum BinaryOp {
     Le,
     Gt,
     Ge,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum UnaryOp {
+    Neg,  // -x
+    Not,  // not x
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum LogicalOp {
+    And,  // and
+    Or,   // or
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum AssignOp {
+    Assign,    // =
+    AddAssign, // +=
+    SubAssign, // -=
+    MulAssign, // *=
+    DivAssign, // /=
+    ModAssign, // %=
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -77,6 +120,29 @@ pub enum Stmt {
         pattern: Pattern,
         value: Expr,
     },
+    Assignment {
+        target: Expr,  // Can be Identifier, MemberAccess, or Index
+        op: AssignOp,
+        value: Expr,
+    },
+    If {
+        condition: Expr,
+        then_block: Vec<Stmt>,
+        elif_blocks: Vec<(Expr, Vec<Stmt>)>,
+        else_block: Option<Vec<Stmt>>,
+    },
+    While {
+        condition: Expr,
+        body: Vec<Stmt>,
+    },
+    For {
+        pattern: Pattern,
+        iterator: Expr,
+        body: Vec<Stmt>,
+    },
+    Break,
+    Continue,
+    ExprStmt(Expr),  // Expression statement (e.g., function calls)
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

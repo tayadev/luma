@@ -438,6 +438,18 @@ let result = add(a = 2, b = 3)
 let result = unary 2
 ```
 
+## 21. Conditional Statements
+
+```luma
+if condition1 do
+  -- code block 1
+elif condition2 do
+  -- code block 2
+else do
+  -- code block 3
+end
+```
+
 ## Style Guide
 
 * 2 spaces for indentation

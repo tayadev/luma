@@ -1,0 +1,22 @@
+Program(
+    statements: [
+        While(
+            condition: Binary(
+                left: Identifier("count"),
+                op: Lt,
+                right: Number(10.0),
+            ),
+            body: [
+                Assignment(
+                    target: Identifier("count"),
+                    op: Assign,
+                    value: Binary(
+                        left: Identifier("count"),
+                        op: Add,
+                        right: Number(1.0),
+                    ),
+                ),
+            ],
+        ),
+    ],
+)

@@ -1,0 +1,16 @@
+Program(
+    statements: [
+        For(
+            pattern: Ident("item"),
+            iterator: Identifier("items"),
+            body: [
+                ExprStmt(Call(
+                    callee: Identifier("print"),
+                    arguments: [
+                        Identifier("item"),
+                    ],
+                )),
+            ],
+        ),
+    ],
+)

@@ -1,0 +1,20 @@
+Program(
+    statements: [
+        Return(Index(
+            object: MemberAccess(
+                object: Call(
+                    callee: MemberAccess(
+                        object: Identifier("obj"),
+                        member: "method",
+                    ),
+                    arguments: [
+                        Number(1.0),
+                        Number(2.0),
+                    ],
+                ),
+                member: "field",
+            ),
+            index: Number(0.0),
+        )),
+    ],
+)

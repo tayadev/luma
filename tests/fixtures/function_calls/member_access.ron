@@ -1,0 +1,8 @@
+Program(
+    statements: [
+        Return(MemberAccess(
+            object: Identifier("obj"),
+            member: "field",
+        )),
+    ],
+)

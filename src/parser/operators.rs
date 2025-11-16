@@ -1,5 +1,42 @@
 use chumsky::prelude::*;
-use crate::ast::BinaryOp;
+use crate::ast::{BinaryOp, UnaryOp, LogicalOp, AssignOp};
+
+/// Creates a parser for unary operators
+pub fn unary_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, UnaryOp, extra::Err<Rich<'a, char>>> + Clone
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    choice((
+        just("not").padded_by(ws.clone()).to(UnaryOp::Not),
+        just('-').padded_by(ws.clone()).to(UnaryOp::Neg),
+    ))
+}
+
+/// Creates a parser for logical operators
+pub fn logical_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, LogicalOp, extra::Err<Rich<'a, char>>> + Clone
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    choice((
+        just("and").padded_by(ws.clone()).to(LogicalOp::And),
+        just("or").padded_by(ws.clone()).to(LogicalOp::Or),
+    ))
+}
+
+/// Creates a parser for assignment operators
+pub fn assign_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, AssignOp, extra::Err<Rich<'a, char>>> + Clone
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    choice((
+        just("+=").padded_by(ws.clone()).to(AssignOp::AddAssign),
+        just("-=").padded_by(ws.clone()).to(AssignOp::SubAssign),
+        just("*=").padded_by(ws.clone()).to(AssignOp::MulAssign),
+        just("/=").padded_by(ws.clone()).to(AssignOp::DivAssign),
+        just("%=").padded_by(ws.clone()).to(AssignOp::ModAssign),
+        just('=').padded_by(ws.clone()).to(AssignOp::Assign),
+    ))
+}
 
 /// Creates a parser for multiplication/division/modulo operators
 pub fn mul_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone

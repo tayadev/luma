@@ -1,0 +1,41 @@
+Program(
+    statements: [
+        If(
+            condition: Binary(
+                left: Identifier("x"),
+                op: Gt,
+                right: Number(10.0),
+            ),
+            then_block: [
+                VarDecl(
+                    mutable: false,
+                    name: "a",
+                    value: Number(1.0),
+                ),
+            ],
+            elif_blocks: [
+                (
+                    Binary(
+                        left: Identifier("x"),
+                        op: Gt,
+                        right: Number(5.0),
+                    ),
+                    [
+                        VarDecl(
+                            mutable: false,
+                            name: "b",
+                            value: Number(2.0),
+                        ),
+                    ],
+                ),
+            ],
+            else_block: Some([
+                VarDecl(
+                    mutable: false,
+                    name: "c",
+                    value: Number(3.0),
+                ),
+            ]),
+        ),
+    ],
+)

@@ -1,0 +1,8 @@
+Program(
+    statements: [
+        Return(Unary(
+            op: Neg,
+            operand: Identifier("x"),
+        )),
+    ],
+)
