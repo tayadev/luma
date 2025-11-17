@@ -1,6 +1,6 @@
 if x > 10 do
   let a = 1
-elif x > 5 do
+else if x > 5 do
   let b = 2
 else do
   let c = 3

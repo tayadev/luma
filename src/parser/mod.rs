@@ -139,9 +139,11 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     let mul_op = operators::mul_op(ws.clone());
     let add_op = operators::add_op(ws.clone());
     let cmp_op = operators::cmp_op(ws.clone());
-    let logical_op = operators::logical_op(ws.clone());
+    let eq_op = operators::eq_op(ws.clone());
+    let and_op = operators::and_op(ws.clone());
+    let or_op = operators::or_op(ws.clone());
 
-    // Build expression with precedence: logical > comparison > addition > multiplication > postfix > unary
+    // Build expression with precedence: || > && > == != > < <= > >= > + - > * / % > postfix > unary
     let mul_expr = postfix.clone()
         .foldl(mul_op.then(postfix.clone()).repeated(), |left, (op, right)| {
             Expr::Binary { left: Box::new(left), op, right: Box::new(right) }
@@ -160,13 +162,25 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         })
         .boxed();
 
-    let logical_expr = cmp_expr.clone()
-        .foldl(logical_op.then(cmp_expr.clone()).repeated(), |left, (op, right)| {
+    let eq_expr = cmp_expr.clone()
+        .foldl(eq_op.then(cmp_expr.clone()).repeated(), |left, (op, right)| {
+            Expr::Binary { left: Box::new(left), op, right: Box::new(right) }
+        })
+        .boxed();
+
+    let and_expr = eq_expr.clone()
+        .foldl(and_op.then(eq_expr.clone()).repeated(), |left, (op, right)| {
             Expr::Logical { left: Box::new(left), op, right: Box::new(right) }
         })
         .boxed();
 
-    expr_ref.define(logical_expr);
+    let or_expr = and_expr.clone()
+        .foldl(or_op.then(and_expr.clone()).repeated(), |left, (op, right)| {
+            Expr::Logical { left: Box::new(left), op, right: Box::new(right) }
+        })
+        .boxed();
+
+    expr_ref.define(or_expr);
 
     // Statement parsers
 

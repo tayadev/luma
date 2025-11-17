@@ -2,7 +2,7 @@ var sum = 0
 var i = 0
 while i < 10 do
   i = i + 1
-  if i == 3 or i == 5 do
+  if i == 3 || i == 5 do
     continue
   end
   sum = sum + i

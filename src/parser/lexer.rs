@@ -26,7 +26,6 @@ pub fn ws<'a>() -> impl Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Cl
 pub const KEYWORDS: &[&str] = &[
     "let", "var", "fn", "do", "end", "return", 
     "true", "false", "null", "if", "else", 
-    "elif", "while", "for", "in", "break", "continue",
+    "while", "for", "in", "break", "continue",
     "match",
-    "and", "or", "not"
 ];

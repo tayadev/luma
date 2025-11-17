@@ -112,8 +112,9 @@ where
     E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
     S: Parser<'a, &'a str, Stmt, extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
-    let elif_block = just("elif")
+    let elif_block = just("else")
         .padded_by(ws.clone())
+        .then_ignore(just("if").padded_by(ws.clone()))
         .ignore_then(expr.clone())
         .then_ignore(just("do").padded_by(ws.clone()))
         .then(stmt.clone().repeated().collect::<Vec<Stmt>>())

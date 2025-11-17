@@ -7,20 +7,25 @@ where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
     choice((
-        just("not").padded_by(ws.clone()).to(UnaryOp::Not),
+        just('!').padded_by(ws.clone()).to(UnaryOp::Not),
         just('-').padded_by(ws.clone()).to(UnaryOp::Neg),
     ))
 }
 
-/// Creates a parser for logical operators
-pub fn logical_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, LogicalOp, extra::Err<Rich<'a, char>>> + Clone
+/// Creates a parser for logical OR operator
+pub fn or_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, LogicalOp, extra::Err<Rich<'a, char>>> + Clone
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
-    choice((
-        just("and").padded_by(ws.clone()).to(LogicalOp::And),
-        just("or").padded_by(ws.clone()).to(LogicalOp::Or),
-    ))
+    just("||").padded_by(ws).to(LogicalOp::Or)
+}
+
+/// Creates a parser for logical AND operator
+pub fn and_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, LogicalOp, extra::Err<Rich<'a, char>>> + Clone
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    just("&&").padded_by(ws).to(LogicalOp::And)
 }
 
 /// Creates a parser for assignment operators
@@ -56,15 +61,24 @@ where
     ))
 }
 
-/// Creates a parser for comparison operators
+/// Creates a parser for equality operators (== and !=)
+pub fn eq_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    choice((
+        just("==").padded_by(ws.clone()).to(BinaryOp::Eq),
+        just("!=").padded_by(ws.clone()).to(BinaryOp::Ne),
+    ))
+}
+
+/// Creates a parser for comparison operators (< <= > >=)
 pub fn cmp_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
     let op = |c| just(c).padded_by(ws.clone());
     choice((
-        just("==").padded_by(ws.clone()).to(BinaryOp::Eq),
-        just("!=").padded_by(ws.clone()).to(BinaryOp::Ne),
         just("<=").padded_by(ws.clone()).to(BinaryOp::Le),
         just(">=").padded_by(ws.clone()).to(BinaryOp::Ge),
         op('<').to(BinaryOp::Lt),

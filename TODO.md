@@ -2,6 +2,36 @@
 
 > If you work on a feature, please update this file to reflect its status. If during development you want to split it up into smaller tasks, feel free to add sub-tasks under the relevant section.
 
+## CRITICAL: Spec Inconsistencies to Fix (PRIORITY 1)
+
+These are implementation mistakes that don't match the language specification. They must be fixed before v1.
+
+### Missing Core Features
+- [ ] **Add wildcard pattern `_`**: Implement pattern matching wildcard as specified
+  - Add `Pattern::Wildcard` variant to `src/ast.rs`
+  - Update `src/parser/patterns.rs` to parse `_` as wildcard pattern
+  - Add test fixtures for wildcard patterns
+- [ ] **Add if expressions**: Implement `if` as expression (not just statement)
+  - Add `Expr::If` variant to `src/ast.rs` with structure: `{ condition, then_expr, else_expr }`
+  - Update `src/parser/expressions.rs` to parse if expressions in primary position
+  - Note: Spec grammar shows `IfExpr ::= "if" Expr "do" Block ["else" "do" Block] "end"`
+  - Add test fixtures for if expressions (e.g., `let max = if a > b do a else do b end`)
+- [ ] **Add parenthesized expressions**: Support `(expr)` for precedence override
+  - Update primary parser in `src/parser/mod.rs` to include `expr.delimited_by(just('('), just(')'))`
+  - Add test fixtures for parenthesized expressions
+- [ ] **Implement complete Type system**: Add GenericType and FunctionType
+  - Extend `Type` enum in `src/ast.rs` with:
+    - `GenericType { name: String, type_args: Vec<Type> }` (e.g., `Array(Number)`)
+    - `FunctionType { param_types: Vec<Type>, return_type: Box<Type> }` (e.g., `fn(Number, String): Boolean`)
+    - `Any` variant
+  - Update type parser in `src/parser/mod.rs` to parse all type forms
+  - Add test fixtures for generic and function types
+
+### Missing Async Support (Deferred - see v1 tasks below)
+- [ ] **Add `await` keyword**: Reserved in spec but not implemented (awaiting full async implementation)
+  - Add `await` to KEYWORDS in `src/parser/lexer.rs`
+  - Note: Full implementation deferred to "Async/await support" task below
+
 ## MVP (v1) — In Progress
 
 ### Type System & Runtime
