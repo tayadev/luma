@@ -25,7 +25,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         })
         .padded_by(ws.clone());
     let type_parser = ident.clone().map(|s: &str| Type::TypeIdent(s.to_string()));
-    let number = text::int(10).padded_by(ws.clone()).map(|s: &str| s.parse::<f64>().unwrap());
+    let number = literals::number(ws.clone());
 
     // Recursive expression and statement placeholders
     let mut expr_ref = Recursive::declare();
@@ -48,7 +48,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
 
     // Primary expressions (atoms)
     let primary = choice((
-        number.map(Expr::Number).boxed(),
+        number.boxed(),
         string_parser(ws.clone()).boxed(),
         boolean,
         null,
@@ -157,6 +157,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     let return_stmt = statements::return_stmt(ws.clone(), expr_ref.clone());
     let if_stmt = statements::if_stmt(ws.clone(), expr_ref.clone(), stmt_ref.clone());
     let while_stmt = statements::while_stmt(ws.clone(), expr_ref.clone(), stmt_ref.clone());
+    let do_while_stmt = statements::do_while_stmt(ws.clone(), expr_ref.clone(), stmt_ref.clone());
     let for_stmt = statements::for_stmt(ws.clone(), pattern, expr_ref.clone(), stmt_ref.clone());
     let break_stmt = statements::break_stmt(ws.clone());
     let continue_stmt = statements::continue_stmt(ws.clone());
@@ -169,6 +170,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         continue_stmt,
         var_decl,
         if_stmt,
+        do_while_stmt,  // Must come before while_stmt to avoid ambiguity with "do"
         while_stmt,
         for_stmt,
         assignment,

@@ -150,6 +150,27 @@ where
         .boxed()
 }
 
+/// Creates a parser for do-while loop statements
+pub fn do_while_stmt<'a, WS, E, S>(
+    ws: WS,
+    expr: E,
+    stmt: S,
+) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+    E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    S: Parser<'a, &'a str, Stmt, extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    just("do")
+        .padded_by(ws.clone())
+        .ignore_then(stmt.repeated().collect::<Vec<Stmt>>())
+        .then_ignore(just("while").padded_by(ws.clone()))
+        .then(expr)
+        .then_ignore(just("end").padded_by(ws))
+        .map(|(body, condition)| Stmt::DoWhile { body, condition })
+        .boxed()
+}
+
 /// Creates a parser for for loop statements
 pub fn for_stmt<'a, WS, P, E, S>(
     ws: WS,
@@ -181,8 +202,17 @@ where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
     just("break")
-        .padded_by(ws)
-        .to(Stmt::Break)
+        .padded_by(ws.clone())
+        .then(
+            text::int(10)
+                .padded_by(ws.clone())
+                .try_map(|s: &str, span| {
+                    s.parse::<u32>()
+                        .map_err(|e| Rich::custom(span, format!("Invalid break level: {}", e)))
+                })
+                .or_not()
+        )
+        .map(|(_, level)| Stmt::Break(level))
         .boxed()
 }
 
@@ -192,8 +222,17 @@ where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
     just("continue")
-        .padded_by(ws)
-        .to(Stmt::Continue)
+        .padded_by(ws.clone())
+        .then(
+            text::int(10)
+                .padded_by(ws.clone())
+                .try_map(|s: &str, span| {
+                    s.parse::<u32>()
+                        .map_err(|e| Rich::custom(span, format!("Invalid continue level: {}", e)))
+                })
+                .or_not()
+        )
+        .map(|(_, level)| Stmt::Continue(level))
         .boxed()
 }
 

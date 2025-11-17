@@ -1,0 +1,10 @@
+Program(
+  statements: [
+    While(
+      condition: Boolean(true),
+      body: [
+        Continue(None),
+      ],
+    ),
+  ],
+)

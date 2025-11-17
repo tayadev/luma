@@ -1,0 +1,5 @@
+Program(
+  statements: [
+    Return(Number(1500.0)),
+  ],
+)

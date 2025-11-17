@@ -5,9 +5,9 @@
 ## Missing Features from SPEC.md
 
 ### Parser & AST
-- [ ] Number literal formats: hexadecimal (`0xFF`), binary (`0b1010`), scientific notation (`1.5e3`, `2.5E-4`)
-- [ ] Do-while loops (`do ... while condition end`)
-- [ ] Break/continue with levels (`break 2`, `continue 2`)
+- [x] Number literal formats: hexadecimal (`0xFF`), binary (`0b1010`), scientific notation (`1.5e3`, `2.5E-4`)
+- [x] Do-while loops (`do ... while condition end`)
+- [x] Break/continue with levels (`break 2`, `continue 2`) - parsing only, runtime support TODO
 - [ ] Pattern matching with `match` expressions
 - [ ] Single-argument function calls without parentheses (`unary 2`)
 - [ ] Named function arguments (`add(a = 2, b = 3)`)
@@ -99,3 +99,29 @@
 
 - **String Interpolation**: Desugared to chained `Binary::Add` operations (no separate `Concat` AST node)
 - **Logical vs Binary Operators**: Separate expression types because logical ops are non-overloadable and use short-circuit evaluation
+- **Break/Continue Levels**: AST supports `break N` and `continue N` syntax, but runtime execution of multi-level breaks is not yet implemented
+
+## Recent Changes (Session Notes)
+
+### Completed Features
+1. **Number Literals** - Added support for:
+   - Hexadecimal: `0xFF`, `0x1A3B` 
+   - Binary: `0b1010`, `0b1101`
+   - Scientific notation: `1.5e3`, `2.5E-4`
+   
+2. **Do-While Loops** - Full implementation:
+   - AST: `Stmt::DoWhile { body, condition }`
+   - Parser with proper `do ... while ... end` syntax
+   - Typecheck support
+   - Bytecode compiler support
+   - Test fixtures and runtime tests
+   
+3. **Break/Continue with Levels**:
+   - AST: `Stmt::Break(Option<u32>)` and `Stmt::Continue(Option<u32>)`
+   - Parser accepts `break 2`, `continue 3` syntax
+   - Typecheck updated
+   - Note: Runtime support for multi-level loop exit deferred
+
+4. **Code Cleanup**:
+   - Removed `Expr::Concat` in favor of chained `Binary::Add` for string interpolation
+   - Updated all test fixtures to reflect AST changes

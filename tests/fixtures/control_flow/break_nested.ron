@@ -1,0 +1,15 @@
+Program(
+  statements: [
+    While(
+      condition: Boolean(true),
+      body: [
+        While(
+          condition: Boolean(true),
+          body: [
+            Break(Some(2)),
+          ],
+        ),
+      ],
+    ),
+  ],
+)

@@ -138,6 +138,19 @@ impl Compiler {
                 let end_ip = self.current_ip();
                 self.patch_jump(jf_end, end_ip);
             }
+            Stmt::DoWhile { body, condition } => {
+                let loop_start = self.current_ip();
+                self.enter_scope();
+                for st in body { self.emit_stmt(st); }
+                self.exit_scope_with_preserve(false);
+                // evaluate condition
+                self.emit_expr(condition);
+                // if true, jump back to loop start
+                let jf_end = self.emit_jump_if_false();
+                self.chunk.instructions.push(Instruction::Jump(loop_start));
+                let end_ip = self.current_ip();
+                self.patch_jump(jf_end, end_ip);
+            }
             Stmt::VarDecl { name, value, .. } => {
                 if self.scopes.is_empty() {
                     // global

@@ -1,0 +1,28 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: true,
+      name: "count",
+      value: Number(0.0),
+    ),
+    DoWhile(
+      body: [
+        Assignment(
+          target: Identifier("count"),
+          op: Assign,
+          value: Binary(
+            left: Identifier("count"),
+            op: Add,
+            right: Number(1.0),
+          ),
+        ),
+      ],
+      condition: Binary(
+        left: Identifier("count"),
+        op: Lt,
+        right: Number(3.0),
+      ),
+    ),
+    Return(Identifier("count")),
+  ],
+)

@@ -479,6 +479,15 @@ impl TypeEnv {
                 self.pop_scope();
             }
 
+            Stmt::DoWhile { body, condition } => {
+                self.push_scope();
+                for stmt in body {
+                    self.check_stmt(stmt);
+                }
+                self.pop_scope();
+                self.expect_type(condition, &TcType::Boolean, "Do-while condition");
+            }
+
             Stmt::For { pattern, iterator, body } => {
                 let iter_ty = self.check_expr(iterator);
                 
@@ -505,7 +514,7 @@ impl TypeEnv {
                 self.pop_scope();
             }
 
-            Stmt::Break | Stmt::Continue => {
+            Stmt::Break(_) | Stmt::Continue(_) => {
                 // TODO: Could check if we're inside a loop
             }
 

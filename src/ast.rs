@@ -129,13 +129,17 @@ pub enum Stmt {
         condition: Expr,
         body: Vec<Stmt>,
     },
+    DoWhile {
+        body: Vec<Stmt>,
+        condition: Expr,
+    },
     For {
         pattern: Pattern,
         iterator: Expr,
         body: Vec<Stmt>,
     },
-    Break,
-    Continue,
+    Break(Option<u32>),  // Optional level (default: 1)
+    Continue(Option<u32>),  // Optional level (default: 1)
     ExprStmt(Expr),  // Expression statement (e.g., function calls)
 }
 
