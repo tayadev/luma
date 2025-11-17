@@ -1,0 +1,13 @@
+Program(
+    statements: [
+        Return(Call(
+            callee: Identifier("greet"),
+            arguments: [
+                Named(
+                    name: "name",
+                    value: String("World"),
+                ),
+            ],
+        )),
+    ],
+)

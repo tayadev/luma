@@ -3,9 +3,9 @@ Program(
         Return(Call(
             callee: Identifier("foo"),
             arguments: [
-                Number(1.0),
-                Number(2.0),
-                Number(3.0),
+                Positional(Number(1.0)),
+                Positional(Number(2.0)),
+                Positional(Number(3.0)),
             ],
         )),
     ],
