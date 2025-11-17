@@ -1,0 +1,9 @@
+let fib = fn(n: Number) do
+  if n <= 1 do
+    n
+  else do
+    fib(n - 1) + fib(n - 2)
+  end
+end
+
+fib(10)

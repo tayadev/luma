@@ -4,6 +4,20 @@ use std::collections::HashMap;
 
 pub fn compile_program(program: &Program) -> Chunk {
     let mut c = Compiler::new("<program>");
+    
+    // First pass: Pre-register all top-level let/var declarations with null placeholders
+    // This allows recursive functions to reference themselves
+    for stmt in &program.statements {
+        if let Stmt::VarDecl { name, .. } = stmt {
+            // Emit null and set the global to reserve the name
+            let null_idx = push_const(&mut c.chunk, Constant::Null);
+            c.chunk.instructions.push(Instruction::Const(null_idx));
+            let name_idx = push_const(&mut c.chunk, Constant::String(name.clone()));
+            c.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+        }
+    }
+    
+    // Second pass: Actually compile and initialize all statements
     for stmt in &program.statements {
         c.emit_stmt(stmt);
     }
