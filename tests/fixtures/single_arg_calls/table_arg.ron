@@ -1,0 +1,13 @@
+Program(
+    statements: [
+        Return(Call(
+            callee: Identifier("bar"),
+            arguments: [
+                Positional(Table([
+                    ("a", Number(1.0)),
+                    ("b", Number(2.0)),
+                ])),
+            ],
+        )),
+    ],
+)

@@ -59,6 +59,16 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         ident.clone().map(|s: &str| Expr::Identifier(s.to_string())).boxed(),
     )).boxed();
 
+    // Primary expressions that can be used as single arguments in parenthesis-free calls
+    // Following Lua's convention: only strings, tables, and arrays (Luma extension)
+    // Excludes: identifiers (ambiguity), blocks (conflicts with do...end syntax), 
+    // numbers (ambiguity), booleans (ambiguity), functions (too complex)
+    let single_arg_primary = choice((
+        string_parser(ws.clone()).boxed(),
+        literals::array(ws.clone(), expr_ref.clone()),
+        literals::table(ws.clone(), ident.clone(), expr_ref.clone()),
+    )).boxed();
+
     // Unary operators (not, -)
     let unary_op = operators::unary_op(ws.clone());
     let unary_expr = unary_op
@@ -109,12 +119,17 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         Call(Vec<CallArgument>),
         Member(String),
         Index(Box<Expr>),
+        SingleArgCall(Box<Expr>),
     }
+
+    // Single-argument call without parentheses (Lua-style)
+    let single_arg_call = single_arg_primary.map(|e| PostfixOp::SingleArgCall(Box::new(e)));
 
     let postfix_op = choice((
         call_args.map(PostfixOp::Call),
         member_access.map(|m: &str| PostfixOp::Member(m.to_string())),
         index.map(|e| PostfixOp::Index(Box::new(e))),
+        single_arg_call,
     ));
 
     let postfix = unary_expr.clone().foldl(
@@ -131,6 +146,10 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
             PostfixOp::Index(index) => Expr::Index { 
                 object: Box::new(expr), 
                 index 
+            },
+            PostfixOp::SingleArgCall(arg) => Expr::Call {
+                callee: Box::new(expr),
+                arguments: vec![CallArgument::Positional(*arg)]
             },
         }
     ).boxed();

@@ -1,0 +1,10 @@
+Program(
+    statements: [
+        Return(Call(
+            callee: Identifier("print"),
+            arguments: [
+                Positional(String("hello")),
+            ],
+        )),
+    ],
+)

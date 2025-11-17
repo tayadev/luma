@@ -1,0 +1,14 @@
+Program(
+    statements: [
+        Return(Call(
+            callee: Identifier("foo"),
+            arguments: [
+                Positional(Array([
+                    Number(1.0),
+                    Number(2.0),
+                    Number(3.0),
+                ])),
+            ],
+        )),
+    ],
+)

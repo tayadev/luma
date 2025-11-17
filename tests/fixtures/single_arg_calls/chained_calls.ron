@@ -1,0 +1,16 @@
+Program(
+    statements: [
+        Return(Call(
+            callee: Call(
+                callee: Identifier("func"),
+                arguments: [
+                    Positional(Identifier("a")),
+                    Positional(Identifier("b")),
+                ],
+            ),
+            arguments: [
+                Positional(String("suffix")),
+            ],
+        )),
+    ],
+)

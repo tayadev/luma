@@ -1,0 +1,13 @@
+Program(
+    statements: [
+        Return(MemberAccess(
+            object: Call(
+                callee: Identifier("foo"),
+                arguments: [
+                    Positional(String("bar")),
+                ],
+            ),
+            member: "length",
+        )),
+    ],
+)
