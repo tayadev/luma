@@ -1,0 +1,47 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "processor",
+            type: Some(FunctionType(
+                param_types: [
+                    GenericType(
+                        name: "Array",
+                        type_args: [
+                            TypeIdent("Number"),
+                        ],
+                    ),
+                ],
+                return_type: GenericType(
+                    name: "Array",
+                    type_args: [
+                        TypeIdent("String"),
+                    ],
+                ),
+            )),
+            value: Function(
+                arguments: [
+                    Argument(
+                        name: "nums",
+                        type: GenericType(
+                            name: "Array",
+                            type_args: [
+                                TypeIdent("Number"),
+                            ],
+                        ),
+                        default: None,
+                    ),
+                ],
+                return_type: Some(GenericType(
+                    name: "Array",
+                    type_args: [
+                        TypeIdent("String"),
+                    ],
+                )),
+                body: [
+                    Return(Array([])),
+                ],
+            ),
+        ),
+    ],
+)

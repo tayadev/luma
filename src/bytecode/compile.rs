@@ -860,10 +860,6 @@ impl Compiler {
                 }
             }
             // Other expressions not yet supported
-            _ => {
-                let idx = push_const(&mut self.chunk, Constant::Null);
-                self.chunk.instructions.push(Instruction::Const(idx));
-            }
         }
     }
 

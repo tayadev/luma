@@ -4,20 +4,6 @@
 
 ## MVP (v1) — In Progress
 
-### Missing Core Features
-- [ ] **Implement complete Type system**: Add GenericType and FunctionType
-  - Extend `Type` enum in `src/ast.rs` with:
-    - `GenericType { name: String, type_args: Vec<Type> }` (e.g., `Array(Number)`)
-    - `FunctionType { param_types: Vec<Type>, return_type: Box<Type> }` (e.g., `fn(Number, String): Boolean`)
-    - `Any` variant
-  - Update type parser in `src/parser/mod.rs` to parse all type forms
-  - Add test fixtures for generic and function types
-
-### Missing Async Support (Deferred - see v1 tasks below)
-- [ ] **Add `await` keyword**: Reserved in spec but not implemented (awaiting full async implementation)
-  - Add `await` to KEYWORDS in `src/parser/lexer.rs`
-  - Note: Full implementation deferred to "Async/await support" task below
-
 ### Type System & Runtime
 - [ ] Module system with `import()` (local files, URLs, git repos) _(for v1 only local files)_
 - [ ] Async/await support (`await` keyword, `Promise` type)

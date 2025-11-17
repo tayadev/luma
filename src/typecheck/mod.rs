@@ -783,6 +783,11 @@ impl TypeEnv {
                 "Any" => TcType::Any,
                 _ => TcType::Unknown, // Unknown type name
             },
+            Type::Any => TcType::Any,
+            // For now, generic and function types are treated as Unknown
+            // Full type system implementation will handle these properly
+            Type::GenericType { .. } => TcType::Unknown,
+            Type::FunctionType { .. } => TcType::Unknown,
         }
     }
 }

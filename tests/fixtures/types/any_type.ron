@@ -1,0 +1,10 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "value",
+            type: Some(Any),
+            value: Number(42.0),
+        ),
+    ],
+)

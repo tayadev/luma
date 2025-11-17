@@ -1,0 +1,19 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "numbers",
+            type: Some(GenericType(
+                name: "Array",
+                type_args: [
+                    TypeIdent("Number"),
+                ],
+            )),
+            value: Array([
+                Number(1.0),
+                Number(2.0),
+                Number(3.0),
+            ]),
+        ),
+    ],
+)

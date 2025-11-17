@@ -1,0 +1,33 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "handler",
+            type: Some(FunctionType(
+                param_types: [
+                    TypeIdent("Number"),
+                    TypeIdent("String"),
+                ],
+                return_type: TypeIdent("Boolean"),
+            )),
+            value: Function(
+                arguments: [
+                    Argument(
+                        name: "x",
+                        type: TypeIdent("Number"),
+                        default: None,
+                    ),
+                    Argument(
+                        name: "y",
+                        type: TypeIdent("String"),
+                        default: None,
+                    ),
+                ],
+                return_type: Some(TypeIdent("Boolean")),
+                body: [
+                    Return(Boolean(true)),
+                ],
+            ),
+        ),
+    ],
+)

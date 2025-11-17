@@ -1,0 +1,3 @@
+let callback: fn(Number): String = fn(x: Number): String do
+  "value"
+end
