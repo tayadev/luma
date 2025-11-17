@@ -1,0 +1,14 @@
+var sum = 0
+var i = 0
+while i < 5 do
+  i = i + 1
+  var j = 0
+  while j < 10 do
+    j = j + 1
+    sum = sum + 1
+    if sum == 7 do
+      break 2
+    end
+  end
+end
+sum
