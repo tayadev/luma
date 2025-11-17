@@ -39,7 +39,7 @@ Program(
                     ))]
                 ),
                 (
-                    Ident("_"),
+                    Wildcard,
                     [ExprStmt(Call(
                         callee: Identifier("print"),
                         arguments: [Positional(String("default"))]

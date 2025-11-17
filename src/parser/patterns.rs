@@ -9,7 +9,7 @@ where
     ident.map(|s: &str| Pattern::Ident(s.to_string())).boxed()
 }
 
-/// Creates a parser for all pattern types (ident, array, table)
+/// Creates a parser for all pattern types (ident, array, table, wildcard)
 pub fn pattern<'a, WS, I>(
     ws: WS,
     ident: I,
@@ -20,7 +20,10 @@ where
 {
     let pattern_ident = ident_pattern(ident.clone());
     
-    let array_pattern = pattern_ident.clone()
+    let wildcard = just('_').padded_by(ws.clone()).to(Pattern::Wildcard).boxed();
+    
+    let array_pattern = wildcard.clone()
+        .or(pattern_ident.clone())
         .separated_by(just(',').padded_by(ws.clone()))
         .at_least(1)
         .collect::<Vec<Pattern>>()
@@ -42,5 +45,5 @@ where
         .map(|fields: Vec<&str>| Pattern::TablePattern(fields.into_iter().map(|s| s.to_string()).collect()))
         .boxed();
     
-    choice((array_pattern, table_pattern, pattern_ident)).boxed()
+    choice((array_pattern, table_pattern, wildcard, pattern_ident)).boxed()
 }

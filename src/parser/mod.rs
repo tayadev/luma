@@ -42,9 +42,18 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     // Pattern parsing for destructuring
     let pattern = patterns::pattern(ws.clone(), ident.clone());
 
-    // Expression parsers (blocks and functions)
+    // Expression parsers (blocks, functions, and if expressions)
     let block_expr = expressions::block(ws.clone(), stmt_ref.clone(), expr_ref.clone());
     let function = expressions::function(ws.clone(), ident.clone(), type_parser.clone(), stmt_ref.clone(), expr_ref.clone());
+    let if_expr = expressions::if_expr(ws.clone(), stmt_ref.clone(), expr_ref.clone());
+
+    // Parenthesized expressions - allows precedence override
+    let paren_expr = expr_ref.clone()
+        .delimited_by(
+            just('(').padded_by(ws.clone()),
+            just(')').padded_by(ws.clone())
+        )
+        .boxed();
 
     // Primary expressions (atoms)
     let primary = choice((
@@ -54,8 +63,10 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         null,
         array,
         table,
+        if_expr,
         block_expr,
         function,
+        paren_expr,
         ident.clone().map(|s: &str| Expr::Identifier(s.to_string())).boxed(),
     )).boxed();
 

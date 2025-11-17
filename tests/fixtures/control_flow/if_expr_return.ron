@@ -1,0 +1,18 @@
+Program(
+    statements: [
+        If(
+            condition: Binary(
+                left: Identifier("x"),
+                op: Gt,
+                right: Number(0.0),
+            ),
+            then_block: [
+                Return(String("positive")),
+            ],
+            elif_blocks: [],
+            else_block: Some([
+                Return(String("non-positive")),
+            ]),
+        ),
+    ],
+)

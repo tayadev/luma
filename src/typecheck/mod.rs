@@ -362,6 +362,45 @@ impl TypeEnv {
                 self.pop_scope();
                 ret_ty
             }
+
+            Expr::If { condition, then_block, else_block } => {
+                // Check condition
+                let cond_ty = self.check_expr(condition);
+                if !cond_ty.is_compatible(&TcType::Boolean) && cond_ty != TcType::Unknown {
+                    self.error(format!(
+                        "If condition should be Boolean, got {:?}",
+                        cond_ty
+                    ));
+                }
+
+                // Check then block
+                self.push_scope();
+                let then_ty = self.check_block(then_block, &TcType::Unknown);
+                self.pop_scope();
+
+                // Check else block if present
+                if let Some(else_stmts) = else_block {
+                    self.push_scope();
+                    let else_ty = self.check_block(else_stmts, &TcType::Unknown);
+                    self.pop_scope();
+
+                    // Type is the common type of both branches
+                    if then_ty.is_compatible(&else_ty) {
+                        then_ty
+                    } else if else_ty.is_compatible(&then_ty) {
+                        else_ty
+                    } else {
+                        self.error(format!(
+                            "If branches have incompatible types: {:?} vs {:?}",
+                            then_ty, else_ty
+                        ));
+                        TcType::Unknown
+                    }
+                } else {
+                    // No else branch: could be null
+                    then_ty
+                }
+            }
         }
     }
 
@@ -726,6 +765,9 @@ impl TypeEnv {
                         ));
                     }
                 }
+            }
+            Pattern::Wildcard => {
+                // Wildcard pattern doesn't bind any variables, just accepts any type
             }
         }
     }

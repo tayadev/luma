@@ -1,0 +1,17 @@
+Program(
+    statements: [
+        Return(Logical(
+            left: Logical(
+                left: Identifier("a"),
+                op: And,
+                right: Identifier("b"),
+            ),
+            op: Or,
+            right: Logical(
+                left: Identifier("c"),
+                op: And,
+                right: Identifier("d"),
+            ),
+        )),
+    ],
+)

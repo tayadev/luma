@@ -226,12 +226,12 @@ impl Compiler {
                 let mut end_jumps = Vec::new();
                 
                 for (i, (pattern, body)) in arms.iter().enumerate() {
-                    let is_wildcard = matches!(pattern, Pattern::Ident(s) if s == "_");
+                    let is_wildcard = matches!(pattern, Pattern::Wildcard);
                     
                     if !is_wildcard {
                         // Check if pattern matches (for now, check if property exists)
                         match pattern {
-                            Pattern::Ident(name) if name != "_" => {
+                            Pattern::Ident(name) => {
                                 // Check if the match value has this property
                                 self.chunk.instructions.push(Instruction::GetLocal(match_val_slot));
                                 let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
@@ -347,13 +347,21 @@ impl Compiler {
                             
                             // Dup the array for each element access
                             for (i, elem_pattern) in elements.iter().enumerate() {
-                                if let Pattern::Ident(name) = elem_pattern {
-                                    self.chunk.instructions.push(Instruction::Dup); // dup array
-                                    let idx = push_const(&mut self.chunk, Constant::Number(i as f64));
-                                    self.chunk.instructions.push(Instruction::Const(idx));
-                                    self.chunk.instructions.push(Instruction::GetIndex);
-                                    let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
-                                    self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+                                match elem_pattern {
+                                    Pattern::Ident(name) => {
+                                        self.chunk.instructions.push(Instruction::Dup); // dup array
+                                        let idx = push_const(&mut self.chunk, Constant::Number(i as f64));
+                                        self.chunk.instructions.push(Instruction::Const(idx));
+                                        self.chunk.instructions.push(Instruction::GetIndex);
+                                        let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
+                                        self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+                                    }
+                                    Pattern::Wildcard => {
+                                        // Wildcard element: don't extract, don't bind
+                                    }
+                                    _ => {
+                                        panic!("Nested destructuring patterns not yet supported");
+                                    }
                                 }
                             }
                             
@@ -386,6 +394,10 @@ impl Compiler {
                             let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
                             self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
                         }
+                        Pattern::Wildcard => {
+                            // Wildcard doesn't bind, just pop the value
+                            self.chunk.instructions.push(Instruction::Pop);
+                        }
                     }
                 } else {
                     // Local destructuring
@@ -398,15 +410,25 @@ impl Compiler {
                             
                             // Extract each element into its own local
                             for (i, elem_pattern) in elements.iter().enumerate() {
-                                if let Pattern::Ident(name) = elem_pattern {
-                                    self.chunk.instructions.push(Instruction::GetLocal(value_slot));
-                                    let idx = push_const(&mut self.chunk, Constant::Number(i as f64));
-                                    self.chunk.instructions.push(Instruction::Const(idx));
-                                    self.chunk.instructions.push(Instruction::GetIndex);
-                                    
-                                    let elem_slot = self.local_count;
-                                    self.scopes.last_mut().unwrap().insert(name.clone(), elem_slot);
-                                    self.local_count += 1;
+                                match elem_pattern {
+                                    Pattern::Ident(name) => {
+                                        self.chunk.instructions.push(Instruction::GetLocal(value_slot));
+                                        let idx = push_const(&mut self.chunk, Constant::Number(i as f64));
+                                        self.chunk.instructions.push(Instruction::Const(idx));
+                                        self.chunk.instructions.push(Instruction::GetIndex);
+                                        
+                                        let elem_slot = self.local_count;
+                                        self.scopes.last_mut().unwrap().insert(name.clone(), elem_slot);
+                                        self.local_count += 1;
+                                    }
+                                    Pattern::Wildcard => {
+                                        // Wildcard element: don't extract, don't bind
+                                        // No need to emit any instructions
+                                    }
+                                    _ => {
+                                        // Nested patterns not yet supported
+                                        panic!("Nested destructuring patterns not yet supported");
+                                    }
                                 }
                             }
                             
@@ -438,6 +460,11 @@ impl Compiler {
                         Pattern::Ident(name) => {
                             let slot = self.local_count;
                             self.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                            self.local_count += 1;
+                        }
+                        Pattern::Wildcard => {
+                            // Wildcard doesn't bind, the value stays on stack as an unused local
+                            // We still need to account for it in local_count
                             self.local_count += 1;
                         }
                     }
@@ -786,6 +813,51 @@ impl Compiler {
                     }
                 }
                 self.chunk.instructions.push(Instruction::Call(arguments.len()));
+            }
+            Expr::Block(stmts) => {
+                // Block is an expression that evaluates to its last statement's value
+                self.enter_scope();
+                for stmt in stmts {
+                    self.emit_stmt(stmt);
+                }
+                self.exit_scope_with_preserve(true);
+            }
+            Expr::If { condition, then_block, else_block } => {
+                // Emit condition
+                self.emit_expr(condition);
+                let jf = self.emit_jump_if_false();
+                
+                // Then block
+                self.enter_scope();
+                for stmt in then_block {
+                    self.emit_stmt(stmt);
+                }
+                self.exit_scope_with_preserve(true);
+                
+                if let Some(else_stmts) = else_block {
+                    let jend = self.emit_jump();
+                    let else_start = self.current_ip();
+                    self.patch_jump(jf, else_start);
+                    
+                    // Else block
+                    self.enter_scope();
+                    for stmt in else_stmts {
+                        self.emit_stmt(stmt);
+                    }
+                    self.exit_scope_with_preserve(true);
+                    
+                    let end = self.current_ip();
+                    self.patch_jump(jend, end);
+                } else {
+                    // No else block: if condition false, push null
+                    let jend = self.emit_jump();
+                    let else_start = self.current_ip();
+                    self.patch_jump(jf, else_start);
+                    let null_idx = push_const(&mut self.chunk, Constant::Null);
+                    self.chunk.instructions.push(Instruction::Const(null_idx));
+                    let end = self.current_ip();
+                    self.patch_jump(jend, end);
+                }
             }
             // Other expressions not yet supported
             _ => {

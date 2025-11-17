@@ -59,6 +59,11 @@ pub enum Expr {
         object: Box<Expr>,
         index: Box<Expr>,
     },
+    If {
+        condition: Box<Expr>,
+        then_block: Vec<Stmt>,
+        else_block: Option<Vec<Stmt>>,
+    },
     Block(Vec<Stmt>),
 }
 
@@ -97,6 +102,7 @@ pub enum AssignOp {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Pattern {
     Ident(String),
+    Wildcard,
     ArrayPattern {
         elements: Vec<Pattern>,
         rest: Option<String>,

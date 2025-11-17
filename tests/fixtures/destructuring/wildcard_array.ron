@@ -1,0 +1,20 @@
+Program(
+    statements: [
+        DestructuringVarDecl(
+            mutable: false,
+            pattern: ArrayPattern(
+                elements: [
+                    Ident("a"),
+                    Wildcard,
+                    Ident("c"),
+                ],
+                rest: None,
+            ),
+            value: Array([
+                Number(1.0),
+                Number(2.0),
+                Number(3.0),
+            ]),
+        ),
+    ],
+)

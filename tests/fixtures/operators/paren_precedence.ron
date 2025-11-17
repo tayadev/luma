@@ -1,0 +1,13 @@
+Program(
+    statements: [
+        Return(Binary(
+            left: Binary(
+                left: Number(1.0),
+                op: Add,
+                right: Number(2.0),
+            ),
+            op: Mul,
+            right: Number(3.0),
+        )),
+    ],
+)

@@ -1,0 +1,9 @@
+Program(
+    statements: [
+        DestructuringVarDecl(
+            mutable: false,
+            pattern: Wildcard,
+            value: Number(42.0),
+        ),
+    ],
+)

@@ -35,6 +35,54 @@ where
         .boxed()
 }
 
+/// Creates a parser for if expressions (if...do...else...end)
+pub fn if_expr<'a, WS, S, E>(
+    ws: WS,
+    stmt: S,
+    expr: E,
+) -> Boxed<'a, 'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+    S: Parser<'a, &'a str, Stmt, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    let else_block = just("else")
+        .padded_by(ws.clone())
+        .then_ignore(just("do").padded_by(ws.clone()))
+        .ignore_then(stmt.clone().repeated().collect::<Vec<Stmt>>())
+        .map(|mut body| {
+            if let Some(last) = body.pop() {
+                match last {
+                    Stmt::ExprStmt(e) => body.push(Stmt::Return(e)),
+                    other => body.push(other),
+                }
+            }
+            body
+        });
+
+    just("if")
+        .padded_by(ws.clone())
+        .ignore_then(expr)
+        .then_ignore(just("do").padded_by(ws.clone()))
+        .then(stmt.repeated().collect::<Vec<Stmt>>())
+        .then(else_block.or_not())
+        .then_ignore(just("end").padded_by(ws))
+        .map(|((condition, mut then_block), else_block)| {
+            if let Some(last) = then_block.pop() {
+                match last {
+                    Stmt::ExprStmt(e) => then_block.push(Stmt::Return(e)),
+                    other => then_block.push(other),
+                }
+            }
+            Expr::If { 
+                condition: Box::new(condition), 
+                then_block, 
+                else_block 
+            }
+        })
+        .boxed()
+}
+
 /// Creates a parser for function expressions
 pub fn function<'a, WS, I, T, S, E>(
     ws: WS,

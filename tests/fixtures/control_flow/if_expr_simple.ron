@@ -1,0 +1,21 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "max",
+            value: If(
+                condition: Binary(
+                    left: Identifier("a"),
+                    op: Gt,
+                    right: Identifier("b"),
+                ),
+                then_block: [
+                    Return(Identifier("a")),
+                ],
+                else_block: Some([
+                    Return(Identifier("b")),
+                ]),
+            ),
+        ),
+    ],
+)

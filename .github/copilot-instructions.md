@@ -118,3 +118,12 @@ Chumsky errors show span/position. Common issues:
 4. Add test fixtures in `tests/fixtures/{category}/`
 5. Ensure implicit return handling for expression contexts
 6. Run `cargo test` to verify all fixtures pass
+
+## Testing Philosophy
+
+**Write automated tests instead of manual testing.** When you feel the need to manually test functionality (e.g., creating temporary files and running `cargo run`), write a proper automated test instead. This ensures:
+- Future regressions are caught automatically
+- Changes can be verified quickly via `cargo test`
+- Test coverage grows organically as features are added
+
+Add test fixtures in the appropriate `tests/fixtures/{category}/` or `tests/runtime/` directory rather than creating one-off manual tests.
