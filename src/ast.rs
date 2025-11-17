@@ -18,7 +18,6 @@ pub enum Expr {
     Number(f64),
     Identifier(String),
     String(String),
-    Concat(Vec<Expr>),
     Function {
         arguments: Vec<Argument>,
         return_type: Option<Type>,

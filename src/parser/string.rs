@@ -88,7 +88,16 @@ pub fn build_string_expr(raw: String) -> Expr {
             Expr::String(s)
         },
         1 => segments.remove(0),
-        _ => Expr::Concat(segments),
+        _ => {
+            // Chain multiple segments with Add operations for string interpolation
+            segments.into_iter().reduce(|left, right| {
+                Expr::Binary {
+                    left: Box::new(left),
+                    op: crate::ast::BinaryOp::Add,
+                    right: Box::new(right),
+                }
+            }).unwrap_or_else(|| Expr::String(String::new()))
+        }
     }
 }
 

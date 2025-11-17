@@ -2,6 +2,27 @@
 
 - [ ] write parser tests for all syntax features
 
+## Missing Features from SPEC.md
+
+### Parser & AST
+- [ ] Number literal formats: hexadecimal (`0xFF`), binary (`0b1010`), scientific notation (`1.5e3`, `2.5E-4`)
+- [ ] Do-while loops (`do ... while condition end`)
+- [ ] Break/continue with levels (`break 2`, `continue 2`)
+- [ ] Pattern matching with `match` expressions
+- [ ] Single-argument function calls without parentheses (`unary 2`)
+- [ ] Named function arguments (`add(a = 2, b = 3)`)
+
+### Type System & Runtime
+- [ ] Module system with `import` statement (local files, URLs, git repos)
+- [ ] Async/await support (`await` keyword, `Promise` type)
+- [ ] User-defined types with `cast()` and `isInstanceOf()`
+- [ ] Inheritance via `__parent`
+- [ ] Traits (structural matching)
+- [ ] Operator overloading (`__add`, `__sub`, `__mul`, etc.)
+- [ ] Conversions (`__into` method)
+- [ ] Built-in `Result(Ok, Err)` and `Option(T)` types
+- [ ] Garbage collection hooks (`__gc` method)
+
 ## MVP (v1) — In Progress
 
 - [ ] Type Checker (MVP)
@@ -66,7 +87,6 @@
 ## Deferred to v2
 
 - [ ] Closures/upvalues (captured locals) + `CLOSURE`/upvalue handling
-- [ ] Named arguments and default parameter evaluation in function prologue
 - [ ] `for` over tables and a general iterator protocol
 - [ ] Destructuring in `for` (beyond simple identifiers)
 - [ ] Richer typing: unions, flow-sensitive typing, typed tables/arrays, generics
@@ -74,3 +94,8 @@
 - [ ] Error recovery in parser/typechecker
 - [ ] Standard library expansion (beyond `print`, `len`)
 - [ ] JIT compiler or compact byte encoding for instructions
+
+## Implementation Notes
+
+- **String Interpolation**: Desugared to chained `Binary::Add` operations (no separate `Concat` AST node)
+- **Logical vs Binary Operators**: Separate expression types because logical ops are non-overloadable and use short-circuit evaluation

@@ -106,7 +106,7 @@ impl TypeEnv {
     fn check_expr(&mut self, expr: &Expr) -> TcType {
         match expr {
             Expr::Number(_) => TcType::Number,
-            Expr::String(_) | Expr::Concat(_) => TcType::String,
+            Expr::String(_) => TcType::String,
             Expr::Boolean(_) => TcType::Boolean,
             Expr::Null => TcType::Null,
 

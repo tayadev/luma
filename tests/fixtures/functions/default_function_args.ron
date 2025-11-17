@@ -13,7 +13,11 @@ Program(
         ],
         return_type: Some(TypeIdent("String")),
         body: [
-          Return(Concat([String("Hello "), Identifier("name")])),
+          Return(Binary(
+            left: String("Hello "),
+            op: Add,
+            right: Identifier("name"),
+          )),
         ],
       ),
     ),
