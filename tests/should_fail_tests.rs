@@ -92,7 +92,7 @@ fn test_should_fail_programs() {
         let chunk = luma::bytecode::compile::compile_program(&ast);
 
         // Run
-        let mut vm = luma::vm::vm::VM::new(chunk);
+        let mut vm = luma::vm::VM::new(chunk);
         match vm.run() {
             Ok(_) => {
                 if expected_failure == "runtime" {
