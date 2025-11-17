@@ -1,0 +1,9 @@
+let factorial = fn(n: Number) do
+  if n <= 1 do
+    1
+  else do
+    n * factorial(n - 1)
+  end
+end
+
+factorial(5)
