@@ -1,3 +1,35 @@
+/// Creates a parser for match statements
+pub fn match_stmt<'a, WS, E, S, P>(
+    ws: WS,
+    expr: E,
+    stmt: S,
+    pattern: P,
+) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+    E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    S: Parser<'a, &'a str, Stmt, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    P: Parser<'a, &'a str, Pattern, extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    just("match")
+        .padded_by(ws.clone())
+        .ignore_then(expr)
+        .then_ignore(just("do").padded_by(ws.clone()))
+        .then(
+            (
+                pattern
+                    .then_ignore(ws.clone())
+                    .then_ignore(just("do").padded_by(ws.clone()))
+                    .then(stmt.repeated().collect::<Vec<Stmt>>())
+                    .then_ignore(just("end").padded_by(ws.clone()))
+            )
+            .repeated()
+            .collect::<Vec<(Pattern, Vec<Stmt>)>>()
+        )
+        .then_ignore(just("end").padded_by(ws))
+        .map(|(expr, arms)| Stmt::Match { expr, arms })
+        .boxed()
+}
 use chumsky::prelude::*;
 use crate::ast::{Stmt, Expr, Pattern, Type};
 use crate::parser::operators;

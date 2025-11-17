@@ -153,18 +153,24 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     expr_ref.define(logical_expr);
 
     // Statement parsers
+
+
+
     let var_decl = statements::var_decl(ws.clone(), pattern.clone(), type_parser.clone(), expr_ref.clone());
     let return_stmt = statements::return_stmt(ws.clone(), expr_ref.clone());
     let if_stmt = statements::if_stmt(ws.clone(), expr_ref.clone(), stmt_ref.clone());
     let while_stmt = statements::while_stmt(ws.clone(), expr_ref.clone(), stmt_ref.clone());
     let do_while_stmt = statements::do_while_stmt(ws.clone(), expr_ref.clone(), stmt_ref.clone());
-    let for_stmt = statements::for_stmt(ws.clone(), pattern, expr_ref.clone(), stmt_ref.clone());
+    let for_stmt = statements::for_stmt(ws.clone(), pattern.clone(), expr_ref.clone(), stmt_ref.clone());
     let break_stmt = statements::break_stmt(ws.clone());
     let continue_stmt = statements::continue_stmt(ws.clone());
     let assignment = statements::assignment(ws.clone(), expr_ref.clone());
     let expr_stmt = statements::expr_stmt(expr_ref.clone());
-    
+
+    let match_stmt = statements::match_stmt(ws.clone(), expr_ref.clone(), stmt_ref.clone(), pattern.clone());
+
     let stmt = choice((
+        match_stmt,
         return_stmt,
         break_stmt,
         continue_stmt,

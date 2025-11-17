@@ -1,0 +1,51 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "r",
+            type: None,
+            value: Call(
+                callee: MemberAccess(
+                    object: MemberAccess(
+                        object: Identifier("Result"),
+                        member: "ok"
+                    ),
+                    member: "new"
+                ),
+                arguments: [Number(42.0)]
+            )
+        ),
+        Match(
+            expr: Identifier("r"),
+            arms: [
+                (
+                    Ident("ok"),
+                    [ExprStmt(Call(
+                        callee: Identifier("print"),
+                        arguments: [MemberAccess(
+                            object: Identifier("r"),
+                            member: "ok"
+                        )]
+                    ))]
+                ),
+                (
+                    Ident("err"),
+                    [ExprStmt(Call(
+                        callee: Identifier("print"),
+                        arguments: [MemberAccess(
+                            object: Identifier("r"),
+                            member: "err"
+                        )]
+                    ))]
+                ),
+                (
+                    Ident("_"),
+                    [ExprStmt(Call(
+                        callee: Identifier("print"),
+                        arguments: [String("default")]
+                    ))]
+                )
+            ]
+        )
+    ]
+)

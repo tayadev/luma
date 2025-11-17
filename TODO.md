@@ -8,8 +8,8 @@
 - [x] Number literal formats: hexadecimal (`0xFF`), binary (`0b1010`), scientific notation (`1.5e3`, `2.5E-4`)
 - [x] Do-while loops (`do ... while condition end`)
 - [x] Break/continue with levels (`break 2`, `continue 2`) - parsing only, runtime support TODO
-- [ ] Pattern matching with `match` expressions
-- [ ] Single-argument function calls without parentheses (`unary 2`)
+- [x] Pattern matching with `match` expressions
+- [ ] Single-argument function calls without parentheses (`unary 2`) _(deferred: parser ambiguity, not yet implemented)_
 - [ ] Named function arguments (`add(a = 2, b = 3)`)
 
 ### Type System & Runtime

@@ -141,6 +141,12 @@ pub enum Stmt {
     Break(Option<u32>),  // Optional level (default: 1)
     Continue(Option<u32>),  // Optional level (default: 1)
     ExprStmt(Expr),  // Expression statement (e.g., function calls)
+
+    /// Pattern matching: match expr do ... end
+    Match {
+        expr: Expr,
+        arms: Vec<(Pattern, Vec<Stmt>)>,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

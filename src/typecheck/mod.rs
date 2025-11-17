@@ -364,6 +364,11 @@ impl TypeEnv {
 
     fn check_stmt(&mut self, stmt: &Stmt) {
         match stmt {
+                        Stmt::Match { .. } => {
+                            // TODO: Typecheck match expressions
+                            // For now, just walk arms and check blocks
+                            todo!("Typechecking for match statements not yet implemented");
+                        }
             Stmt::VarDecl { mutable, name, r#type, value } => {
                 // For function values, we need to declare the variable first to support recursion
                 let value_ty = match value {
