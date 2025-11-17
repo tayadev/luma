@@ -11,3 +11,4 @@ path = "src/lib.rs"
 chumsky = "0.11.2"
 ron = "0.8"
 serde = { version = "1.0", features = ["derive"] }
+clap = { version = "4.5", features = ["derive"] }
