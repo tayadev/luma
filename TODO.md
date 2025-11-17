@@ -7,7 +7,7 @@
 ### Parser & AST
 - [x] Number literal formats: hexadecimal (`0xFF`), binary (`0b1010`), scientific notation (`1.5e3`, `2.5E-4`)
 - [x] Do-while loops (`do ... while condition end`)
-- [x] Break/continue with levels (`break 2`, `continue 2`) - parsing only, runtime support TODO
+- [x] Break/continue with levels (`break 2`, `continue 2`) - parsing and runtime support complete
 - [x] Pattern matching with `match` expressions
 - [x] Named function arguments (`add(a = 2, b = 3)`)
 
@@ -111,15 +111,17 @@
 
 ### Priority 3: MEDIUM (Can Defer but Document)
 
-- [ ] **Break/Continue Levels Runtime Support**
+- [x] **Break/Continue Levels Runtime Support** ✅ FIXED
   - Parser accepts `break 2`, `continue 3`
-  - Compiler ignores level parameter (treats all as level 1)
-  - **Fix Options**: (1) Implement nested loop tracking, OR (2) Emit error if level > 1
+  - Compiler now properly implements nested loop tracking
+  - Supports multi-level break/continue with proper scope cleanup
+  - Tests: `break_simple`, `break_nested`, `break_for`, `break_dowhile`, `continue_simple`, `continue_nested`, `continue_for`
 
-- [ ] **Clarify Spec: String Concatenation Behavior**
-  - VM allows `String + Any` with debug formatting
-  - Should spec allow only `String + String`, or broader coercion?
-  - Update SPEC.md Section 9 with clear rules
+- [x] **Clarify Spec: String Concatenation Behavior** ✅ FIXED
+  - Type checker enforces `String + String → String` only
+  - VM updated to match (removed `String + Any` coercion)
+  - Spec allows only `String + String` for concatenation
+  - For future: can add `.into()` method for explicit conversion
 
 - [ ] **Unused `annotated` Field in VarInfo**
   - `typecheck/mod.rs:82` has `#[allow(dead_code)]`
@@ -146,9 +148,24 @@
 
 - **String Interpolation**: Desugared to chained `Binary::Add` operations (no separate `Concat` AST node)
 - **Logical vs Binary Operators**: Separate expression types because logical ops are non-overloadable and use short-circuit evaluation
-- **Break/Continue Levels**: AST supports `break N` and `continue N` syntax, but runtime execution of multi-level breaks is not yet implemented
+- **Break/Continue Levels**: Fully implemented with nested loop tracking. Supports `break N` and `continue N` for exiting/continuing multiple loop levels with proper scope cleanup.
 
 ## Recent Changes (Session Notes)
+
+### Session: November 17, 2025 (Part 2)
+
+1. **Break/Continue with Levels** - Complete implementation:
+   - Added `LoopContext` structure to track nested loops
+   - Tracks `start_ip`, `break_patches`, `continue_patches`, `local_count`, and `continue_target`
+   - Break statements emit placeholder jumps that get patched when the target loop exits
+   - Continue in for-loops uses deferred patching since continue target (increment) comes after body
+   - Proper local variable cleanup when jumping across multiple scopes
+   - Tests: `break_simple`, `break_nested`, `break_for`, `break_dowhile`, `continue_simple`, `continue_nested`, `continue_for`
+
+2. **String Concatenation Restriction**:
+   - VM now enforces `String + String → String` only (removed `String + Any` coercion)
+   - Type checker already enforced this from previous session
+   - Added negative test: `number_plus_string`
 
 ### Session: November 17, 2025
 
