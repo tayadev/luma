@@ -1,2 +1,4 @@
 pub mod value;
-pub mod vm;
+mod interpreter;
+
+pub use interpreter::*;

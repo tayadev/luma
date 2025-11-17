@@ -139,7 +139,7 @@ fn run_file(file: &str) {
         process::exit(1);
     }
     let chunk = luma::bytecode::compile::compile_program(&ast);
-    let mut vm = luma::vm::vm::VM::new(chunk);
+    let mut vm = luma::vm::VM::new(chunk);
     match vm.run() {
         Ok(val) => println!("{:?}", val),
         Err(e) => {

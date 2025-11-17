@@ -39,10 +39,8 @@ fn push_const(chunk: &mut Chunk, c: Constant) -> usize {
 }
 
 struct LoopContext {
-    start_ip: usize,       // IP to jump to for continue (default)
     break_patches: Vec<usize>, // IPs of break jumps to patch when loop exits
     continue_patches: Vec<usize>, // IPs of continue jumps to patch (for for-loops)
-    scope_depth: usize,    // Number of scopes when this loop started
     local_count: usize,    // Number of locals when this loop started
     continue_target: Option<usize>, // Explicit continue target (set after body for for-loops)
 }
@@ -137,7 +135,7 @@ impl Compiler {
                 // Also patch any Jump(usize::MAX) left from elif bodies to end_ip
                 // Walk back and patch immediate previous Jump placeholders
                 for instr in &mut self.chunk.instructions {
-                    if let Instruction::Jump(addr) = instr { if *addr == usize::MAX { *addr = end_ip; } }
+                    if let Instruction::Jump(addr) = instr && *addr == usize::MAX { *addr = end_ip; }
                 }
             }
             Stmt::While { condition, body } => {
@@ -145,10 +143,8 @@ impl Compiler {
                 
                 // Register this loop for break/continue tracking
                 self.loop_stack.push(LoopContext {
-                    start_ip: loop_start,
                     break_patches: Vec::new(),
                     continue_patches: Vec::new(),
-                    scope_depth: self.scopes.len(),
                     local_count: self.local_count,
                     continue_target: Some(loop_start), // For while loops, continue jumps to start (condition check)
                 });
@@ -175,10 +171,8 @@ impl Compiler {
                 
                 // Register this loop for break/continue tracking
                 self.loop_stack.push(LoopContext {
-                    start_ip: loop_start,
                     break_patches: Vec::new(),
                     continue_patches: Vec::new(),
-                    scope_depth: self.scopes.len(),
                     local_count: self.local_count,
                     continue_target: Some(loop_start), // For do-while loops, continue jumps to start (body start)
                 });
@@ -514,10 +508,8 @@ impl Compiler {
                 // Note: continue_target will be set later and continue_patches will be patched
                 let loop_ctx_idx = self.loop_stack.len();
                 self.loop_stack.push(LoopContext {
-                    start_ip: loop_start,
                     break_patches: Vec::new(),
                     continue_patches: Vec::new(),
-                    scope_depth: self.scopes.len(),
                     local_count: self.local_count,
                     continue_target: None, // Will be set after body
                 });
@@ -841,7 +833,7 @@ fn block_leaves_value(block: &[Stmt]) -> bool {
             // An if-statement leaves a value if all branches leave a value
             let then_leaves = block_leaves_value(then_block);
             let elif_leave = elif_blocks.iter().all(|(_, b)| block_leaves_value(b));
-            let else_leaves = else_block.as_ref().map_or(false, |b| block_leaves_value(b));
+            let else_leaves = else_block.as_ref().is_some_and(|b| block_leaves_value(b));
             then_leaves && elif_leave && else_leaves
         }
         _ => false,

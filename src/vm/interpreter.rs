@@ -355,9 +355,5 @@ fn flip_bool(stack: &mut Vec<Value>) -> Result<(), VmError> {
 }
 
 fn truthy(v: &Value) -> bool {
-    match v {
-        Value::Boolean(false) => false,
-        Value::Null => false,
-        _ => true,
-    }
+    !matches!(v, Value::Boolean(false) | Value::Null)
 }
