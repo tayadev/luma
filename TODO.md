@@ -9,8 +9,7 @@
 - [x] Do-while loops (`do ... while condition end`)
 - [x] Break/continue with levels (`break 2`, `continue 2`) - parsing only, runtime support TODO
 - [x] Pattern matching with `match` expressions
-- [ ] Single-argument function calls without parentheses (`unary 2`) _(deferred: parser ambiguity, not yet implemented)_
-- [ ] Named function arguments (`add(a = 2, b = 3)`)
+- [x] Named function arguments (`add(a = 2, b = 3)`)
 
 ### Type System & Runtime
 - [ ] Module system with `import` statement (local files, URLs, git repos) _(for v1 only local files)_
