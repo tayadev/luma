@@ -49,6 +49,7 @@ impl TcType {
 struct VarInfo {
     ty: TcType,
     mutable: bool,
+    #[allow(dead_code)]
     annotated: bool,
 }
 

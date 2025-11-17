@@ -202,50 +202,13 @@ impl Compiler {
                 //   Iterate using manual index tracking
                 //   For MVP, only support simple identifier patterns
                 
-                let Pattern::Ident(var_name) = pattern else {
+                let Pattern::Ident(_var_name) = pattern else {
                     // Complex patterns not supported in for loops yet
                     return;
                 };
-                
-                self.enter_scope();
-                
-                // Store iterator array in a local
-                self.emit_expr(iterator);
-                let iter_slot = self.local_count;
-                self.local_count += 1;
-                
-                // Create pattern variable slot
-                let pattern_slot = self.local_count;
-                self.scopes.last_mut().unwrap().insert(var_name.clone(), pattern_slot);
-                self.local_count += 1;
-                
-                // Initialize pattern var to null (placeholder)
-                let null_idx = push_const(&mut self.chunk, Constant::Null);
-                self.chunk.instructions.push(Instruction::Const(null_idx));
-                
-                // Initialize index to 0
-                let zero_idx = push_const(&mut self.chunk, Constant::Number(0.0));
-                self.chunk.instructions.push(Instruction::Const(zero_idx));
-                let idx_slot = self.local_count;
-                self.local_count += 1;
-                
-                // Loop start: Try to load element at current index
-                let loop_start = self.current_ip();
-                
-                // Try to access __iter[__i] - if it fails, we exit (hacky but works for MVP)
-                // We'll use a different approach: check condition using a length we compute
-                
-                // For proper implementation, we need to either:
-                // 1. Add a LEN instruction to get array length
-                // 2. Use exception handling (not in MVP)
-                // 3. Pre-compute and store the length
-                
-                // Let's go with option 3: store array length as a local
-                // We need to add this before the index initialization
-                
-                // This is getting complex. Let me restart with a cleaner design:
-                // I'll add GetLen instruction to VM for arrays
-                
+                let _ = iterator;
+                let _ = body;
+                // The rest of the implementation is stubbed out for now.
                 self.exit_scope_with_preserve(false);
                 // Stub for now - will implement after adding GetLen
             }
