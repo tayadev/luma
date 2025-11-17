@@ -1,5 +1,8 @@
 /target
 
+# Compiled bytecode files
+*.lumab
+
 # Docusaurus
 /docs/node_modules
 /docs/.docusaurus
