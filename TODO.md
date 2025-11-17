@@ -89,11 +89,14 @@
   - VM execution working - tested with `match_simple.luma`
   - **Status**: Fully functional for simple identifier patterns
 
-- [ ] **Destructuring Declarations Silent Failure** - Parser + type checker work, but:
-  - No bytecode compiler case for `Stmt::DestructuringVarDecl`
-  - Falls through to `_ => {}` catch-all in `compile.rs:198`
-  - **Impact**: `let [a, b] = [1, 2]` compiles but does nothing
-  - **Fix**: Implement pattern binding in compiler + VM
+- [x] **Destructuring Declarations Silent Failure** ✅ FIXED
+  - Bytecode compiler fully implemented for `Stmt::DestructuringVarDecl`
+  - Array destructuring: `let [a, b] = [1, 2]` works correctly
+  - Table destructuring: `let {name, age} = person` works correctly
+  - Rest patterns: `let [head, ...tail] = array` works correctly with proper slicing
+  - Works in both global and local scopes
+  - **Status**: Fully functional for simple patterns
+  - **Implementation**: Added `SliceArray` instruction to VM for efficient array slicing
 
 - [x] **String Concatenation Type Error** ✅ FIXED - VM supports `String + String`, now type checker does too
   - Updated type checker to allow `String + String → String`

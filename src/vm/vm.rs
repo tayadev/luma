@@ -220,6 +220,22 @@ impl VM {
                     if idx >= self.stack.len() { return Err(VmError::Runtime("SET_LOCAL out of range".into())); }
                     self.stack[idx] = v;
                 }
+                Instruction::SliceArray(start_index) => {
+                    let arr = self.stack.pop().ok_or_else(|| VmError::Runtime("SLICE_ARRAY pop underflow".into()))?;
+                    match arr {
+                        Value::Array(arr_ref) => {
+                            let borrowed = arr_ref.borrow();
+                            let len = borrowed.len();
+                            
+                            // Create a slice from start_index to end
+                            let slice_start = start_index.min(len);
+                            let sliced: Vec<Value> = borrowed[slice_start..].to_vec();
+                            
+                            self.stack.push(Value::Array(Rc::new(RefCell::new(sliced))));
+                        }
+                        _ => return Err(VmError::Runtime("SLICE_ARRAY requires an array".into())),
+                    }
+                }
                 Instruction::Eq => bin_eq(&mut self.stack)?,
                 Instruction::Ne => { bin_eq(&mut self.stack)?; flip_bool(&mut self.stack)?; }
                 Instruction::Lt => bin_cmp(&mut self.stack, |a,b| a<b)?,
