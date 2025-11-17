@@ -25,6 +25,11 @@ enum Commands {
         /// The file to typecheck
         file: String,
     },
+    /// Print the compiled bytecode
+    Bytecode {
+        /// The file to compile
+        file: String,
+    },
 }
 
 fn main() {
@@ -75,6 +80,26 @@ fn main() {
                     process::exit(1);
                 }
             }
+        }
+        Some(Commands::Bytecode { file }) => {
+            let source = match fs::read_to_string(file) {
+                Ok(content) => content,
+                Err(err) => {
+                    eprintln!("Error reading file '{}': {}", file, err);
+                    process::exit(1);
+                }
+            };
+            let ast = match luma::parser::parse(&source) {
+                Ok(ast) => ast,
+                Err(errors) => {
+                    for error in errors {
+                        eprintln!("Parse error: {}", error);
+                    }
+                    process::exit(1);
+                }
+            };
+            let chunk = luma::bytecode::compile::compile_program(&ast);
+            println!("{:#?}", chunk);
         }
         None => {
             // Default: run the file if provided

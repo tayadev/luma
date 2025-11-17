@@ -1,0 +1,4 @@
+var foo = fn(x: Number) do
+  x
+end
+foo()

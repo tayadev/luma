@@ -198,19 +198,92 @@ impl Compiler {
             // TODO: other statements in MVP
             Stmt::For { pattern, iterator, body } => {
                 // Lower: for pattern in iterator do body end
-                // To approximate: 
-                //   Iterate using manual index tracking
-                //   For MVP, only support simple identifier patterns
+                // To:
+                //   let __iter = iterator
+                //   let __i = 0
+                //   let loop_var = null
+                //   while __i < len(__iter) do
+                //     loop_var = __iter[__i]
+                //     body
+                //     __i = __i + 1
+                //   end
                 
-                let Pattern::Ident(_var_name) = pattern else {
+                // For MVP, only support simple identifier patterns
+                let Pattern::Ident(var_name) = pattern else {
                     // Complex patterns not supported in for loops yet
                     return;
                 };
-                let _ = iterator;
-                let _ = body;
-                // The rest of the implementation is stubbed out for now.
+                
+                // Create a new scope for the entire loop (including iterator and index)
+                self.enter_scope();
+                
+                // Evaluate iterator and store in a hidden local __iter
+                self.emit_expr(iterator);
+                let iter_slot = self.local_count;
+                self.scopes.last_mut().unwrap().insert("__iter".to_string(), iter_slot);
+                self.local_count += 1;
+                
+                // Initialize __i = 0
+                let zero_idx = push_const(&mut self.chunk, Constant::Number(0.0));
+                self.chunk.instructions.push(Instruction::Const(zero_idx));
+                let i_slot = self.local_count;
+                self.scopes.last_mut().unwrap().insert("__i".to_string(), i_slot);
+                self.local_count += 1;
+                
+                // Allocate slot for loop variable (initialized to null)
+                let null_idx = push_const(&mut self.chunk, Constant::Null);
+                self.chunk.instructions.push(Instruction::Const(null_idx));
+                let loop_var_slot = self.local_count;
+                self.scopes.last_mut().unwrap().insert(var_name.clone(), loop_var_slot);
+                self.local_count += 1;
+                
+                // while __i < len(__iter) do
+                let loop_start = self.current_ip();
+                
+                // Load __i
+                self.chunk.instructions.push(Instruction::GetLocal(i_slot));
+                
+                // Load __iter and get its length
+                self.chunk.instructions.push(Instruction::GetLocal(iter_slot));
+                self.chunk.instructions.push(Instruction::GetLen);
+                
+                // Compare __i < len(__iter)
+                self.chunk.instructions.push(Instruction::Lt);
+                
+                // If false, jump to end
+                let jf_end = self.emit_jump_if_false();
+                
+                // Update loop variable: loop_var = __iter[__i]
+                self.chunk.instructions.push(Instruction::GetLocal(iter_slot));
+                self.chunk.instructions.push(Instruction::GetLocal(i_slot));
+                self.chunk.instructions.push(Instruction::GetIndex);
+                self.chunk.instructions.push(Instruction::SetLocal(loop_var_slot));
+                
+                // Execute body
+                for stmt in body {
+                    self.emit_stmt(stmt);
+                }
+                
+                // __i = __i + 1
+                self.chunk.instructions.push(Instruction::GetLocal(i_slot));
+                let one_idx = push_const(&mut self.chunk, Constant::Number(1.0));
+                self.chunk.instructions.push(Instruction::Const(one_idx));
+                self.chunk.instructions.push(Instruction::Add);
+                self.chunk.instructions.push(Instruction::SetLocal(i_slot));
+                
+                // Jump back to loop start
+                self.chunk.instructions.push(Instruction::Jump(loop_start));
+                
+                // Patch the exit jump
+                let exit_ip = self.current_ip();
+                self.patch_jump(jf_end, exit_ip);
+                
+                // Exit the entire loop scope (pop __iter, __i, and loop_var)
                 self.exit_scope_with_preserve(false);
-                // Stub for now - will implement after adding GetLen
+                
+                // For loops don't leave a value on the stack
+                let null_idx2 = push_const(&mut self.chunk, Constant::Null);
+                self.chunk.instructions.push(Instruction::Const(null_idx2));
             }
             _ => {
                 // For now, ignore non-return statements

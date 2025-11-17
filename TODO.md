@@ -24,12 +24,13 @@
 
 ## MVP (v1) — In Progress
 
-- [ ] Type Checker (MVP)
-	- [ ] `TcType` enum: Any, Unknown, Number, String, Boolean, Null, Array(T), Table, Function(args, ret)
-	- [ ] `TypeEnv` with scoped symbols (name → { ty, mutable, annotated })
-	- [ ] Check binary ops (`+ - * / %`) and comparisons (`== != < <= > >=`)
-	- [ ] Check logical ops (`and`, `or`, `not`) → Boolean
-	- [ ] Check functions: params/arity, return type vs implicit return
+- [x] Type Checker (MVP)
+	- [x] `TcType` enum: Any, Unknown, Number, String, Boolean, Null, Array(T), Table, Function(args, ret)
+	- [x] `TypeEnv` with scoped symbols (name → { ty, mutable, annotated })
+	- [x] Check binary ops (`+ - * / %`) and comparisons (`== != < <= > >=`)
+	- [x] Check logical ops (`and`, `or`, `not`) → Boolean
+	- [x] Check functions: params/arity, return type vs implicit return
+	- [x] Immutability enforcement (`let` vs `var`)
 
 - [x] Bytecode IR & Compiler
 	- [x] `Instruction` enum + `Constant` pool; `Chunk`
@@ -43,7 +44,7 @@
 	- [x] Codegen: member/index writes
 	- [x] Control flow: `if/elif/else`, `while` with proper scoping
 	- [x] Functions: definitions and calls with call frames
-	- [ ] `for` over arrays only (lower to while)
+	- [x] `for` over arrays only (lower to while)
 
 - [x] VM (Stack-based)
 	- [x] `Value`: Number, String, Boolean, Null, Array, Table, Function
@@ -57,26 +58,28 @@
 	- [x] MAKE_FUNCTION/CALL/RETURN with call frames
 
 - [x] CLI Integration
-	- [x] Flags: `--ast` (print AST), `--check` (typecheck), `--run` (execute)
+	- [x] Flags: `ast` (print AST), `check` (typecheck), `bytecode` (print bytecode), default (run)
 	- [x] Pipeline: parse → typecheck → compile → run; concise error reporting
 
-- [ ] Integration Tests (end-to-end)
+- [x] Integration Tests (end-to-end)
 	- [x] `test_arith` — arithmetic, precedence, implicit program return
 	- [x] `test_assign` — globals with compound assignment
 	- [x] `test_cmp`, `test_logic_and`, `test_logic_or`, `test_not` — comparisons and logical ops
 	- [x] arrays/tables — literals, member/index reads (`array_read`, `table_read`)
 	- [x] `if_then_else`, `if_elif_else`, `if_local` — if/elif/else control flow with scoping
-	- [x] `while_sum` — while loops
+	- [x] `while_sum`, `do_while_sum` — while and do-while loops
 	- [x] `fn_simple`, `fn_multiarg` — function definitions and calls
-	- [ ] `run_for_arrays.rs` — `for x in [1,2,3]` lowering
-	- [ ] member/index assignment tests
-	- [ ] immutability enforcement (`let` vs `var`)
+	- [x] `for_simple`, `for_sum` — for-loop lowering to while
+	- [x] `array_write`, `table_write` — member/index assignment
+	- [x] `mutable_var` — mutable variable reassignment with `var`
 
 	## Infra/Housekeeping
 
 	- [x] Test folder reorg: move parser fixtures to `tests/fixtures`
 	- [x] Move ad-hoc samples from `tmp/` to `tests/runtime/`
 	- [x] Runtime test harness with .ron expectations
+	- [x] Add `bytecode` subcommand to CLI for debugging
+	- [x] Negative test framework in `tests/should_fail/` with `.expect` files
 
 ## Known Limitations (Current MVP)
 
@@ -102,7 +105,36 @@
 
 ## Recent Changes (Session Notes)
 
-### Completed Features
+### Session: November 17, 2025
+
+1. **For-Loop Implementation** - Complete lowering to while loops:
+   - Compiler: Lowers `for x in array do ... end` to a while loop with hidden `__iter` and `__i` locals
+   - Uses `GetLen` instruction to get array length
+   - Loop variable stored in local slot and updated each iteration
+   - Tests: `for_simple.luma`, `for_sum.luma` 
+
+2. **Additional Runtime Tests**:
+   - `array_write.luma` - Array index assignment
+   - `table_write.luma` - Table property assignment  
+   - `mutable_var.luma` - Variable reassignment with `var`
+   - `do_while_sum.luma` - Do-while loop execution
+
+3. **CLI Enhancement**:
+   - Added `bytecode` subcommand to print compiled bytecode for debugging
+   - Subcommands: `ast`, `check`, `bytecode`, or default (run)
+
+4. **Negative Test Framework**:
+   - Created `tests/should_fail/` directory for expected-failure tests
+   - Tests use `.expect` files to specify failure type (`parse`, `typecheck`, or `runtime`)
+   - Added tests: `immutable_let`, `type_mismatch_add`, `undefined_var`, `wrong_arity`
+   - Framework integrated into main test suite
+
+5. **Type Checker**:
+   - Immutability enforcement working correctly (prevents reassignment to `let` variables)
+   - All binary ops, logical ops, and function checking implemented
+
+### Completed Features (Previous Session)
+
 1. **Number Literals** - Added support for:
    - Hexadecimal: `0xFF`, `0x1A3B` 
    - Binary: `0b1010`, `0b1101`
