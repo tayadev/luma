@@ -13,7 +13,7 @@
 - [ ] Named function arguments (`add(a = 2, b = 3)`)
 
 ### Type System & Runtime
-- [ ] Module system with `import` statement (local files, URLs, git repos)
+- [ ] Module system with `import` statement (local files, URLs, git repos) _(for v1 only local files)_
 - [ ] Async/await support (`await` keyword, `Promise` type)
 - [ ] User-defined types with `cast()` and `isInstanceOf()`
 - [ ] Inheritance via `__parent`
