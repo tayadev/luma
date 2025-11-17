@@ -1,4 +1,4 @@
-use crate::ast::{Program, Stmt, Expr, BinaryOp, UnaryOp, LogicalOp, Argument, Pattern};
+use crate::ast::{Program, Stmt, Expr, BinaryOp, UnaryOp, LogicalOp, Argument, Pattern, CallArgument};
 use super::ir::{Chunk, Instruction, Constant};
 use std::collections::HashMap;
 
@@ -373,9 +373,12 @@ impl Compiler {
             Expr::Call { callee, arguments } => {
                 // Push callee
                 self.emit_expr(callee);
-                // Push arguments
+                // Push arguments (extract expressions from CallArgument enum)
                 for arg in arguments {
-                    self.emit_expr(arg);
+                    match arg {
+                        CallArgument::Positional(expr) => self.emit_expr(expr),
+                        CallArgument::Named { value, .. } => self.emit_expr(value),
+                    }
                 }
                 self.chunk.instructions.push(Instruction::Call(arguments.len()));
             }

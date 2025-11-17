@@ -7,7 +7,7 @@ Program(
                 ExprStmt(Call(
                     callee: Identifier("print"),
                     arguments: [
-                        Identifier("item"),
+                        Positional(Identifier("item")),
                     ],
                 )),
             ],

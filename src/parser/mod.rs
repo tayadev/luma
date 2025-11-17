@@ -1,5 +1,5 @@
 use chumsky::prelude::*;
-use crate::ast::{Program, Stmt, Expr, Type};
+use crate::ast::{Program, Stmt, Expr, Type, CallArgument};
 
 mod string;
 mod lexer;
@@ -69,10 +69,26 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         .boxed();
 
     // Postfix operators: function calls, member access, and indexing
-    let call_args = expr_ref.clone()
+    // Parse call arguments - can be positional (expr) or named (name = expr)
+    let call_arg = {
+        let named = ident.clone()
+            .then_ignore(just('=').padded_by(ws.clone()))
+            .then(expr_ref.clone())
+            .map(|(name, value): (&str, Expr)| CallArgument::Named { 
+                name: name.to_string(), 
+                value 
+            });
+        
+        let positional = expr_ref.clone()
+            .map(CallArgument::Positional);
+        
+        choice((named, positional))
+    };
+    
+    let call_args = call_arg
         .separated_by(just(',').padded_by(ws.clone()))
         .allow_trailing()
-        .collect::<Vec<Expr>>()
+        .collect::<Vec<CallArgument>>()
         .delimited_by(
             just('(').padded_by(ws.clone()),
             just(')').padded_by(ws.clone())
@@ -90,7 +106,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
 
     #[derive(Clone)]
     enum PostfixOp {
-        Call(Vec<Expr>),
+        Call(Vec<CallArgument>),
         Member(String),
         Index(Box<Expr>),
     }

@@ -215,7 +215,12 @@ impl TypeEnv {
                             ));
                         } else {
                             for (i, (arg, param_ty)) in arguments.iter().zip(params.iter()).enumerate() {
-                                let arg_ty = self.check_expr(arg);
+                                // Extract the expression from the CallArgument
+                                let arg_expr = match arg {
+                                    CallArgument::Positional(expr) => expr,
+                                    CallArgument::Named { value, .. } => value,
+                                };
+                                let arg_ty = self.check_expr(arg_expr);
                                 if !arg_ty.is_compatible(param_ty) {
                                     self.error(format!(
                                         "Function call: argument {} expected {:?}, got {:?}",
@@ -229,7 +234,11 @@ impl TypeEnv {
                     TcType::Unknown | TcType::Any => {
                         // Check arguments but return Unknown
                         for arg in arguments {
-                            self.check_expr(arg);
+                            let arg_expr = match arg {
+                                CallArgument::Positional(expr) => expr,
+                                CallArgument::Named { value, .. } => value,
+                            };
+                            self.check_expr(arg_expr);
                         }
                         TcType::Unknown
                     }
