@@ -133,11 +133,17 @@
 
 ## Known Limitations (Current MVP)
 
-- **Recursion**: Functions cannot recursively call themselves by name because the function value is assigned to the global *after* compilation. Requires either forward declarations or a two-pass approach.
+- [x] **Recursion**: ✅ FIXED - Functions can now recursively call themselves by name
+  - Implemented two-pass compilation in bytecode compiler
+  - First pass: Pre-register all top-level `let`/`var` declarations with null placeholders
+  - Second pass: Compile and emit actual initialization code
+  - Self-recursion (e.g., factorial, fibonacci) fully working
+  - **Remaining limitation**: Mutual recursion across separate declarations requires typecheck pre-declaration (typecheck limitation, not compiler limitation)
 - **Closures**: Captured variables from outer scopes not supported (deferred to v2).
 
 ## Deferred to v2
 
+- [ ] Mutual recursion across separate function declarations (requires typecheck to pre-declare all globals before checking them)
 - [ ] Closures/upvalues (captured locals) + `CLOSURE`/upvalue handling
 - [ ] `for` over tables and a general iterator protocol
 - [ ] Destructuring in `for` (beyond simple identifiers)
@@ -154,6 +160,16 @@
 - **Break/Continue Levels**: Fully implemented with nested loop tracking. Supports `break N` and `continue N` for exiting/continuing multiple loop levels with proper scope cleanup.
 
 ## Recent Changes (Session Notes)
+
+### Session: November 17, 2025 (Part 3)
+
+1. **Forward Declarations / Recursive Functions** - Complete implementation:
+   - Implemented two-pass compilation in `compile_program` (bytecode/compile.rs)
+   - **Pass 1**: Pre-register all top-level `let`/`var` declarations with `Const(Null) + SetGlobal(name)`
+   - **Pass 2**: Compile statements normally, overwriting null placeholders with actual values
+   - Self-recursion now works: functions can call themselves by name
+   - Tests: `factorial.luma` (factorial(5) = 120), `fibonacci.luma` (fib(10) = 55)
+   - **Outstanding**: Mutual recursion across separate declarations still requires typecheck improvements
 
 ### Session: November 17, 2025 (Part 2)
 
