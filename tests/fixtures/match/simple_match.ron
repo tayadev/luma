@@ -12,7 +12,7 @@ Program(
                     ),
                     member: "new"
                 ),
-                arguments: [Number(42.0)]
+                arguments: [Positional(Number(42.0))]
             )
         ),
         Match(
@@ -22,27 +22,27 @@ Program(
                     Ident("ok"),
                     [ExprStmt(Call(
                         callee: Identifier("print"),
-                        arguments: [MemberAccess(
+                        arguments: [Positional(MemberAccess(
                             object: Identifier("r"),
                             member: "ok"
-                        )]
+                        ))]
                     ))]
                 ),
                 (
                     Ident("err"),
                     [ExprStmt(Call(
                         callee: Identifier("print"),
-                        arguments: [MemberAccess(
+                        arguments: [Positional(MemberAccess(
                             object: Identifier("r"),
                             member: "err"
-                        )]
+                        ))]
                     ))]
                 ),
                 (
                     Ident("_"),
                     [ExprStmt(Call(
                         callee: Identifier("print"),
-                        arguments: [String("default")]
+                        arguments: [Positional(String("default"))]
                     ))]
                 )
             ]

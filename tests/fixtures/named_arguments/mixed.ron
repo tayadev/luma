@@ -1,0 +1,18 @@
+Program(
+    statements: [
+        Return(Call(
+            callee: Identifier("calculate"),
+            arguments: [
+                Positional(Number(1.0)),
+                Named(
+                    name: "b",
+                    value: Number(2.0),
+                ),
+                Named(
+                    name: "c",
+                    value: Number(3.0),
+                ),
+            ],
+        )),
+    ],
+)

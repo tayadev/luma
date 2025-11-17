@@ -14,6 +14,12 @@ pub enum Type {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum CallArgument {
+    Positional(Expr),
+    Named { name: String, value: Expr },
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Expr {
     Number(f64),
     Identifier(String),
@@ -43,7 +49,7 @@ pub enum Expr {
     },
     Call {
         callee: Box<Expr>,
-        arguments: Vec<Expr>,
+        arguments: Vec<CallArgument>,
     },
     MemberAccess {
         object: Box<Expr>,

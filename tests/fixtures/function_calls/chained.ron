@@ -8,8 +8,8 @@ Program(
                         member: "method",
                     ),
                     arguments: [
-                        Number(1.0),
-                        Number(2.0),
+                        Positional(Number(1.0)),
+                        Positional(Number(2.0)),
                     ],
                 ),
                 member: "field",

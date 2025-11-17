@@ -1,0 +1,17 @@
+Program(
+    statements: [
+        Return(Call(
+            callee: Identifier("add"),
+            arguments: [
+                Named(
+                    name: "a",
+                    value: Number(2.0),
+                ),
+                Named(
+                    name: "b",
+                    value: Number(3.0),
+                ),
+            ],
+        )),
+    ],
+)
