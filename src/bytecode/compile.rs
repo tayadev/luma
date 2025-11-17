@@ -38,15 +38,30 @@ fn push_const(chunk: &mut Chunk, c: Constant) -> usize {
     chunk.constants.len() - 1
 }
 
+struct LoopContext {
+    start_ip: usize,       // IP to jump to for continue (default)
+    break_patches: Vec<usize>, // IPs of break jumps to patch when loop exits
+    continue_patches: Vec<usize>, // IPs of continue jumps to patch (for for-loops)
+    scope_depth: usize,    // Number of scopes when this loop started
+    local_count: usize,    // Number of locals when this loop started
+    continue_target: Option<usize>, // Explicit continue target (set after body for for-loops)
+}
+
 struct Compiler {
     chunk: Chunk,
     scopes: Vec<HashMap<String, usize>>, // name -> slot index
     local_count: usize,
+    loop_stack: Vec<LoopContext>, // Track nested loops for break/continue
 }
 
 impl Compiler {
     fn new(name: &str) -> Self {
-        Self { chunk: Chunk { name: name.to_string(), ..Default::default() }, scopes: Vec::new(), local_count: 0 }
+        Self { 
+            chunk: Chunk { name: name.to_string(), ..Default::default() }, 
+            scopes: Vec::new(), 
+            local_count: 0,
+            loop_stack: Vec::new(),
+        }
     }
 
     fn emit_stmt(&mut self, s: &Stmt) {
@@ -127,6 +142,17 @@ impl Compiler {
             }
             Stmt::While { condition, body } => {
                 let loop_start = self.current_ip();
+                
+                // Register this loop for break/continue tracking
+                self.loop_stack.push(LoopContext {
+                    start_ip: loop_start,
+                    break_patches: Vec::new(),
+                    continue_patches: Vec::new(),
+                    scope_depth: self.scopes.len(),
+                    local_count: self.local_count,
+                    continue_target: Some(loop_start), // For while loops, continue jumps to start (condition check)
+                });
+                
                 self.emit_expr(condition);
                 let jf_end = self.emit_jump_if_false();
                 self.enter_scope();
@@ -137,9 +163,26 @@ impl Compiler {
                 self.chunk.instructions.push(Instruction::Jump(start));
                 let end_ip = self.current_ip();
                 self.patch_jump(jf_end, end_ip);
+                
+                // Patch all break statements to jump to end_ip
+                let loop_ctx = self.loop_stack.pop().unwrap();
+                for break_ip in loop_ctx.break_patches {
+                    self.patch_jump(break_ip, end_ip);
+                }
             }
             Stmt::DoWhile { body, condition } => {
                 let loop_start = self.current_ip();
+                
+                // Register this loop for break/continue tracking
+                self.loop_stack.push(LoopContext {
+                    start_ip: loop_start,
+                    break_patches: Vec::new(),
+                    continue_patches: Vec::new(),
+                    scope_depth: self.scopes.len(),
+                    local_count: self.local_count,
+                    continue_target: Some(loop_start), // For do-while loops, continue jumps to start (body start)
+                });
+                
                 self.enter_scope();
                 for st in body { self.emit_stmt(st); }
                 self.exit_scope_with_preserve(false);
@@ -150,6 +193,12 @@ impl Compiler {
                 self.chunk.instructions.push(Instruction::Jump(loop_start));
                 let end_ip = self.current_ip();
                 self.patch_jump(jf_end, end_ip);
+                
+                // Patch all break statements to jump to end_ip
+                let loop_ctx = self.loop_stack.pop().unwrap();
+                for break_ip in loop_ctx.break_patches {
+                    self.patch_jump(break_ip, end_ip);
+                }
             }
             Stmt::Match { expr, arms } => {
                 // For MVP: Simple pattern matching on identifier patterns
@@ -461,6 +510,18 @@ impl Compiler {
                 // while __i < len(__iter) do
                 let loop_start = self.current_ip();
                 
+                // Register this loop for break/continue tracking
+                // Note: continue_target will be set later and continue_patches will be patched
+                let loop_ctx_idx = self.loop_stack.len();
+                self.loop_stack.push(LoopContext {
+                    start_ip: loop_start,
+                    break_patches: Vec::new(),
+                    continue_patches: Vec::new(),
+                    scope_depth: self.scopes.len(),
+                    local_count: self.local_count,
+                    continue_target: None, // Will be set after body
+                });
+                
                 // Load __i
                 self.chunk.instructions.push(Instruction::GetLocal(i_slot));
                 
@@ -485,6 +546,16 @@ impl Compiler {
                     self.emit_stmt(stmt);
                 }
                 
+                // Increment section - this is where continue should jump to
+                let continue_target = self.current_ip();
+                
+                // Patch all continue statements in this loop to jump here
+                let loop_ctx = &self.loop_stack[loop_ctx_idx];
+                let continue_ips = loop_ctx.continue_patches.clone();
+                for continue_ip in continue_ips {
+                    self.patch_jump(continue_ip, continue_target);
+                }
+                
                 // __i = __i + 1
                 self.chunk.instructions.push(Instruction::GetLocal(i_slot));
                 let one_idx = push_const(&mut self.chunk, Constant::Number(1.0));
@@ -499,12 +570,83 @@ impl Compiler {
                 let exit_ip = self.current_ip();
                 self.patch_jump(jf_end, exit_ip);
                 
+                // Patch all break statements to jump to exit_ip
+                let loop_ctx = self.loop_stack.pop().unwrap();
+                for break_ip in loop_ctx.break_patches {
+                    self.patch_jump(break_ip, exit_ip);
+                }
+                
                 // Exit the entire loop scope (pop __iter, __i, and loop_var)
                 self.exit_scope_with_preserve(false);
                 
                 // For loops don't leave a value on the stack
                 let null_idx2 = push_const(&mut self.chunk, Constant::Null);
                 self.chunk.instructions.push(Instruction::Const(null_idx2));
+            }
+            Stmt::Break(level_opt) => {
+                let level = level_opt.unwrap_or(1) as usize;
+                
+                // Validate that we're inside enough nested loops
+                if level > self.loop_stack.len() {
+                    panic!("Compiler error: break {} exceeds loop nesting depth of {}", 
+                           level, self.loop_stack.len());
+                }
+                
+                if level == 0 {
+                    panic!("Compiler error: break level must be at least 1");
+                }
+                
+                // Calculate how many locals need to be popped
+                // We need to pop all locals from current position back to the target loop's local count
+                let target_loop_idx = self.loop_stack.len() - level;
+                let target_loop = &self.loop_stack[target_loop_idx];
+                let locals_to_pop = self.local_count - target_loop.local_count;
+                
+                // Pop the locals that are in scope between here and the target loop
+                for _ in 0..locals_to_pop {
+                    self.chunk.instructions.push(Instruction::Pop);
+                }
+                
+                // Emit a jump that will be patched when the target loop exits
+                let jump_ip = self.emit_jump();
+                
+                // Register this jump in the appropriate loop context (counting from innermost)
+                self.loop_stack[target_loop_idx].break_patches.push(jump_ip);
+            }
+            Stmt::Continue(level_opt) => {
+                let level = level_opt.unwrap_or(1) as usize;
+                
+                // Validate that we're inside enough nested loops
+                if level > self.loop_stack.len() {
+                    panic!("Compiler error: continue {} exceeds loop nesting depth of {}", 
+                           level, self.loop_stack.len());
+                }
+                
+                if level == 0 {
+                    panic!("Compiler error: continue level must be at least 1");
+                }
+                
+                // Calculate how many locals need to be popped
+                let target_loop_idx = self.loop_stack.len() - level;
+                let target_loop = &self.loop_stack[target_loop_idx];
+                let locals_to_pop = self.local_count - target_loop.local_count;
+                
+                // Pop the locals that are in scope between here and the target loop
+                for _ in 0..locals_to_pop {
+                    self.chunk.instructions.push(Instruction::Pop);
+                }
+                
+                // Check if the loop has a continue_target already set
+                // If not set, it means we need to patch it later (for for-loops)
+                if let Some(target_ip) = target_loop.continue_target {
+                    // Continue target is known, jump directly
+                    self.chunk.instructions.push(Instruction::Jump(target_ip));
+                } else {
+                    // Continue target not set yet - emit placeholder jump
+                    // This will be patched when the loop is finished compiling
+                    let jump_ip = self.emit_jump();
+                    self.loop_stack[target_loop_idx].continue_patches.push(jump_ip);
+                }
             }
             _ => {
                 // For now, ignore non-return statements

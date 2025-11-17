@@ -1,0 +1,14 @@
+var sum = 0
+var i = 0
+while i < 3 do
+  i = i + 1
+  var j = 0
+  while j < 5 do
+    j = j + 1
+    if j == 2 do
+      continue 2
+    end
+    sum = sum + j
+  end
+end
+sum

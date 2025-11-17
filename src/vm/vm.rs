@@ -76,9 +76,7 @@ impl VM {
                     match (a, b) {
                         (Some(Value::Number(x)), Some(Value::Number(y))) => self.stack.push(Value::Number(x + y)),
                         (Some(Value::String(x)), Some(Value::String(y))) => self.stack.push(Value::String(x + &y)),
-                        (Some(Value::String(x)), Some(v)) => self.stack.push(Value::String(format!("{}{:?}", x, v))),
-                        (Some(v), Some(Value::String(y))) => self.stack.push(Value::String(format!("{:?}{}", v, y))),
-                        _ => return Err(VmError::Runtime("ADD type error".into())),
+                        _ => return Err(VmError::Runtime("ADD requires (Number, Number) or (String, String)".into())),
                     }
                 }
                 Instruction::Sub => bin_num(&mut self.stack, |a,b| a-b)?,
