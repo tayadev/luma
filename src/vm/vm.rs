@@ -1,6 +1,8 @@
 use crate::bytecode::ir::{Chunk, Instruction, Constant};
 use super::value::Value;
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Debug)]
 pub enum VmError {
@@ -107,7 +109,7 @@ impl VM {
                     let mut tmp = Vec::with_capacity(n);
                     for _ in 0..n { tmp.push(self.stack.pop().unwrap()); }
                     tmp.reverse();
-                    self.stack.push(Value::Array(tmp));
+                    self.stack.push(Value::Array(Rc::new(RefCell::new(tmp))));
                 }
                 Instruction::BuildTable(n) => {
                     if self.stack.len() < n * 2 { return Err(VmError::Runtime("BUILD_TABLE underflow".into())); }
@@ -118,7 +120,7 @@ impl VM {
                         let key = match key_v { Value::String(s) => s, _ => return Err(VmError::Runtime("TABLE key must be string".into())) };
                         map.insert(key, val);
                     }
-                    self.stack.push(Value::Table(map));
+                    self.stack.push(Value::Table(Rc::new(RefCell::new(map))));
                 }
                 Instruction::GetIndex => {
                     let index = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_INDEX index underflow".into()))?;
@@ -128,10 +130,12 @@ impl VM {
                             let i = n as i64;
                             if i < 0 { return Err(VmError::Runtime("Array index negative".into())); }
                             let i = i as usize;
-                            match arr.get(i) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Array index out of bounds".into())) }
+                            let borrowed = arr.borrow();
+                            match borrowed.get(i) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Array index out of bounds".into())) }
                         }
                         (Value::Table(map), Value::String(k)) => {
-                            match map.get(&k) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Table key not found".into())) }
+                            let borrowed = map.borrow();
+                            match borrowed.get(&k) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Table key not found".into())) }
                         }
                         _ => return Err(VmError::Runtime("GET_INDEX type error".into())),
                     }
@@ -140,8 +144,69 @@ impl VM {
                     let name = match self.chunk.constants.get(idx) { Some(Constant::String(s)) => s.clone(), _ => return Err(VmError::Runtime("GET_PROP expects string const".into())) };
                     let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_PROP obj underflow".into()))?;
                     match obj {
-                        Value::Table(map) => match map.get(&name) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Property not found".into())) },
+                        Value::Table(map) => {
+                            let borrowed = map.borrow();
+                            match borrowed.get(&name) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Property not found".into())) }
+                        }
                         _ => return Err(VmError::Runtime("GET_PROP on non-table".into())),
+                    }
+                }
+                Instruction::GetLen => {
+                    let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_LEN obj underflow".into()))?;
+                    match obj {
+                        Value::Array(arr) => {
+                            let borrowed = arr.borrow();
+                            self.stack.push(Value::Number(borrowed.len() as f64));
+                        }
+                        Value::Table(map) => {
+                            let borrowed = map.borrow();
+                            self.stack.push(Value::Number(borrowed.len() as f64));
+                        }
+                        Value::String(s) => {
+                            self.stack.push(Value::Number(s.len() as f64));
+                        }
+                        _ => return Err(VmError::Runtime("GET_LEN requires array, table, or string".into())),
+                    }
+                }
+                Instruction::SetIndex => {
+                    // Stack: value, index, object
+                    let value = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_INDEX value underflow".into()))?;
+                    let index = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_INDEX index underflow".into()))?;
+                    let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_INDEX obj underflow".into()))?;
+                    
+                    match (obj, index) {
+                        (Value::Array(arr), Value::Number(n)) => {
+                            let i = n as i64;
+                            if i < 0 { return Err(VmError::Runtime("Array index negative".into())); }
+                            let i = i as usize;
+                            let mut borrowed = arr.borrow_mut();
+                            if i >= borrowed.len() {
+                                return Err(VmError::Runtime("Array index out of bounds".into()));
+                            }
+                            borrowed[i] = value;
+                        }
+                        (Value::Table(map), Value::String(k)) => {
+                            let mut borrowed = map.borrow_mut();
+                            borrowed.insert(k, value);
+                        }
+                        _ => return Err(VmError::Runtime("SET_INDEX type error".into())),
+                    }
+                }
+                Instruction::SetProp(idx) => {
+                    // Stack: value, object
+                    let name = match self.chunk.constants.get(idx) { 
+                        Some(Constant::String(s)) => s.clone(), 
+                        _ => return Err(VmError::Runtime("SET_PROP expects string const".into())) 
+                    };
+                    let value = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_PROP value underflow".into()))?;
+                    let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_PROP obj underflow".into()))?;
+                    
+                    match obj {
+                        Value::Table(map) => {
+                            let mut borrowed = map.borrow_mut();
+                            borrowed.insert(name, value);
+                        }
+                        _ => return Err(VmError::Runtime("SET_PROP on non-table".into())),
                     }
                 }
                 Instruction::GetLocal(slot) => {

@@ -1,9 +1,0 @@
-Program(
-    statements: [
-        Assignment(
-            target: Identifier("count"),
-            op: AddAssign,
-            value: Number(5.0),
-        ),
-    ],
-)

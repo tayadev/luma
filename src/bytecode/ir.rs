@@ -36,6 +36,9 @@ pub enum Instruction {
     BuildTable(usize), // n pairs
     GetIndex,          // pops index and object, pushes value
     GetProp(usize),    // const string name index
+    GetLen,            // pops array or table, pushes Number (length)
+    SetIndex,          // pops value, index, and object
+    SetProp(usize),    // const string name index, pops value and object
     GetLocal(usize),
     SetLocal(usize),
     MakeFunction(usize), // const index of Function chunk

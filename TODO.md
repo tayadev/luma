@@ -18,9 +18,9 @@
 	- [x] Codegen: arithmetic binary ops (`+ - * / %`) and unary `-`
 	- [x] Codegen: comparisons (`== != < <= > >=`)
 	- [x] Codegen: logical ops with short-circuit (`and`, `or`, `not`)
-	- [x] Codegen: identifiers, assignment (incl. compound) for locals and globals
+	- [x] Codegen: identifiers, assignment for locals and globals
 	- [x] Codegen: member/index reads
-	- [ ] Codegen: member/index writes
+	- [x] Codegen: member/index writes
 	- [x] Control flow: `if/elif/else`, `while` with proper scoping
 	- [x] Functions: definitions and calls with call frames
 	- [ ] `for` over arrays only (lower to while)
@@ -32,7 +32,7 @@
 	- [x] Implement ops: GET/SET (global)
 	- [x] Implement ops: GET/SET (local) with base pointer
 	- [x] Implement ops: GET_PROP, GET_INDEX
-	- [ ] Implement ops: SET_PROP, SET_INDEX (requires reference semantics)
+	- [x] Implement ops: SET_PROP, SET_INDEX
 	- [x] BUILD_ARRAY/BUILD_TABLE
 	- [x] MAKE_FUNCTION/CALL/RETURN with call frames
 

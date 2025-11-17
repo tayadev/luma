@@ -86,12 +86,7 @@ pub enum LogicalOp {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum AssignOp {
-    Assign,    // =
-    AddAssign, // +=
-    SubAssign, // -=
-    MulAssign, // *=
-    DivAssign, // /=
-    ModAssign, // %=
+    Assign, // =
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

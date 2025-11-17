@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::cell::RefCell;
 use serde::{Serialize, Deserialize};
 use crate::bytecode::ir::Chunk;
 
@@ -8,8 +10,10 @@ pub enum Value {
     String(String),
     Boolean(bool),
     Null,
-    Array(Vec<Value>),
-    Table(HashMap<String, Value>),
+    #[serde(skip)]
+    Array(Rc<RefCell<Vec<Value>>>),
+    #[serde(skip)]
+    Table(Rc<RefCell<HashMap<String, Value>>>),
     Function { chunk: Chunk, arity: usize },
 }
 
@@ -20,8 +24,14 @@ impl PartialEq for Value {
             (Value::String(a), Value::String(b)) => a == b,
             (Value::Boolean(a), Value::Boolean(b)) => a == b,
             (Value::Null, Value::Null) => true,
-            (Value::Array(a), Value::Array(b)) => a == b,
-            (Value::Table(a), Value::Table(b)) => a == b,
+            (Value::Array(a), Value::Array(b)) => {
+                // Compare by reference first, then by value
+                Rc::ptr_eq(a, b) || *a.borrow() == *b.borrow()
+            }
+            (Value::Table(a), Value::Table(b)) => {
+                // Compare by reference first, then by value
+                Rc::ptr_eq(a, b) || *a.borrow() == *b.borrow()
+            }
             (Value::Function { arity: a1, .. }, Value::Function { arity: a2, .. }) => a1 == a2,
             _ => false,
         }

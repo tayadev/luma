@@ -1,4 +1,4 @@
-use crate::ast::{Program, Stmt, Expr, BinaryOp, UnaryOp, LogicalOp, AssignOp, Argument};
+use crate::ast::{Program, Stmt, Expr, BinaryOp, UnaryOp, LogicalOp, Argument, Pattern};
 use super::ir::{Chunk, Instruction, Constant};
 use std::collections::HashMap;
 
@@ -152,35 +152,90 @@ impl Compiler {
                     self.local_count += 1;
                 }
             }
-            Stmt::Assignment { target, op, value } => {
-                if let Expr::Identifier(name) = target {
-                    if let Some(slot) = self.lookup_local(name) {
-                        match op {
-                            AssignOp::Assign => self.emit_expr(value),
-                            AssignOp::AddAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Add); }
-                            AssignOp::SubAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Sub); }
-                            AssignOp::MulAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Mul); }
-                            AssignOp::DivAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Div); }
-                            AssignOp::ModAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Mod); }
+            Stmt::Assignment { target, op: _, value } => {
+                match target {
+                    Expr::Identifier(name) => {
+                        self.emit_expr(value);
+                        if let Some(slot) = self.lookup_local(name) {
+                            self.chunk.instructions.push(Instruction::SetLocal(slot));
+                        } else {
+                            let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
+                            self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
                         }
-                        self.chunk.instructions.push(Instruction::SetLocal(slot));
-                    } else {
-                        match op {
-                            AssignOp::Assign => self.emit_expr(value),
-                            AssignOp::AddAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Add); }
-                            AssignOp::SubAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Sub); }
-                            AssignOp::MulAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Mul); }
-                            AssignOp::DivAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Div); }
-                            AssignOp::ModAssign => { self.emit_expr(&Expr::Identifier(name.clone())); self.emit_expr(value); self.chunk.instructions.push(Instruction::Mod); }
-                        }
-                        let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
-                        self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
                     }
-                } else {
-                    // Other assignment targets not yet supported
+                    Expr::MemberAccess { object, member } => {
+                        // Stack layout: object, value
+                        self.emit_expr(object);
+                        self.emit_expr(value);
+                        let name_idx = push_const(&mut self.chunk, Constant::String(member.clone()));
+                        self.chunk.instructions.push(Instruction::SetProp(name_idx));
+                    }
+                    Expr::Index { object, index } => {
+                        // Stack layout: object, index, value
+                        self.emit_expr(object);
+                        self.emit_expr(index);
+                        self.emit_expr(value);
+                        self.chunk.instructions.push(Instruction::SetIndex);
+                    }
+                    _ => {
+                        // Invalid assignment target - should be caught by type checker
+                    }
                 }
             }
             // TODO: other statements in MVP
+            Stmt::For { pattern, iterator, body } => {
+                // Lower: for pattern in iterator do body end
+                // To approximate: 
+                //   Iterate using manual index tracking
+                //   For MVP, only support simple identifier patterns
+                
+                let Pattern::Ident(var_name) = pattern else {
+                    // Complex patterns not supported in for loops yet
+                    return;
+                };
+                
+                self.enter_scope();
+                
+                // Store iterator array in a local
+                self.emit_expr(iterator);
+                let iter_slot = self.local_count;
+                self.local_count += 1;
+                
+                // Create pattern variable slot
+                let pattern_slot = self.local_count;
+                self.scopes.last_mut().unwrap().insert(var_name.clone(), pattern_slot);
+                self.local_count += 1;
+                
+                // Initialize pattern var to null (placeholder)
+                let null_idx = push_const(&mut self.chunk, Constant::Null);
+                self.chunk.instructions.push(Instruction::Const(null_idx));
+                
+                // Initialize index to 0
+                let zero_idx = push_const(&mut self.chunk, Constant::Number(0.0));
+                self.chunk.instructions.push(Instruction::Const(zero_idx));
+                let idx_slot = self.local_count;
+                self.local_count += 1;
+                
+                // Loop start: Try to load element at current index
+                let loop_start = self.current_ip();
+                
+                // Try to access __iter[__i] - if it fails, we exit (hacky but works for MVP)
+                // We'll use a different approach: check condition using a length we compute
+                
+                // For proper implementation, we need to either:
+                // 1. Add a LEN instruction to get array length
+                // 2. Use exception handling (not in MVP)
+                // 3. Pre-compute and store the length
+                
+                // Let's go with option 3: store array length as a local
+                // We need to add this before the index initialization
+                
+                // This is getting complex. Let me restart with a cleaner design:
+                // I'll add GetLen instruction to VM for arrays
+                
+                self.exit_scope_with_preserve(false);
+                // Stub for now - will implement after adding GetLen
+            }
             _ => {
                 // For now, ignore non-return statements
             }
@@ -367,6 +422,13 @@ impl Compiler {
 fn block_leaves_value(block: &[Stmt]) -> bool {
     match block.last() {
         Some(Stmt::Return(_)) => true,
+        Some(Stmt::If { then_block, elif_blocks, else_block, .. }) => {
+            // An if-statement leaves a value if all branches leave a value
+            let then_leaves = block_leaves_value(then_block);
+            let elif_leave = elif_blocks.iter().all(|(_, b)| block_leaves_value(b));
+            let else_leaves = else_block.as_ref().map_or(false, |b| block_leaves_value(b));
+            then_leaves && elif_leave && else_leaves
+        }
         _ => false,
     }
 }

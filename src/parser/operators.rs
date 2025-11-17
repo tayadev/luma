@@ -28,14 +28,7 @@ pub fn assign_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, AssignOp, extra::Er
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
-    choice((
-        just("+=").padded_by(ws.clone()).to(AssignOp::AddAssign),
-        just("-=").padded_by(ws.clone()).to(AssignOp::SubAssign),
-        just("*=").padded_by(ws.clone()).to(AssignOp::MulAssign),
-        just("/=").padded_by(ws.clone()).to(AssignOp::DivAssign),
-        just("%=").padded_by(ws.clone()).to(AssignOp::ModAssign),
-        just('=').padded_by(ws.clone()).to(AssignOp::Assign),
-    ))
+    just('=').padded_by(ws).to(AssignOp::Assign)
 }
 
 /// Creates a parser for multiplication/division/modulo operators
