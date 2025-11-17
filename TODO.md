@@ -93,10 +93,10 @@
   - Bytecode compiler fully implemented for `Stmt::DestructuringVarDecl`
   - Array destructuring: `let [a, b] = [1, 2]` works correctly
   - Table destructuring: `let {name, age} = person` works correctly
-  - Rest patterns: `let [head, ...tail] = array` works (assigns whole array, not slice)
+  - Rest patterns: `let [head, ...tail] = array` works correctly with proper slicing
   - Works in both global and local scopes
   - **Status**: Fully functional for simple patterns
-  - **Known limitation**: Rest pattern assigns entire array instead of slice (documented in compiler)
+  - **Implementation**: Added `SliceArray` instruction to VM for efficient array slicing
 
 - [x] **String Concatenation Type Error** ✅ FIXED - VM supports `String + String`, now type checker does too
   - Updated type checker to allow `String + String → String`

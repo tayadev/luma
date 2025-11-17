@@ -302,9 +302,10 @@ impl Compiler {
                             
                             // Handle rest pattern (e.g., ...tail)
                             if let Some(rest_name) = rest {
-                                self.chunk.instructions.push(Instruction::Dup); // dup array
                                 // Build array slice from elements.len() onwards
-                                // For MVP: just assign the whole array (TODO: implement proper slicing)
+                                let start_index = elements.len();
+                                self.chunk.instructions.push(Instruction::Dup); // dup array
+                                self.chunk.instructions.push(Instruction::SliceArray(start_index));
                                 let name_idx = push_const(&mut self.chunk, Constant::String(rest_name.clone()));
                                 self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
                             } else {
@@ -354,8 +355,9 @@ impl Compiler {
                             
                             // Handle rest
                             if let Some(rest_name) = rest {
+                                let start_index = elements.len();
                                 self.chunk.instructions.push(Instruction::GetLocal(value_slot));
-                                // For MVP: assign whole array (TODO: slice)
+                                self.chunk.instructions.push(Instruction::SliceArray(start_index));
                                 let rest_slot = self.local_count;
                                 self.scopes.last_mut().unwrap().insert(rest_name.clone(), rest_slot);
                                 self.local_count += 1;
