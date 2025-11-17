@@ -1,0 +1,16 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "result",
+            type: Some(GenericType(
+                name: "Result",
+                type_args: [
+                    TypeIdent("String"),
+                    TypeIdent("Number"),
+                ],
+            )),
+            value: Null,
+        ),
+    ],
+)

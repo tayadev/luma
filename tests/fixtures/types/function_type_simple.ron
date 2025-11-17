@@ -1,0 +1,27 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "callback",
+            type: Some(FunctionType(
+                param_types: [
+                    TypeIdent("Number"),
+                ],
+                return_type: TypeIdent("String"),
+            )),
+            value: Function(
+                arguments: [
+                    Argument(
+                        name: "x",
+                        type: TypeIdent("Number"),
+                        default: None,
+                    ),
+                ],
+                return_type: Some(TypeIdent("String")),
+                body: [
+                    Return(String("value")),
+                ],
+            ),
+        ),
+    ],
+)

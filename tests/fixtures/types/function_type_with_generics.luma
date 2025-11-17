@@ -1,0 +1,3 @@
+let processor: fn(Array(Number)): Array(String) = fn(nums: Array(Number)): Array(String) do
+  []
+end

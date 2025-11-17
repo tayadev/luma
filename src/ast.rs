@@ -11,6 +11,15 @@ pub struct Argument {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Type {
     TypeIdent(String),
+    GenericType {
+        name: String,
+        type_args: Vec<Type>,
+    },
+    FunctionType {
+        param_types: Vec<Type>,
+        return_type: Box<Type>,
+    },
+    Any,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

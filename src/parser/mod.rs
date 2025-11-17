@@ -24,7 +24,82 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
             }
         })
         .padded_by(ws.clone());
-    let type_parser = ident.clone().map(|s: &str| Type::TypeIdent(s.to_string()));
+    
+    // Type parser - handles TypeIdent, GenericType, FunctionType, and Any
+    let mut type_ref = Recursive::declare();
+    
+    // Parse "Any" keyword as a type
+    let any_type = just("Any")
+        .padded_by(ws.clone())
+        .to(Type::Any);
+    
+    // Parse simple type identifier (not "Any")
+    let type_ident = text::ident()
+        .try_map(move |s: &str, span| {
+            if s == "Any" {
+                // "Any" should be parsed by any_type parser
+                Err(Rich::custom(span, ""))
+            } else if lexer::KEYWORDS.contains(&s) {
+                Err(Rich::custom(span, format!("'{}' is a keyword and cannot be used as a type", s)))
+            } else {
+                Ok(Type::TypeIdent(s.to_string()))
+            }
+        })
+        .padded_by(ws.clone());
+    
+    // Parse function type: fn(Type, Type, ...): Type
+    let function_type = just("fn")
+        .padded_by(ws.clone())
+        .ignore_then(
+            type_ref.clone()
+                .separated_by(just(',').padded_by(ws.clone()))
+                .allow_trailing()
+                .collect::<Vec<Type>>()
+                .delimited_by(
+                    just('(').padded_by(ws.clone()),
+                    just(')').padded_by(ws.clone())
+                )
+        )
+        .then_ignore(just(':').padded_by(ws.clone()))
+        .then(type_ref.clone())
+        .map(|(param_types, return_type)| Type::FunctionType {
+            param_types,
+            return_type: Box::new(return_type),
+        });
+    
+    // Parse generic type: TypeIdent(Type, Type, ...)
+    let generic_type = text::ident()
+        .try_map(move |s: &str, span| {
+            if lexer::KEYWORDS.contains(&s) {
+                Err(Rich::custom(span, format!("'{}' is a keyword and cannot be used as a type", s)))
+            } else {
+                Ok(s.to_string())
+            }
+        })
+        .padded_by(ws.clone())
+        .then(
+            type_ref.clone()
+                .separated_by(just(',').padded_by(ws.clone()))
+                .at_least(1)
+                .allow_trailing()
+                .collect::<Vec<Type>>()
+                .delimited_by(
+                    just('(').padded_by(ws.clone()),
+                    just(')').padded_by(ws.clone())
+                )
+        )
+        .map(|(name, type_args)| Type::GenericType { name, type_args });
+    
+    // Combine all type parsers, with priority: function > generic > any > ident
+    let type_parser = choice((
+        function_type.boxed(),
+        generic_type.boxed(),
+        any_type.boxed(),
+        type_ident.boxed(),
+    ));
+    
+    type_ref.define(type_parser.clone());
+    
     let number = literals::number(ws.clone());
 
     // Recursive expression and statement placeholders

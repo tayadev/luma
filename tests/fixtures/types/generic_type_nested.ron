@@ -1,0 +1,29 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "matrix",
+            type: Some(GenericType(
+                name: "Array",
+                type_args: [
+                    GenericType(
+                        name: "Array",
+                        type_args: [
+                            TypeIdent("Number"),
+                        ],
+                    ),
+                ],
+            )),
+            value: Array([
+                Array([
+                    Number(1.0),
+                    Number(2.0),
+                ]),
+                Array([
+                    Number(3.0),
+                    Number(4.0),
+                ]),
+            ]),
+        ),
+    ],
+)
