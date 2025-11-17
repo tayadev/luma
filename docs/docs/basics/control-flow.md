@@ -8,11 +8,21 @@ Luma provides standard control flow statements with a consistent `do...end` bloc
 
 ## Conditional Statements
 
-### If Statement
+### Basic If Statement
 
 ```luma
 if condition do
-  -- code block
+  -- executed if condition is truthy
+end
+```
+
+### If-Else
+
+```luma
+if condition do
+  -- if branch
+else do
+  -- else branch
 end
 ```
 
@@ -20,11 +30,13 @@ end
 
 ```luma
 if condition1 do
-  -- code block 1
-elif condition2 do
-  -- code block 2
+  -- branch 1
+else if condition2 do
+  -- branch 2
+else if condition3 do
+  -- branch 3
 else do
-  -- code block 3
+  -- default branch
 end
 ```
 
@@ -35,17 +47,37 @@ let age = 18
 
 if age < 13 do
   print("Child")
-elif age < 18 do
+else if age < 18 do
   print("Teenager")
 else do
   print("Adult")
 end
 ```
 
+### Conditional Expressions
+
+`if` can be used as an expression:
+
+```luma
+let max = if a > b do a else do b end
+```
+
+## Truthiness
+
+- **Truthy:** all values except `false` and `null`
+- **Falsy:** `false` and `null`
+
 ## Loops
 
 ### While Loop
 
+```luma
+while condition do
+  -- body
+end
+```
+
+**Example:**
 ```luma
 var count = 0
 while count < 5 do
@@ -56,8 +88,15 @@ end
 
 ### Do-While Loop
 
-Executes the block at least once:
+Executes the body at least once:
 
+```luma
+do
+  -- body (executes at least once)
+while condition end
+```
+
+**Example:**
 ```luma
 var count = 0
 do
@@ -66,17 +105,33 @@ do
 while count < 5 end
 ```
 
-### For Loop
-
-Iterate over arrays and other iterables:
+### For-In Loops
 
 ```luma
-for n in [1, 2, 3] do
-  print(n)
+for item in iterable do
+  -- body
 end
 ```
 
-#### Range-based Loops
+**Loop variables are immutable** and scoped to the loop body.
+
+#### Array Iteration
+
+```luma
+for item in [1, 2, 3] do
+  print(item)
+end
+```
+
+#### Table Iteration
+
+```luma
+for [key, value] in table do
+  print(key, value)
+end
+```
+
+#### Range Iteration
 
 ```luma
 for n in range(1, 10) do
@@ -84,34 +139,11 @@ for n in range(1, 10) do
 end
 ```
 
-#### Loop Variables
-
-Loop variables are **always immutable** and scoped to the loop body:
+#### Indexed Iteration
 
 ```luma
-for item in items do
-  -- item is immutable here
-  -- item = "new"  -- Error!
-end
-```
-
-### Destructuring in Loops
-
-#### Table Iteration
-
-```luma
-let myTable = { a = 1, b = 2 }
-for [key, value] in myTable do
-  print(key, value)
-end
-```
-
-#### Array with Index
-
-```luma
-let myArray = [10, 20, 30]
-for [value, index] in myArray.indexed() do
-  print(index, value)
+for [item, index] in array.indexed() do
+  print(index, item)
 end
 ```
 
@@ -119,7 +151,7 @@ end
 
 ### Break
 
-Exit the loop immediately:
+Exit the innermost loop immediately:
 
 ```luma
 for n in [1, 2, 3, 4, 5] do
@@ -143,8 +175,17 @@ end
 
 ### Nested Loops
 
-Specify levels to break or continue:
+Specify levels to break or continue in outer loops:
 
+```luma
+break                              -- exit innermost loop
+break 2                            -- exit 2 nested loops
+
+continue                           -- skip to next iteration
+continue 2                         -- skip in outer loop
+```
+
+**Example:**
 ```luma
 for i in [1, 2, 3] do
   for j in [1, 2, 3] do
@@ -156,13 +197,20 @@ end
 
 ## Blocks
 
-All blocks use `do...end` syntax. Indentation is irrelevant:
+All blocks use `do...end` syntax:
 
 ```luma
 if x > 0 do
   print("positive")
 end
 
--- This is also valid (though not recommended style):
-if x > 0 do print("positive") end
+while condition do
+  -- loop body
+end
+
+for item in items do
+  -- loop body
+end
 ```
+
+Indentation is for readability but is not syntactically significant.

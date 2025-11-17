@@ -6,72 +6,121 @@ sidebar_position: 3
 
 Functions are first-class values in Luma.
 
-## Basic Function Syntax
+## Function Definition
 
+```luma
+fn name(param1: Type1, param2: Type2): ReturnType do
+  -- body
+end
+```
+
+**Anonymous functions:**
 ```luma
 let add = fn(a: Number, b: Number): Number do
   return a + b
 end
-
-let result = add(2, 3)  -- 5
 ```
 
-## Implicit Returns
+## Parameters
 
-Functions implicitly return the value of the last expression if no `return` statement is used:
+### Required Parameters
 
 ```luma
-let add = fn(a: Number, b: Number): Number do
-  a + b  -- implicitly returned
+fn greet(name: String): String do
+  return "Hello, ${name}!"
 end
 ```
 
-## Optional Parameters
+### Optional Parameters
 
 Parameters can have default values:
 
 ```luma
-let greet = fn(name: String = "World"): String do
-  return "Hello, ${name}!"
+fn greet(name: String, title: String = "Friend"): String do
+  return "Hello, ${title} ${name}!"
 end
 
-greet()         -- "Hello, World!"
-greet("Alice")  -- "Hello, Alice!"
+greet("Alice")                     -- "Hello, Friend Alice!"
+greet("Bob", "Dr.")                -- "Hello, Dr. Bob!"
 ```
 
-## Single-Parameter Calls
+## Function Calls
 
-Parentheses are optional for single-argument calls:
+### Positional Arguments
+
+Parentheses are **required** for all function calls:
 
 ```luma
-let square = fn(x: Number): Number do
-  return x * x
-end
-
-square 5  -- 25
-square(5) -- also valid
+add(2, 3)
+greet("Alice", "Ms.")
+func()                             -- no arguments
 ```
 
-## Named Arguments
+### Named Arguments
 
 Arguments can be passed by name:
 
 ```luma
-let divide = fn(a: Number, b: Number): Number do
-  return a / b
-end
-
-divide(a = 10, b = 2)  -- 5
-divide(b = 2, a = 10)  -- order doesn't matter with named args
+add(a = 2, b = 3)
+greet(name = "Alice", title = "Dr.")
+greet(title = "Dr.", name = "Alice")    -- order doesn't matter
 ```
 
-## Multiple Parameters
+**Mixing positional and named:**
+```luma
+greet("Alice", title = "Dr.")      -- positional then named
+```
 
-Multiple arguments require parentheses:
+## Return Types
+
+### Explicit Returns
 
 ```luma
-let result = add(2, 3)
-let result = add(a = 2, b = 3)
+fn factorial(n: Number): Number do
+  if n <= 1 do
+    return 1
+  end
+  return n * factorial(n - 1)
+end
+```
+
+### Implicit Returns
+
+If a function/block doesn't end with explicit `return`, the last expression becomes an implicit return:
+
+```luma
+fn add(a: Number, b: Number): Number do
+  a + b                            -- implicitly returned
+end
+```
+
+### Void Functions
+
+Functions that don't return a meaningful value return `null`:
+
+```luma
+fn printMessage(msg: String): Null do
+  print(msg)
+end
+```
+
+## Closures
+
+Functions capture variables from their enclosing scope:
+
+```luma
+fn makeCounter(): fn(): Number do
+  var count = 0
+  return fn(): Number do
+    count = count + 1
+    return count
+  end
+end
+
+let counter = makeCounter()
+print(counter())                   -- 1
+print(counter())                   -- 2
+print(counter())                   -- 3
 ```
 
 ## Higher-Order Functions
@@ -79,23 +128,16 @@ let result = add(a = 2, b = 3)
 Functions can accept and return other functions:
 
 ```luma
-let makeMultiplier = fn(factor: Number): Function do
-  return fn(x: Number): Number do
-    return x * factor
+fn map(array: Array(Any), f: fn(Any): Any): Array(Any) do
+  let result = []
+  for item in array do
+    result.push(f(item))
   end
+  return result
 end
 
-let double = makeMultiplier(2)
-double(5)  -- 10
-```
-
-## Anonymous Functions
-
-Functions don't need to be assigned to variables:
-
-```luma
-let numbers = [1, 2, 3, 4, 5]
-let doubled = numbers.map(fn(x: Number): Number do x * 2 end)
+let doubled = map([1, 2, 3], fn(x) do x * 2 end)
+-- [2, 4, 6]
 ```
 
 ## Next Steps

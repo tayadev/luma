@@ -4,45 +4,65 @@ sidebar_position: 1
 
 # Async and Await
 
-Luma has first-class support for asynchronous programming.
+Luma has first-class support for asynchronous programming with native async/await.
 
-## Async Functions
+## Promises
 
-Functions that contain `await` and return a `Promise` are automatically treated as async:
+Asynchronous operations return `Promise(T)`:
 
 ```luma
-let fetchData = fn(url: String): Result(String, Error) do
-  let res = await http.get(url)
-  return res
+let fetchData = fn(url: String): Promise(String) do
+  -- returns promise
 end
 ```
-
-When called, this function returns `Promise(Result(String, Error))`.
 
 ## The await Keyword
 
-`await` suspends execution until a Promise resolves:
+`await` suspends execution until a promise resolves:
 
 ```luma
-let fetchDog = fn(id: String): Result(Dog, Error) do
-  let data = await http.get("https://dogs.api/" + id)
-  return cast(Dog, data)
+let fetchUser = fn(id: String): Result(User, Error) do
+  let response = await http.get("/users/${id}")
+  return parseUser(response)
 end
-
--- Calling without await returns a Promise
-let promise = fetchDog("123")  -- Promise(Result(Dog, Error))
-
--- Using await resolves the Promise
-let result = await fetchDog("123")  -- Result(Dog, Error)
 ```
 
-## Promise Type
+**Type transformation:**
+- `await Promise(T)` → `T`
 
-`await` transforms `Promise(T)` → `T`:
+## Async Function Inference
+
+Functions are automatically async if they:
+1. Contain `await` expressions
+2. Return a `Promise` type
 
 ```luma
-let promise: Promise(Number) = asyncOperation()
-let value: Number = await promise
+fn fetchAndProcess(id: String): Promise(Result(Data, Error)) do
+  let raw = await fetchData(id)
+  return process(raw)
+end
+```
+
+When called, this function returns `Promise(Result(Data, Error))`.
+
+## Sequential vs Concurrent Execution
+
+### Sequential Execution
+
+```luma
+let data1 = await fetch("/api/data1")
+let data2 = await fetch("/api/data2")
+-- Total time: time1 + time2
+```
+
+### Concurrent Execution
+
+```luma
+let promise1 = fetch("/api/data1")
+let promise2 = fetch("/api/data2")
+let data1 = await promise1
+let data2 = await promise2
+-- Total time: max(time1, time2)
 ```
 
 ## Error Handling with Async
@@ -50,54 +70,33 @@ let value: Number = await promise
 Combine async/await with Result types for robust error handling:
 
 ```luma
-let processData = fn(url: String): Result(Data, Error) do
-  let response = await http.get(url)
-  
-  match response do
-    ok do
-      return Result.ok(parseData(response.ok))
-    end
-    err do
-      return Result.err(response.err)
-    end
+fn fetchUser(id: String): Promise(Result(User, Error)) do
+  let response = await http.get("/users/${id}")
+  if response.err != null do
+    return { ok = null, err = response.err }
   end
+  return parseUser(response.ok)
 end
 ```
 
-## Parallel Execution
+## Example: Parallel Execution
 
-Execute multiple async operations in parallel:
+Execute multiple async operations concurrently:
 
 ```luma
 let fetchUser = fn(id: String): Promise(User) do
-  await http.get("/users/" + id)
+  await http.get("/users/${id}")
 end
 
 let fetchPosts = fn(userId: String): Promise(Array(Post)) do
-  await http.get("/posts?user=" + userId)
+  await http.get("/posts?user=${userId}")
 end
 
--- Wait for all promises
-let [user, posts] = await Promise.all([
-  fetchUser("123"),
-  fetchPosts("123")
-])
-```
+-- Start both operations
+let userPromise = fetchUser("123")
+let postsPromise = fetchPosts("123")
 
-## Async Inference
-
-Async behavior is inferred from:
-1. Presence of `await` in function body
-2. `Promise` return type annotation
-
-```luma
--- Explicitly async
-let getData = fn(): Promise(String) do
-  await fetch("data.txt")
-end
-
--- Implicitly async (inferred from await)
-let getData = fn(): String do
-  await fetch("data.txt")  -- return type becomes Promise(String)
-end
+-- Wait for both
+let user = await userPromise
+let posts = await postsPromise
 ```

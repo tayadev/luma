@@ -8,11 +8,11 @@ sidebar_position: 1
 
 Luma is currently in active development. The current implementation includes:
 
-- ✅ Lexer - Tokenization of source code
-- ✅ Parser - Parsing tokens into Abstract Syntax Tree (AST)
-- 🚧 Type Checker - In development
-- 🚧 Compiler - In development
-- 🚧 Virtual Machine - In development
+- ✅ Lexer — Complete tokenization of source code
+- ✅ Parser — Complete parsing of tokens into Abstract Syntax Tree (AST)
+- 🚧 Type Checker — In development
+- 🚧 Compiler — In development
+- 🚧 Virtual Machine — In development
 
 ## Building from Source
 
@@ -44,6 +44,29 @@ The current implementation includes a CLI tool for parsing Luma source files:
 ```
 
 This will parse the file and output the resulting AST in debug format.
+
+## What Works Now
+
+The parser can currently handle:
+
+- ✅ All literal types (numbers, strings, booleans, null, arrays, tables)
+- ✅ Variables and destructuring (`let`, `var`)
+- ✅ Functions with parameters and closures
+- ✅ All control flow (if/else, while, do-while, for-in, break, continue)
+- ✅ Pattern matching (`match` expressions)
+- ✅ All operators (arithmetic, comparison, logical)
+- ✅ String interpolation
+- ✅ Comments (single-line and multi-line)
+- ✅ Type annotations
+
+## What's Coming Next
+
+- Type checking and inference
+- Bytecode compilation
+- Virtual machine/interpreter
+- Standard library implementation
+- Async/await runtime support
+- Module system and imports
 
 ## Next Steps
 

@@ -15,17 +15,10 @@ let Weight = {
   grams = Number,
   
   __into = fn(self: Weight, target: Type): Any do
-    match target do
-      String do
-        return self.grams + "g"
-      end
-      Number do
-        return self.grams
-      end
-      _ do
-        return null  -- Conversion not supported
-      end
+    if target == String do
+      return "${self.grams}g"
     end
+    return null  -- Conversion not supported
   end,
   
   new = fn(grams: Number): Weight do
@@ -34,15 +27,14 @@ let Weight = {
 }
 ```
 
-## Using Conversions
+## Using the into() Function
 
-Use `into()` to convert values:
+The `into()` function internally calls `__into`:
 
 ```luma
 let weight = Weight.new(1000)
 
 let str: String = into(weight, String)  -- "1000g"
-let num: Number = into(weight, Number)  -- 1000
 ```
 
 ## Print and Conversions
@@ -65,7 +57,7 @@ let Temperature = {
   __into = fn(self: Temperature, target: Type): Any do
     match target do
       String do
-        return self.celsius + "°C"
+        return "${self.celsius}°C"
       end
       Number do
         return self.celsius
@@ -95,7 +87,7 @@ let thing = Thing.new(42)
 -- print(thing)  -- Error: Cannot convert Thing to String
 ```
 
-## Common Conversions
+## Common Conversion Patterns
 
 ### To String
 
@@ -103,14 +95,10 @@ Most types should support conversion to String for printing:
 
 ```luma
 __into = fn(self: MyType, target: Type): Any do
-  match target do
-    String do
-      return "MyType(" + self.field + ")"
-    end
-    _ do
-      return null
-    end
+  if target == String do
+    return "MyType(${self.field})"
   end
+  return null
 end
 ```
 
@@ -120,17 +108,13 @@ For numeric types:
 
 ```luma
 __into = fn(self: Distance, target: Type): Any do
-  match target do
-    Number do
-      return self.meters
-    end
-    String do
-      return self.meters + "m"
-    end
-    _ do
-      return null
-    end
+  if target == Number do
+    return self.meters
   end
+  if target == String do
+    return "${self.meters}m"
+  end
+  return null
 end
 ```
 
@@ -143,21 +127,17 @@ let Optional = {
   value = Any,
   
   __into = fn(self: Optional, target: Type): Any do
-    match target do
-      Boolean do
-        return self.value != null
-      end
-      String do
-        if self.value != null do
-          return "Some(" + self.value + ")"
-        else do
-          return "None"
-        end
-      end
-      _ do
-        return null
+    if target == Boolean do
+      return self.value != null
+    end
+    if target == String do
+      if self.value != null do
+        return "Some(${self.value})"
+      else do
+        return "None"
       end
     end
+    return null
   end
 }
 ```
@@ -167,27 +147,23 @@ let Optional = {
 1. **Always support String conversion** for debuggability:
    ```luma
    __into = fn(self: MyType, target: Type): Any do
-     match target do
-       String do return "..." end
-       _ do return null end
-     end
+     if target == String do return "..." end
+     return null
    end
    ```
 
 2. **Return null for unsupported conversions**:
    ```luma
-   match target do
-     SupportedType do -- convert
-     _ do return null end  -- not supported
+   if target == SupportedType do
+     -- convert
    end
+   return null  -- not supported
    ```
 
 3. **Make conversions intuitive**:
-   ```luma
-   -- Distance to Number → meters (not kilometers)
-   -- Money to Number → cents (smallest unit)
-   -- Temperature to String → include unit
-   ```
+   - Distance to Number → meters (not kilometers)
+   - Money to Number → cents (smallest unit)
+   - Temperature to String → include unit
 
 4. **Document conversion behavior**:
    ```luma
@@ -195,14 +171,13 @@ let Optional = {
    Conversions:
    - To String: Returns "Weight{grams}g"
    - To Number: Returns grams as Number
-   - To Kilograms: Returns Weight in kg
    ]]
    __into = fn(self: Weight, target: Type): Any do
      -- implementation
    end
    ```
 
-## Implicit vs Explicit Conversions
+## Explicit Conversions
 
 Luma conversions are always **explicit**:
 

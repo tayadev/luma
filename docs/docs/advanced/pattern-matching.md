@@ -6,15 +6,15 @@ sidebar_position: 2
 
 Pattern matching allows you to match values against patterns and execute code based on the match.
 
-## Basic Match
+## Match Expression
 
 ```luma
 match value do
   pattern1 do
-    -- code for pattern1
+    -- branch 1
   end
   pattern2 do
-    -- code for pattern2
+    -- branch 2
   end
   _ do
     -- default case
@@ -22,68 +22,21 @@ match value do
 end
 ```
 
-## Matching Result Types
+## Pattern Types
 
-Pattern matching is commonly used with `Result` types:
+### Literal Patterns
+
+Match specific literal values:
 
 ```luma
-let readFile = fn(path: String): Result(String, Error) do
-  -- implementation
-end
-
-let result = readFile("data.txt")
-
-match result do
-  ok do
-    print("Success: " + result.ok)
-  end
-  err do
-    print("Error: " + result.err)
-  end
+match x do
+  0 do print("zero") end
+  1 do print("one") end
+  _ do print("other") end
 end
 ```
 
-## Matching Option Types
-
-```luma
-let findUser = fn(id: String): Option(User) do
-  -- implementation
-end
-
-let user = findUser("123")
-
-match user do
-  some do
-    print("Found: " + user.value.name)
-  end
-  none do
-    print("User not found")
-  end
-end
-```
-
-## Default Case
-
-The `_` pattern matches anything and is required if not all cases are covered:
-
-```luma
-match status do
-  "active" do
-    print("User is active")
-  end
-  "inactive" do
-    print("User is inactive")
-  end
-  _ do
-    print("Unknown status")
-  end
-end
-```
-
-## Pattern Matching with Values
-
-Match specific values:
-
+**Example with strings:**
 ```luma
 let day = "Monday"
 
@@ -96,23 +49,48 @@ match day do
 end
 ```
 
-## Pattern Matching with Types
+### Type Patterns
 
-Match based on type:
+Match on Result/Option types:
+
+```luma
+match result do
+  ok do
+    print("Success: ${result.ok}")
+  end
+  err do
+    print("Error: ${result.err}")
+  end
+end
+```
+
+**With Option:**
+```luma
+let user = findUser("123")
+
+match user do
+  some do
+    print("Found: ${user.value.name}")
+  end
+  none do
+    print("User not found")
+  end
+end
+```
+
+### Wildcard Pattern
+
+The `_` pattern matches any value:
 
 ```luma
 match value do
-  Number do print("It's a number") end
-  String do print("It's a string") end
-  _ do print("Unknown type") end
+  _ do print("matches anything") end
 end
 ```
 
 ## Exhaustiveness
 
-Pattern matching must be exhaustive. Either:
-1. Cover all possible cases, or
-2. Include a `_` default case
+Pattern matching must be exhaustive. If not all cases are covered, a `_` wildcard is required.
 
 ```luma
 -- Error: not exhaustive (missing default case)
@@ -127,12 +105,57 @@ match result do
 end
 ```
 
-## Combining Patterns
+## Common Use Cases
 
-Patterns work with:
-- `Result(OkType, ErrType)`
-- `Option(T)`
-- Enums (when available)
-- Union types (when available)
-- Literal values
-- Type matching
+### Error Handling
+
+```luma
+let result = readFile("data.txt")
+
+match result do
+  ok do
+    print("File contents: ${result.ok}")
+  end
+  err do
+    print("Error: ${result.err}")
+  end
+end
+```
+
+### State Machines
+
+```luma
+match status do
+  "active" do
+    print("User is active")
+  end
+  "inactive" do
+    print("User is inactive")
+  end
+  "pending" do
+    print("User is pending approval")
+  end
+  _ do
+    print("Unknown status")
+  end
+end
+```
+
+### Pattern Matching vs Conditionals
+
+Pattern matching provides cleaner syntax for multi-way branching compared to if-else chains:
+
+```luma
+-- With if-else
+if result.ok != null do
+  print("Success")
+else do
+  print("Error")
+end
+
+-- With pattern matching (preferred)
+match result do
+  ok do print("Success") end
+  err do print("Error") end
+end
+```

@@ -2,39 +2,157 @@
 sidebar_position: 4
 ---
 
-# Types and Instances
+# Types and Values
 
-Luma has a rich type system that supports custom types, inheritance, and traits.
+Luma has a rich type system that supports primitive types, composite types, generic types, and user-defined types.
 
-## Built-in Types
+## Type Categories
 
-Luma provides several built-in types:
+Luma has the following type categories:
 
-- `Any` - Supertype of all types
-- `Number` - 64-bit floating point
-- `String` - UTF-8 string
-- `Boolean` - `true` or `false`
-- `Array(T)` - Array of elements of type T
-- `Table` - Untyped table (key-value pairs)
-- `Result(OkType, ErrType)` - Success/failure result
-- `Option(T)` - Optional value (may be `null`)
+- **Primitive types**: `Number`, `Boolean`, `String`, `Null`
+- **Composite types**: `Array(T)`, `Table`
+- **Function types**: `fn(T1, T2): R`
+- **Generic types**: `Result(T, E)`, `Option(T)`, `Promise(T)`
+- **User-defined types**: Custom types and traits
+- **Universal type**: `Any`
+
+## Primitive Types
+
+### Number
+
+64-bit floating-point numbers (IEEE 754 double precision).
+
+**Range:** ±5.0 × 10⁻³²⁴ to ±1.7 × 10³⁰⁸  
+**Precision:** ~15-17 significant decimal digits
+
+**Special values:**
+- `Infinity` — positive infinity
+- `-Infinity` — negative infinity
+- `NaN` — not a number
+
+### Boolean
+
+Two values: `true` and `false`
+
+### String
+
+UTF-8 encoded, immutable text sequences.
+
+### Null
+
+The `null` type has a single value: `null`, representing the absence of a value.
+
+## Composite Types
+
+### Array(T)
+
+Generic, ordered collection of elements of type `T`.
+
+**Operations:**
+- Indexing: `array[index]`
+- Length: `array.length()`
+- Iteration: `for item in array`
+
+**Example:**
+```luma
+let numbers: Array(Number) = [1, 2, 3, 4, 5]
+let first = numbers[0]              -- 1
+let length = numbers.length()       -- 5
+```
+
+### Table
+
+Unordered key-value mapping with string keys.
+
+**Operations:**
+- Access: `table.key` or `table["key"]`
+- Membership: `"key" in table`
+- Iteration: `for [key, value] in table`
+
+**Example:**
+```luma
+let person = {
+  name = "Alice",
+  age = 30,
+  email = "alice@example.com"
+}
+
+let name = person.name              -- "Alice"
+let hasAge = "age" in person        -- true
+```
+
+## Generic Types
+
+### Result(T, E)
+
+Represents a value that is either a success (`ok`) or failure (`err`).
+
+```luma
+let Result = {
+  ok = Any,
+  err = Any
+}
+```
+
+**Usage:**
+```luma
+fn divide(a: Number, b: Number): Result(Number, String) do
+  if b == 0 do
+    return { ok = null, err = "Division by zero" }
+  end
+  return { ok = a / b, err = null }
+end
+```
+
+### Option(T)
+
+Represents an optional value that may be `some(value)` or `none`.
+
+```luma
+let Option = {
+  some = Any,
+  none = Boolean
+}
+```
+
+### Promise(T)
+
+Represents an asynchronous computation that will eventually produce a value of type `T`.
+
+See [§10 Concurrency and Async](../advanced/async-await.md).
+
+## Type Any
+
+The `Any` type is the supertype of all types. Any value can be assigned to an `Any` variable.
+
+```luma
+var value: Any = 42
+value = "string"
+value = [1, 2, 3]
+```
 
 ## Defining Custom Types
 
-Types are defined as tables with fields and methods:
+Types are defined as tables with field specifications:
 
 ```luma
-let Dog = {
+let Person = {
   name = String,
-  breed = String,
+  age = Number,
+  email = String,
 
-  speak = fn(self: Dog): String do
-    return "Woof! I am a " + self.breed
+  greet = fn(self: Person): String do
+    return "Hello, I'm ${self.name}"
   end,
 
-  new = fn(name: String, breed: String): Dog do
-    let raw = { name = name, breed = breed }
-    return cast(Dog, raw)
+  new = fn(name: String, age: Number, email: String): Person do
+    let raw = {
+      name = name,
+      age = age,
+      email = email
+    }
+    return cast(Person, raw)
   end
 }
 ```
@@ -44,57 +162,36 @@ let Dog = {
 Use the `new` method (or any constructor pattern):
 
 ```luma
-let rex = Dog.new("Rex", "Beagle")
-let sound = rex.speak()  -- "Woof! I am a Beagle"
+let alice = Person.new("Alice", 30, "alice@example.com")
+let greeting = alice.greet()
 ```
 
 ## Type Casting
 
-The `cast()` function validates fields and attaches the type prototype:
+The `cast` function validates and converts values to a specific type:
 
 ```luma
-let rex = cast(Dog, { name = "Rex", breed = "Beagle" })
+let person = cast(Person, {
+  name = "Alice",
+  age = 30,
+  email = "alice@example.com"
+})
 ```
 
-`cast(Type, table)` performs:
-1. Field validation
-2. Prototype attachment
-3. Inheritance merging
-
-## Fields
-
-Fields are declared as `field = Type`:
-
-```luma
-let Person = {
-  name = String,
-  age = Number,
-  tags = Array(String)
-}
-```
-
-## Methods
-
-Methods are fields that hold function values:
-
-```luma
-let Counter = {
-  count = Number,
-  
-  increment = fn(self: Counter): Number do
-    self.count = self.count + 1
-    return self.count
-  end
-}
-```
+**Behavior:**
+- Validates all required fields are present and correct types
+- Attaches type metadata
+- Merges inherited fields (if `__parent` is defined)
+- Returns typed value or throws error on validation failure
 
 ## Type Checking
 
-Use `isInstanceOf()` to check if a value is of a specific type:
+Check if a value is an instance of a type:
 
 ```luma
-let rex = Dog.new("Rex", "Beagle")
-isInstanceOf(rex, Dog)  -- true
+if isInstanceOf(value, Person) do
+  print("It's a person!")
+end
 ```
 
 ## Next Steps

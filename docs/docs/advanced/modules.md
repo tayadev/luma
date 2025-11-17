@@ -9,91 +9,90 @@ Luma has built-in dependency management through URL-based imports.
 ## Import Syntax
 
 ```luma
-let module = import "path/to/module.luma"
+let module = import("source")
 ```
 
-## Import Types
+`import()` is a built-in function that loads and evaluates a module, returning its exported value.
 
-### Local File Import
+## Import Sources
+
+### Local Files
 
 ```luma
-let utils = import "./utils.luma"
-let config = import "../config.luma"
+let utils = import("./utils.luma")
+let lib = import("../lib/helpers.luma")
 ```
 
-### HTTP(S) Import
+### HTTP/HTTPS URLs
 
 ```luma
-let http = import "https://example.com/http-client.luma"
+let http = import("https://example.com/http.luma")
 ```
 
-### Git Repository Import
+### Git Repositories
 
 ```luma
-let lib = import "git@github.com:user/repo.git"
+let lib = import("git@github.com:user/repo.git")
+let tagged = import("gh:user/repo@1.2.3")
 ```
 
-### GitHub Shorthand
+## Module Resolution
+
+**For URLs:**
+1. Download file to local cache (`~/.luma/cache`)
+2. Verify integrity (if lockfile exists)
+3. Parse and evaluate module
+4. Return module's exported value
+
+**For directories:**
+- If path is directory, look for `main.luma`
+
+## Module Exports
+
+Modules export the value of their last expression:
 
 ```luma
-let lib = import "gh:user/repo@1.2.3"
-```
+-- math.luma
+let pi = 3.14159
 
-The `@version` specifier is optional and supports:
-- Tags: `@1.2.3`
-- Branches: `@main`
-- Commits: `@abc123`
+let add = fn(a: Number, b: Number): Number do
+  return a + b
+end
 
-## Module Structure
-
-Modules export their value (usually a table with functions):
-
-```luma
--- math_utils.luma
-let MathUtils = {
-  add = fn(a: Number, b: Number): Number do
-    return a + b
-  end,
-  
-  multiply = fn(a: Number, b: Number): Number do
-    return a * b
-  end
+{
+  pi = pi,
+  add = add
 }
-
--- This is what gets imported
-MathUtils
 ```
 
 ```luma
 -- main.luma
-let math = import "./math_utils.luma"
-let result = math.add(2, 3)
+let math = import("./math.luma")
+print(math.pi)                     -- 3.14159
+print(math.add(2, 3))              -- 5
 ```
 
-## Directory Imports
+## Dependency Locking
 
-When importing a directory URL, Luma looks for `main.luma`:
+Dependencies are locked in `luma.lock`:
 
-```luma
-let package = import "https://example.com/my-package/"
--- Looks for https://example.com/my-package/main.luma
+```json
+{
+  "https://example.com/http.luma": {
+    "version": "1.2.3",
+    "integrity": "sha256-...",
+    "resolved": "2024-01-15T10:30:00Z"
+  }
+}
 ```
 
-## Caching
+## Circular Dependencies
 
-- Imports are synchronous
-- Remote modules are cached locally after first download
-- Cache location varies by platform
+Circular imports are detected and result in an error:
 
-## Lock File
-
-Dependencies are locked in `luma.lock` for reproducible builds:
-
-```luma
--- After first import, luma.lock records:
--- - Module URL
--- - Version/commit hash
--- - Integrity hash
+```
+Error: Circular dependency detected:
+  a.luma -> b.luma -> a.luma
 ```
 
 ## Import Properties
@@ -106,12 +105,12 @@ Dependencies are locked in `luma.lock` for reproducible builds:
 
 1. **Pin versions** for remote dependencies:
    ```luma
-   let lib = import "gh:user/repo@1.2.3"
+   let lib = import("gh:user/repo@1.2.3")
    ```
 
 2. **Use relative imports** for local modules:
    ```luma
-   let utils = import "./utils.luma"
+   let utils = import("./utils.luma")
    ```
 
 3. **Export a single value** from modules (usually a table):
@@ -139,9 +138,9 @@ project/
 
 ```luma
 -- main.luma
-let utils = import "./lib/utils.luma"
-let config = import "./config.luma"
-let http = import "gh:luma-lang/http@1.0.0"
+let utils = import("./lib/utils.luma")
+let config = import("./config.luma")
+let http = import("gh:luma-lang/http@1.0.0")
 
 -- Use imported modules
 let result = utils.process(config.settings)

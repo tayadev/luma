@@ -4,41 +4,60 @@ sidebar_position: 1
 
 # Traits
 
-Traits define interfaces that types can implement through structural matching.
+Traits define interfaces that types can implement through structural typing.
 
 ## Defining a Trait
 
 Traits are defined as tables with method signatures:
 
 ```luma
-let Speakable = {
-  speak = fn(self: Any): String
+let Drawable = {
+  draw = fn(self: Any): String
 }
 ```
 
-## Structural Matching
+## Structural Typing
 
-Objects that have the required fields automatically satisfy the trait:
+Luma uses **structural typing** for traits, not nominal typing. Types satisfy traits if they have the required fields, checked at `cast()` time.
 
 ```luma
-let Dog = {
-  name = String,
-  speak = fn(self: Dog): String do
-    return "Woof!"
+let Circle = {
+  radius = Number,
+
+  draw = fn(self: Circle): String do
+    return "Circle with radius ${self.radius}"
   end
 }
 
--- Dog satisfies Speakable because it has a speak method
+-- Circle satisfies Drawable because it has a draw method
 ```
 
-## Trait Checking
+No explicit "implements" declaration is needed. If a type has the right shape, it satisfies the trait.
+
+## Using Traits
+
+### Generic Functions with Traits
+
+Use traits to constrain generic functions:
+
+```luma
+let makeSpeak = fn(speaker: Speakable): String do
+  return speaker.speak()
+end
+
+-- Works with any type that satisfies Speakable
+let dog = Dog.new("Rex", "Beagle")
+makeSpeak(dog)  -- "Woof!"
+```
+
+### Trait Checking
 
 Traits are checked:
 - At `cast()` time
 - At compile-time (when type checker is implemented)
 
 ```luma
-let speakable: Speakable = cast(Speakable, dog)
+let drawable: Drawable = cast(Drawable, circle)
 ```
 
 ## Multiple Traits
@@ -70,23 +89,9 @@ let Person = {
 -- Person satisfies both Nameable and Describable
 ```
 
-## Generic Functions with Traits
-
-Use traits to constrain generic functions:
-
-```luma
-let makeSpeak = fn(speaker: Speakable): String do
-  return speaker.speak()
-end
-
--- Works with any type that satisfies Speakable
-let dog = Dog.new("Rex", "Beagle")
-makeSpeak(dog)  -- "Woof!"
-```
-
 ## Trait Composition
 
-Traits can include other traits:
+Traits can include other traits by combining their fields:
 
 ```luma
 let Animal = {
@@ -95,21 +100,6 @@ let Animal = {
   
   -- Combines Nameable and Speakable
 }
-```
-
-## Structural vs Nominal Typing
-
-Luma uses **structural typing** for traits, not nominal typing:
-
-```luma
--- No explicit "implements" declaration needed
--- If it has the right shape, it satisfies the trait
-
-let Cat = {
-  speak = fn(self: Cat): String do "Meow!" end
-}
-
--- Cat automatically satisfies Speakable
 ```
 
 ## Example: Iterable Trait
@@ -127,9 +117,22 @@ for n in numbers do
 end
 ```
 
-## Benefits
+## Benefits of Structural Typing
 
-1. **Flexibility** - No need to declare trait implementations upfront
-2. **Duck Typing** - If it walks like a duck and quacks like a duck...
-3. **Compile-time Safety** - Still type-checked at compile time
-4. **Code Reuse** - Write generic functions that work with any compatible type
+1. **Flexibility** — No need to declare trait implementations upfront
+2. **Duck Typing** — If it walks like a duck and quacks like a duck...
+3. **Compile-time Safety** — Still type-checked at compile time
+4. **Code Reuse** — Write generic functions that work with any compatible type
+
+## When to Use Traits
+
+Use traits when:
+- You want to define interfaces without inheritance
+- You need multiple interface implementation
+- Types are unrelated but share behavior
+- You want structural typing flexibility
+
+Consider using inheritance when:
+- There's a clear "is-a" relationship
+- Child types are specializations of parent
+- You want to share implementation

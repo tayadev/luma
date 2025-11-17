@@ -6,9 +6,9 @@ sidebar_position: 6
 
 Luma supports both single-line and multi-line comments.
 
-## Single-line Comments
+## Single-Line Comments
 
-Use `--` for single-line comments:
+Use `--` for single-line comments that extend to the end of the line:
 
 ```luma
 -- This is a single-line comment
@@ -16,9 +16,9 @@ Use `--` for single-line comments:
 let x = 42  -- Comments can appear after code
 ```
 
-## Multi-line Comments
+## Multi-Line Comments
 
-Use `--[[ ... ]]` for multi-line comments:
+Use `--[[` and `]]` for multi-line comments:
 
 ```luma
 --[[
@@ -30,33 +30,26 @@ Useful for documentation or temporarily disabling code.
 let y = 10
 ```
 
-## Documentation Comments
+## Naming Conventions
 
-While Luma doesn't have special documentation comment syntax yet, you can use multi-line comments for documenting functions and types:
+According to the Luma specification:
+
+- **Variables and functions:** `snake_case`
+- **Types and constructors:** `PascalCase`
+- **Constants:** `SCREAMING_SNAKE_CASE`
 
 ```luma
---[[
-Calculates the factorial of a number.
+let my_variable = 42
+let calculate_total = fn() do ... end
 
-Parameters:
-  n: Number - The number to calculate factorial for
+let Person = { ... }
 
-Returns:
-  Number - The factorial of n
-]]
-let factorial = fn(n: Number): Number do
-  if n <= 1 do
-    return 1
-  end
-  return n * factorial(n - 1)
-end
+let MAX_RETRIES = 3
 ```
 
 ## Style Guide
 
-According to the Luma style guide:
-
-- Use 2 spaces for indentation
-- Use `snake_case` for variable and function names
+- Use consistent indentation (2 spaces recommended)
 - Add comments to explain complex logic or non-obvious behavior
 - Keep comments up-to-date with code changes
+- Use multi-line comments for documentation blocks

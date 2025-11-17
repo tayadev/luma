@@ -10,21 +10,33 @@ Luma features automatic memory management through garbage collection.
 
 Luma automatically manages memory for:
 - Tables
+- Arrays
+- Strings
 - Functions
 - Closures
-- Strings
-- Arrays
 
 You don't need to manually allocate or free memory.
 
 ## Heap Allocation
 
-The following are heap-allocated:
-- **Tables** - All table instances
-- **Functions** - Function objects and closures
-- **Closures** - Functions that capture variables from outer scopes
-- **Strings** - String values
-- **Arrays** - Array values
+The following are heap-allocated and managed by the GC:
+- **Tables** — All table instances
+- **Arrays** — All array values
+- **Strings** — String values
+- **Functions** — Function objects and closures
+- **Closures** — Functions that capture variables from outer scopes
+
+## Reference Semantics
+
+**Value types** (numbers, booleans, null): copied by value  
+**Reference types** (tables, arrays, functions): copied by reference
+
+```luma
+let a = [1, 2, 3]
+let b = a                          -- b references same array
+b[0] = 99
+print(a[0])                        -- 99
+```
 
 ## The __gc Method
 
@@ -32,29 +44,27 @@ Define a `__gc` method that is called when an object is collected:
 
 ```luma
 let Resource = {
-  handle = Number,
-  name = String,
+  handle = Any,
   
-  __gc = fn(self: Resource): None do
-    print("Cleaning up resource: " + self.name)
-    closeHandle(self.handle)
-  end,
-  
-  new = fn(name: String): Resource do
-    let handle = openHandle()
-    return cast(Resource, {
-      handle = handle,
-      name = name
-    })
+  __gc = fn(self: Resource): Null do
+    print("Cleaning up resource: ${self.handle}")
+    cleanup(self.handle)
   end
 }
 ```
 
+**Note:** Finalization is not guaranteed to run immediately or in any particular order.
+
 ## Garbage Collection Behavior
 
-- **Non-deterministic** - You cannot predict exactly when GC runs
-- **Automatic** - Runs when memory pressure increases
-- **Mark and sweep** - The GC marks reachable objects and collects unreachable ones
+- **Non-deterministic** — You cannot predict exactly when GC runs
+- **Automatic** — Runs when allocation threshold is reached or memory pressure is high
+- **Mark and sweep** — The GC marks reachable objects and collects unreachable ones
+
+**Collection triggers:**
+- When allocation threshold is reached
+- When memory pressure is high
+- Manual collection via `gc.collect()` (if exposed)
 
 ## Resource Management
 
@@ -65,7 +75,7 @@ let File = {
   path = String,
   handle = FileHandle,
   
-  __gc = fn(self: File): None do
+  __gc = fn(self: File): Null do
     if self.handle != null do
       closeFile(self.handle)
     end
@@ -81,12 +91,12 @@ While `__gc` provides automatic cleanup, you can also provide explicit cleanup m
 let Connection = {
   socket = Socket,
   
-  close = fn(self: Connection): None do
+  close = fn(self: Connection): Null do
     closeSocket(self.socket)
     self.socket = null
   end,
   
-  __gc = fn(self: Connection): None do
+  __gc = fn(self: Connection): Null do
     if self.socket != null do
       closeSocket(self.socket)
     end
@@ -99,13 +109,11 @@ let conn = Connection.new()
 conn.close()  -- Explicitly close when done
 ```
 
-## Memory Leaks
-
-Garbage collection prevents most memory leaks, but be aware of:
+## Avoiding Memory Leaks
 
 ### Circular References
 
-Circular references are handled automatically:
+Circular references are handled automatically by the garbage collector:
 
 ```luma
 let nodeA = { value = 1 }
@@ -124,12 +132,12 @@ Be careful with long-lived collections:
 ```luma
 var globalCache = {}
 
-let addToCache = fn(key: String, value: Any): None do
+let addToCache = fn(key: String, value: Any): Null do
   globalCache[key] = value  -- Value stays in memory
 end
 
 -- Clear cache when no longer needed
-let clearCache = fn(): None do
+let clearCache = fn(): Null do
   globalCache = {}
 end
 ```
@@ -138,14 +146,14 @@ end
 
 1. **Use __gc for cleanup**:
    ```luma
-   __gc = fn(self: Type): None do
+   __gc = fn(self: Type): Null do
      -- Close files, sockets, etc.
    end
    ```
 
 2. **Provide explicit cleanup methods**:
    ```luma
-   close = fn(self: Resource): None do
+   close = fn(self: Resource): Null do
      -- Cleanup immediately
    end
    ```
@@ -171,44 +179,6 @@ end
    end
    ```
 
-## GC Tuning
-
-The GC behavior is currently not configurable, but may become so in future versions:
-
-```luma
--- Future: Configure GC
--- gc.setThreshold(megabytes)
--- gc.collect()  -- Force collection
-```
-
-## Performance Considerations
-
-- **Allocation is fast** - Creating objects is cheap
-- **Collection is periodic** - GC pauses are generally short
-- **No manual memory management** - Focus on logic, not memory
-
-## Compared to Manual Memory Management
-
-### Luma (GC)
-```luma
-let data = loadData()
-process(data)
--- Automatically freed when no longer referenced
-```
-
-### C (Manual)
-```c
-Data* data = malloc(sizeof(Data));
-loadData(data);
-process(data);
-free(data);  // Must remember to free
-```
-
-Garbage collection eliminates:
-- Memory leaks from forgetting to free
-- Use-after-free bugs
-- Double-free errors
-
 ## When __gc is NOT Called
 
 `__gc` may not be called if:
@@ -223,3 +193,16 @@ let conn = Connection.new()
 -- Use connection
 conn.close()  -- Don't rely solely on __gc
 ```
+
+## Performance Considerations
+
+- **Allocation is fast** — Creating objects is cheap
+- **Collection is periodic** — GC pauses are generally short
+- **No manual memory management** — Focus on logic, not memory
+
+## Compared to Manual Memory Management
+
+Garbage collection eliminates:
+- Memory leaks from forgetting to free
+- Use-after-free bugs
+- Double-free errors

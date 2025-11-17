@@ -6,36 +6,43 @@ sidebar_position: 1
 
 Luma supports several types of literal values.
 
-## Numbers
+## Numeric Literals
 
-### Integers and Floats
+### Decimal Integers
 
 ```luma
 42
+-17
+0
+```
+
+### Floating-Point Numbers
+
+```luma
 3.14
--7
-0.001
-```
-
-### Hexadecimal
-
-```luma
-0xFF
-0x1A3B
-```
-
-### Binary
-
-```luma
-0b1010
-0b1101
+-0.001
+.5
 ```
 
 ### Scientific Notation
 
 ```luma
-1.5e3    -- 1500
-2.5E-4   -- 0.00025
+1.5e3      -- 1500.0
+2.5E-4     -- 0.00025
+```
+
+### Hexadecimal
+
+```luma
+0xFF       -- 255
+0x1A3B     -- 6715
+```
+
+### Binary
+
+```luma
+0b1010     -- 10
+0b1101     -- 13
 ```
 
 ## Booleans
@@ -51,15 +58,19 @@ false
 null
 ```
 
-## Strings
+## String Literals
 
-### Single-line Strings
+### Basic Strings
+
+Strings are enclosed in double quotes:
 
 ```luma
 "Hello, World!"
 ```
 
-### Multiline Strings
+### Multi-line Strings
+
+Multi-line strings preserve line breaks:
 
 ```luma
 "This is
@@ -67,39 +78,47 @@ a multiline
 string."
 ```
 
-### Format Strings (Interpolation)
+### String Interpolation
+
+Use `${expression}` for string interpolation:
 
 ```luma
 let name = "World"
-"Hello, ${name}!"  -- "Hello, World!"
+"Hello, ${name}!"        -- "Hello, World!"
+"1 + 1 = ${1 + 1}"      -- "1 + 1 = 2"
 ```
 
 ### Escape Sequences
 
-- `\"` - Literal quote
-- `\\` - Literal backslash
-- `\${` - Literal `${` without interpolation
+| Sequence | Meaning |
+|----------|----------|
+| `\"` | Literal double quote |
+| `\\` | Literal backslash |
+| `\n` | Newline |
+| `\r` | Carriage return |
+| `\t` | Tab |
+| `\${` | Literal `${` (disable interpolation) |
 
 ```luma
 "He said \"Hello\""
-"Path: C:\\Users\\Documents"
-"Template: \${variable}"
+"Line 1\nLine 2"
+"Disable: \${variable}"
 ```
 
-## Arrays
+## Array Literals
 
-Arrays can contain elements of any type:
+Arrays are ordered, heterogeneous collections:
 
 ```luma
 [1, 2, 3]
 ["apple", "banana", "cherry"]
-[1, "apple", true]
-[]  -- empty array
+[1, "mixed", true, null]
+[]                          -- empty array
 ```
 
-## Tables
+## Table Literals
 
-Tables are key-value pairs (similar to objects or dictionaries):
+Tables are unordered key-value mappings:
 
 ```luma
 {
@@ -109,16 +128,24 @@ Tables are key-value pairs (similar to objects or dictionaries):
     subkey = true
   }
 }
+
+{}                          -- empty table
 ```
 
-## Functions
+### Key Syntax
 
-Functions are values and can be assigned to variables:
+- **Identifiers:** `key = value`
+- **String keys:** `"key with spaces" = value`
+- **Computed keys:** `[expression] = value`
+
+## Function Literals
+
+Functions are first-class values:
 
 ```luma
-fn(param1: Type1, param2: Type2): ReturnType do
-  -- function body
+fn(x: Number, y: Number): Number do
+  return x + y
 end
 ```
 
-See the [Functions](./functions.md) page for more details.
+See [§6 Functions](./functions.md) for complete syntax.

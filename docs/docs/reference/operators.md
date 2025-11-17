@@ -6,27 +6,41 @@ sidebar_position: 3
 
 Luma allows you to define custom behavior for operators on your types.
 
-## Supported Operators
+## Operator Precedence
 
-You can overload the following operators:
+Operators are listed from highest to lowest precedence:
 
-### Arithmetic Operators
-- `+` - Addition (`__add`)
-- `-` - Subtraction (`__sub`)
-- `*` - Multiplication (`__mul`)
-- `/` - Division (`__div`)
-- `%` - Modulo (`__mod`)
-- Unary `-` - Negation (`__neg`)
+| Precedence | Operator | Description | Associativity |
+|------------|----------|-------------|---------------|
+| 1 | `()` `[]` `.` | Call, index, member access | Left |
+| 2 | `-` `!` | Unary minus, logical not | Right |
+| 3 | `*` `/` `%` | Multiplication, division, modulo | Left |
+| 4 | `+` `-` | Addition, subtraction | Left |
+| 5 | `<` `<=` `>` `>=` | Comparison | Left |
+| 6 | `==` `!=` | Equality | Left |
+| 7 | `&&` | Logical and | Left |
+| 8 | `||` | Logical or | Left |
 
-### Comparison Operators
-- `==` - Equality (`__eq`)
-- `<` - Less than (`__lt`)
-- `<=` - Less than or equal (`__le`)
-- `>` - Greater than (`__gt`)
-- `>=` - Greater than or equal (`__ge`)
+## Overloadable Operators
 
-### Auto-derived
-- `!=` - Not equal (auto-derived from `__eq`)
+You can overload the following operators by defining special methods:
+
+| Operator | Method | Signature |
+|----------|--------|-----------|
+| `+` | `__add` | `fn(T, T): T` |
+| `-` | `__sub` | `fn(T, T): T` |
+| `*` | `__mul` | `fn(T, T): T` |
+| `/` | `__div` | `fn(T, T): T` |
+| `%` | `__mod` | `fn(T, T): T` |
+| unary `-` | `__neg` | `fn(T): T` |
+| `==` | `__eq` | `fn(T, T): Boolean` |
+| `<` | `__lt` | `fn(T, T): Boolean` |
+| `<=` | `__le` | `fn(T, T): Boolean` |
+| `>` | `__gt` | `fn(T, T): Boolean` |
+| `>=` | `__ge` | `fn(T, T): Boolean` |
+
+**Auto-derived:**
+- `!=` is automatically derived from `__eq`
 
 ## Defining Operator Overloads
 
@@ -41,6 +55,10 @@ let Vector2 = {
     return Vector2.new(a.x + b.x, a.y + b.y)
   end,
   
+  __eq = fn(a: Vector2, b: Vector2): Boolean do
+    return a.x == b.x && a.y == b.y
+  end,
+  
   new = fn(x: Number, y: Number): Vector2 do
     return cast(Vector2, { x = x, y = y })
   end
@@ -48,7 +66,7 @@ let Vector2 = {
 
 let v1 = Vector2.new(1, 2)
 let v2 = Vector2.new(3, 4)
-let v3 = v1 + v2  -- Vector2(4, 6)
+let v3 = v1 + v2                   -- Vector2(4, 6)
 ```
 
 ## Arithmetic Examples
@@ -72,18 +90,6 @@ let Complex = {
 let c1 = Complex.new(1, 2)
 let c2 = Complex.new(3, 4)
 let c3 = c1 + c2  -- Complex(4, 6)
-```
-
-### Multiplication
-
-```luma
-let Matrix = {
-  values = Array(Array(Number)),
-  
-  __mul = fn(a: Matrix, b: Matrix): Matrix do
-    -- Matrix multiplication logic
-  end
-}
 ```
 
 ### Unary Negation
@@ -112,7 +118,7 @@ let Point = {
   y = Number,
   
   __eq = fn(a: Point, b: Point): Boolean do
-    return a.x == b.x and a.y == b.y
+    return a.x == b.x && a.y == b.y
   end
 }
 
@@ -140,8 +146,8 @@ let Version = {
   end,
   
   __eq = fn(a: Version, b: Version): Boolean do
-    return a.major == b.major and 
-           a.minor == b.minor and 
+    return a.major == b.major && 
+           a.minor == b.minor && 
            a.patch == b.patch
   end
 }
@@ -155,30 +161,15 @@ v2 > v1   -- true
 v2 >= v1  -- true
 ```
 
-## String Concatenation
-
-The `+` operator is also used for string concatenation:
-
-```luma
-let Name = {
-  first = String,
-  last = String,
-  
-  __add = fn(a: Name, b: Name): String do
-    return a.first + " " + a.last + " & " + b.first + " " + b.last
-  end
-}
-```
-
 ## Non-Overloadable Operators
 
-These operators cannot be overloaded:
-- `and` - Logical AND
-- `or` - Logical OR  
-- `not` - Logical NOT
-- `[]` - Array/table indexing
-- `in` - Membership test
-- `.` - Field access
+These operators **cannot** be overloaded:
+- `&&` — Logical AND
+- `||` — Logical OR  
+- `!` — Logical NOT
+- `[]` — Array/table indexing
+- `in` — Membership test
+- `.` — Field access
 
 ## Best Practices
 
@@ -187,10 +178,8 @@ These operators cannot be overloaded:
    - Operators should behave intuitively
 
 2. **Maintain consistency**
-   ```luma
-   -- If you define __add, consider defining __sub
-   -- If you define __lt, consider defining __le, __gt, __ge
-   ```
+   - If you define `__add`, consider defining `__sub`
+   - If you define `__lt`, consider defining `__le`, `__gt`, `__ge`
 
 3. **Return appropriate types**
    ```luma

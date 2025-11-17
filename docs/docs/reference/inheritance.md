@@ -13,29 +13,28 @@ Define a parent type and extend it:
 ```luma
 let Animal = {
   name = String,
+  
   speak = fn(self: Animal): String do
-    return "Some noise"
+    return "..."
   end
 }
 
 let Dog = {
   __parent = Animal,
   breed = String,
+  
   speak = fn(self: Dog): String do
-    return "Woof!"
+    return "Woof! I'm ${self.name}, a ${self.breed}"
   end
 }
 ```
 
-## Field Merging
+## Inheritance Semantics
 
-Child types inherit all fields from parent:
-
-```luma
-let dog = Dog.new("Rex", "Beagle")
-print(dog.name)   -- Inherited from Animal
-print(dog.breed)  -- Defined in Dog
-```
+**Field merging:**
+- Child types inherit all fields from parent
+- Methods can be overridden
+- Constructor must initialize both parent and child fields
 
 ## Method Overriding
 
@@ -43,26 +42,10 @@ Child types can override parent methods:
 
 ```luma
 let animal = Animal.new("Generic")
-animal.speak()  -- "Some noise"
+animal.speak()  -- "..."
 
 let dog = Dog.new("Rex", "Beagle")
-dog.speak()     -- "Woof!" (overridden)
-```
-
-## Calling Parent Methods
-
-Access parent methods through the parent type:
-
-```luma
-let Dog = {
-  __parent = Animal,
-  breed = String,
-  
-  speak = fn(self: Dog): String do
-    let parentSound = Animal.speak(self)
-    return parentSound + " Woof!"
-  end
-}
+dog.speak()     -- "Woof! I'm Rex, a Beagle"
 ```
 
 ## Type Checking
@@ -74,7 +57,6 @@ let dog = Dog.new("Rex", "Beagle")
 
 isInstanceOf(dog, Dog)     -- true
 isInstanceOf(dog, Animal)  -- true (Dog extends Animal)
-isInstanceOf(dog, Cat)     -- false
 ```
 
 ## Multiple Levels of Inheritance
@@ -129,11 +111,27 @@ let Dog = {
 }
 ```
 
+## Calling Parent Methods
+
+Access parent methods through the parent type:
+
+```luma
+let Dog = {
+  __parent = Animal,
+  breed = String,
+  
+  speak = fn(self: Dog): String do
+    let parentSound = Animal.speak(self)
+    return parentSound + " Woof!"
+  end
+}
+```
+
 ## Limitations
 
-- **Single inheritance only** - A type can have only one `__parent`
-- **No diamond problem** - The inheritance hierarchy must be a tree
-- **No interfaces** - Use traits for multiple interface implementation
+- **Single inheritance only** — A type can have only one `__parent`
+- **No diamond problem** — The inheritance hierarchy must be a tree
+- **No multiple inheritance** — Use traits for multiple interface implementation
 
 ## When to Use Inheritance
 
