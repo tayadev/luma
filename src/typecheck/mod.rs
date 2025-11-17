@@ -150,7 +150,21 @@ impl TypeEnv {
                 let right_ty = self.check_expr(right);
 
                 match op {
-                    BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
+                    BinaryOp::Add => {
+                        // Allow String + String → String OR Number + Number → Number
+                        if left_ty.is_compatible(&TcType::String) && right_ty.is_compatible(&TcType::String) {
+                            TcType::String
+                        } else if left_ty.is_compatible(&TcType::Number) && right_ty.is_compatible(&TcType::Number) {
+                            TcType::Number
+                        } else {
+                            self.error(format!(
+                                "ADD requires (Number, Number) or (String, String), got ({:?}, {:?})",
+                                left_ty, right_ty
+                            ));
+                            TcType::Unknown
+                        }
+                    }
+                    BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
                         if !left_ty.is_compatible(&TcType::Number) {
                             self.error(format!(
                                 "Arithmetic op {:?} requires Number on left, got {:?}",
@@ -374,11 +388,23 @@ impl TypeEnv {
 
     fn check_stmt(&mut self, stmt: &Stmt) {
         match stmt {
-                        Stmt::Match { .. } => {
-                            // TODO: Typecheck match expressions
-                            // For now, just walk arms and check blocks
-                            todo!("Typechecking for match statements not yet implemented");
-                        }
+            Stmt::Match { expr, arms } => {
+                // Check the match expression
+                let expr_ty = self.check_expr(expr);
+                
+                // For each arm, check the pattern and body
+                for (pattern, body) in arms {
+                    self.push_scope();
+                    // Bind pattern variables with the matched expression's type
+                    self.check_pattern(pattern, &expr_ty, false); // match bindings are immutable
+                    
+                    // Check the body statements
+                    for stmt in body {
+                        self.check_stmt(stmt);
+                    }
+                    self.pop_scope();
+                }
+            }
             Stmt::VarDecl { mutable, name, r#type, value } => {
                 // For function values, we need to declare the variable first to support recursion
                 let value_ty = match value {

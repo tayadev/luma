@@ -151,6 +151,117 @@ impl Compiler {
                 let end_ip = self.current_ip();
                 self.patch_jump(jf_end, end_ip);
             }
+            Stmt::Match { expr, arms } => {
+                // For MVP: Simple pattern matching on identifier patterns
+                // Match statements can produce a value (last expression in matched arm)
+                
+                // Evaluate the match expression once and store in a hidden local
+                self.enter_scope();
+                self.emit_expr(expr);
+                let match_val_slot = self.local_count;
+                self.scopes.last_mut().unwrap().insert("__match_val".to_string(), match_val_slot);
+                self.local_count += 1;
+                
+                // Push default null result (in case no arms match) 
+                let null_idx = push_const(&mut self.chunk, Constant::Null);
+                self.chunk.instructions.push(Instruction::Const(null_idx));
+                
+                let mut end_jumps = Vec::new();
+                
+                for (i, (pattern, body)) in arms.iter().enumerate() {
+                    let is_wildcard = matches!(pattern, Pattern::Ident(s) if s == "_");
+                    
+                    if !is_wildcard {
+                        // Check if pattern matches (for now, check if property exists)
+                        match pattern {
+                            Pattern::Ident(name) if name != "_" => {
+                                // Check if the match value has this property
+                                self.chunk.instructions.push(Instruction::GetLocal(match_val_slot));
+                                let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
+                                self.chunk.instructions.push(Instruction::GetProp(name_idx));
+                                // If property exists (not null), this arm matches
+                                let null_idx = push_const(&mut self.chunk, Constant::Null);
+                                self.chunk.instructions.push(Instruction::Const(null_idx));
+                                self.chunk.instructions.push(Instruction::Ne); // property != null
+                                
+                                let jf_next_arm = self.emit_jump_if_false();
+                                
+                                // Remove default null before executing arm
+                                self.chunk.instructions.push(Instruction::Pop);
+                                
+                                // Execute this arm's body (no new scope needed, pattern doesn't bind)
+                                // Handle implicit return: convert trailing ExprStmt to Return
+                                let mut arm_body = body.to_vec();
+                                if let Some(last) = arm_body.pop() {
+                                    match last {
+                                        Stmt::ExprStmt(e) => arm_body.push(Stmt::Return(e)),
+                                        other => arm_body.push(other),
+                                    }
+                                }
+                                
+                                for stmt in &arm_body {
+                                    self.emit_stmt(stmt);
+                                }
+                                
+                                let arm_preserves = block_leaves_value(&arm_body);
+                                if !arm_preserves {
+                                    // Arm didn't produce value, push null
+                                    let null_idx = push_const(&mut self.chunk, Constant::Null);
+                                    self.chunk.instructions.push(Instruction::Const(null_idx));
+                                }
+                                
+                                // Jump to end after executing this arm
+                                end_jumps.push(self.emit_jump());
+                                
+                                // Patch the jump to next arm
+                                let next_arm_ip = self.current_ip();
+                                self.patch_jump(jf_next_arm, next_arm_ip);
+                            }
+                            _ => {
+                                // Complex patterns not yet supported
+                                panic!("Compiler error: Complex patterns in match statements not yet supported");
+                            }
+                        }
+                    } else {
+                        // Wildcard pattern - always matches (default case)
+                        // Remove default null before executing
+                        self.chunk.instructions.push(Instruction::Pop);
+                        
+                        // Handle implicit return
+                        let mut arm_body = body.to_vec();
+                        if let Some(last) = arm_body.pop() {
+                            match last {
+                                Stmt::ExprStmt(e) => arm_body.push(Stmt::Return(e)),
+                                other => arm_body.push(other),
+                            }
+                        }
+                        
+                        for stmt in &arm_body {
+                            self.emit_stmt(stmt);
+                        }
+                        
+                        let arm_preserves = block_leaves_value(&arm_body);
+                        if !arm_preserves {
+                            let null_idx = push_const(&mut self.chunk, Constant::Null);
+                            self.chunk.instructions.push(Instruction::Const(null_idx));
+                        }
+                        
+                        // No need for end jump if this is the last arm
+                        if i < arms.len() - 1 {
+                            end_jumps.push(self.emit_jump());
+                        }
+                    }
+                }
+                
+                // Patch all end jumps to point here
+                let end_ip = self.current_ip();
+                for jump_pos in end_jumps {
+                    self.patch_jump(jump_pos, end_ip);
+                }
+                
+                // Exit the match scope (pop __match_val but preserve result)
+                self.exit_scope_with_preserve(true);
+            }
             Stmt::VarDecl { name, value, .. } => {
                 if self.scopes.is_empty() {
                     // global
@@ -163,6 +274,114 @@ impl Compiler {
                     let slot = self.local_count;
                     self.scopes.last_mut().unwrap().insert(name.clone(), slot);
                     self.local_count += 1;
+                }
+            }
+            Stmt::DestructuringVarDecl { mutable: _, pattern, value } => {
+                // Emit the value expression once
+                self.emit_expr(value);
+                
+                // For now, the value is on the stack. We need to destructure it.
+                if self.scopes.is_empty() {
+                    // Global destructuring
+                    match pattern {
+                        Pattern::ArrayPattern { elements, rest } => {
+                            // Array destructuring: [a, b, ...rest] = array
+                            // Strategy: Get each element by index and assign to globals
+                            
+                            // Dup the array for each element access
+                            for (i, elem_pattern) in elements.iter().enumerate() {
+                                if let Pattern::Ident(name) = elem_pattern {
+                                    self.chunk.instructions.push(Instruction::Dup); // dup array
+                                    let idx = push_const(&mut self.chunk, Constant::Number(i as f64));
+                                    self.chunk.instructions.push(Instruction::Const(idx));
+                                    self.chunk.instructions.push(Instruction::GetIndex);
+                                    let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
+                                    self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+                                }
+                            }
+                            
+                            // Handle rest pattern (e.g., ...tail)
+                            if let Some(rest_name) = rest {
+                                self.chunk.instructions.push(Instruction::Dup); // dup array
+                                // Build array slice from elements.len() onwards
+                                // For MVP: just assign the whole array (TODO: implement proper slicing)
+                                let name_idx = push_const(&mut self.chunk, Constant::String(rest_name.clone()));
+                                self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+                            } else {
+                                // No rest, pop the array
+                                self.chunk.instructions.push(Instruction::Pop);
+                            }
+                        }
+                        Pattern::TablePattern(keys) => {
+                            // Table destructuring: {name, age} = table
+                            for key in keys {
+                                self.chunk.instructions.push(Instruction::Dup); // dup table
+                                let key_idx = push_const(&mut self.chunk, Constant::String(key.clone()));
+                                self.chunk.instructions.push(Instruction::GetProp(key_idx));
+                                let name_idx = push_const(&mut self.chunk, Constant::String(key.clone()));
+                                self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+                            }
+                            self.chunk.instructions.push(Instruction::Pop); // pop table
+                        }
+                        Pattern::Ident(name) => {
+                            // Simple binding, just assign
+                            let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
+                            self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+                        }
+                    }
+                } else {
+                    // Local destructuring
+                    match pattern {
+                        Pattern::ArrayPattern { elements, rest } => {
+                            // For locals, the value is already on stack and will become local slots
+                            let value_slot = self.local_count;
+                            self.scopes.last_mut().unwrap().insert("__destructure_val".to_string(), value_slot);
+                            self.local_count += 1;
+                            
+                            // Extract each element into its own local
+                            for (i, elem_pattern) in elements.iter().enumerate() {
+                                if let Pattern::Ident(name) = elem_pattern {
+                                    self.chunk.instructions.push(Instruction::GetLocal(value_slot));
+                                    let idx = push_const(&mut self.chunk, Constant::Number(i as f64));
+                                    self.chunk.instructions.push(Instruction::Const(idx));
+                                    self.chunk.instructions.push(Instruction::GetIndex);
+                                    
+                                    let elem_slot = self.local_count;
+                                    self.scopes.last_mut().unwrap().insert(name.clone(), elem_slot);
+                                    self.local_count += 1;
+                                }
+                            }
+                            
+                            // Handle rest
+                            if let Some(rest_name) = rest {
+                                self.chunk.instructions.push(Instruction::GetLocal(value_slot));
+                                // For MVP: assign whole array (TODO: slice)
+                                let rest_slot = self.local_count;
+                                self.scopes.last_mut().unwrap().insert(rest_name.clone(), rest_slot);
+                                self.local_count += 1;
+                            }
+                        }
+                        Pattern::TablePattern(keys) => {
+                            let value_slot = self.local_count;
+                            self.scopes.last_mut().unwrap().insert("__destructure_val".to_string(), value_slot);
+                            self.local_count += 1;
+                            
+                            for key in keys {
+                                self.chunk.instructions.push(Instruction::GetLocal(value_slot));
+                                let key_idx = push_const(&mut self.chunk, Constant::String(key.clone()));
+                                self.chunk.instructions.push(Instruction::GetProp(key_idx));
+                                
+                                let key_slot = self.local_count;
+                                self.scopes.last_mut().unwrap().insert(key.clone(), key_slot);
+                                self.local_count += 1;
+                            }
+                        }
+                        Pattern::Ident(name) => {
+                            let slot = self.local_count;
+                            self.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                            self.local_count += 1;
+                        }
+                    }
                 }
             }
             Stmt::Assignment { target, op: _, value } => {
@@ -211,7 +430,7 @@ impl Compiler {
                 // For MVP, only support simple identifier patterns
                 let Pattern::Ident(var_name) = pattern else {
                     // Complex patterns not supported in for loops yet
-                    return;
+                    panic!("Compiler error: Complex patterns in for loops are not yet supported. Use a simple identifier instead.");
                 };
                 
                 // Create a new scope for the entire loop (including iterator and index)

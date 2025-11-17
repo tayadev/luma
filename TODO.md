@@ -1,8 +1,8 @@
 # TODOS
 
-- [ ] write parser tests for all syntax features
+> If you work on a feature, please update this file to reflect its status. If during development you want to split it up into smaller tasks, feel free to add sub-tasks under the relevant section.
 
-## Missing Features from SPEC.md
+## MVP (v1) — In Progress
 
 ### Parser & AST
 - [x] Number literal formats: hexadecimal (`0xFF`), binary (`0b1010`), scientific notation (`1.5e3`, `2.5E-4`)
@@ -21,8 +21,6 @@
 - [ ] Conversions (`__into` method)
 - [ ] Built-in `Result(Ok, Err)` and `Option(T)` types
 - [ ] Garbage collection hooks (`__gc` method)
-
-## MVP (v1) — In Progress
 
 - [x] Type Checker (MVP)
 	- [x] `TcType` enum: Any, Unknown, Number, String, Boolean, Null, Array(T), Table, Function(args, ret)
@@ -80,6 +78,53 @@
 	- [x] Runtime test harness with .ron expectations
 	- [x] Add `bytecode` subcommand to CLI for debugging
 	- [x] Negative test framework in `tests/should_fail/` with `.expect` files
+
+## Critical Bugs to Fix (From Code Review - Nov 17, 2025)
+
+### Priority 1: CRITICAL (Breaks Spec Compliance)
+
+- [x] **Match Statements Not Executable** ✅ FIXED
+  - Type checker implemented - checks match expression and patterns
+  - Bytecode compiler implemented - compiles to property existence tests
+  - VM execution working - tested with `match_simple.luma`
+  - **Status**: Fully functional for simple identifier patterns
+
+- [ ] **Destructuring Declarations Silent Failure** - Parser + type checker work, but:
+  - No bytecode compiler case for `Stmt::DestructuringVarDecl`
+  - Falls through to `_ => {}` catch-all in `compile.rs:198`
+  - **Impact**: `let [a, b] = [1, 2]` compiles but does nothing
+  - **Fix**: Implement pattern binding in compiler + VM
+
+- [x] **String Concatenation Type Error** ✅ FIXED - VM supports `String + String`, now type checker does too
+  - Updated type checker to allow `String + String → String`
+  - File: `typecheck/mod.rs:148-166`
+  - Test: `tests/runtime/string_concat.luma` passes
+
+### Priority 2: HIGH (Quality Issues)
+
+- [x] **For Loop Pattern Error Handling** ✅ FIXED - `compile.rs:212`
+  - Changed from silent `return` to panic with clear error message
+  - Now: "Compiler error: Complex patterns in for loops are not yet supported"
+
+- [x] **Missing "match" Keyword** ✅ FIXED - `lexer.rs:21`
+  - Added "match" to keyword list for consistency
+
+### Priority 3: MEDIUM (Can Defer but Document)
+
+- [ ] **Break/Continue Levels Runtime Support**
+  - Parser accepts `break 2`, `continue 3`
+  - Compiler ignores level parameter (treats all as level 1)
+  - **Fix Options**: (1) Implement nested loop tracking, OR (2) Emit error if level > 1
+
+- [ ] **Clarify Spec: String Concatenation Behavior**
+  - VM allows `String + Any` with debug formatting
+  - Should spec allow only `String + String`, or broader coercion?
+  - Update SPEC.md Section 9 with clear rules
+
+- [ ] **Unused `annotated` Field in VarInfo**
+  - `typecheck/mod.rs:82` has `#[allow(dead_code)]`
+  - Could use for better error messages
+  - **Fix**: Either use it or remove it
 
 ## Known Limitations (Current MVP)
 
