@@ -1,3 +1,0 @@
-let x = fn(a: Number, b: Number): Number do 
-  return a 
-end

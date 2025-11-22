@@ -1,3 +1,0 @@
-let x = fn(a, b) do 
-  return a 
-end
