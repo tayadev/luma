@@ -142,3 +142,25 @@ where
         })
         .boxed()
 }
+
+/// Creates a parser for import expressions (import("path"))
+pub fn import<'a, WS, E>(
+    ws: WS,
+    expr: E,
+) -> Boxed<'a, 'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+    E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    just("import")
+        .padded_by(ws.clone())
+        .ignore_then(
+            expr
+                .delimited_by(
+                    just('(').padded_by(ws.clone()),
+                    just(')').padded_by(ws)
+                )
+        )
+        .map(|path| Expr::Import { path: Box::new(path) })
+        .boxed()
+}

@@ -1,0 +1,4 @@
+-- Test multiple imports
+let math = import("./math_module.luma")
+let num = import("./number_module.luma")
+math.add(num, 8)

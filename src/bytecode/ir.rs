@@ -46,6 +46,7 @@ pub enum Instruction {
     Call(usize),         // arity (number of arguments)
     Return,              // return top of stack
     Halt,
+    Import,              // pops path string, pushes module value
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

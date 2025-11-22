@@ -121,6 +121,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     let block_expr = expressions::block(ws.clone(), stmt_ref.clone(), expr_ref.clone());
     let function = expressions::function(ws.clone(), ident.clone(), type_parser.clone(), stmt_ref.clone(), expr_ref.clone());
     let if_expr = expressions::if_expr(ws.clone(), stmt_ref.clone(), expr_ref.clone());
+    let import_expr = expressions::import(ws.clone(), expr_ref.clone());
 
     // Parenthesized expressions - allows precedence override
     let paren_expr = expr_ref.clone()
@@ -141,6 +142,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         if_expr,
         block_expr,
         function,
+        import_expr,
         paren_expr,
         ident.clone().map(|s: &str| Expr::Identifier(s.to_string())).boxed(),
     )).boxed();

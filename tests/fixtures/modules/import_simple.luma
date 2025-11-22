@@ -1,0 +1,3 @@
+-- Test simple import of a module
+let result = import("./helper.luma")
+result

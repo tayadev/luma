@@ -1,0 +1,8 @@
+-- Module that exports a table
+{
+  name = "Math Module",
+  pi = 3.14159,
+  add = fn(a: Number, b: Number): Number do
+    return a + b
+  end
+}
