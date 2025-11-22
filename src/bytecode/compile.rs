@@ -25,28 +25,6 @@ pub fn compile_program(program: &Program) -> Chunk {
     c.chunk.clone()
 }
 
-fn compile_function(arguments: &[Argument], body: &[Stmt]) -> Chunk {
-    let mut c = Compiler::new("<function>");
-    let arity = arguments.len();
-    // Enter scope for function parameters
-    c.enter_scope();
-    // Parameters become locals in order
-    for arg in arguments {
-        let slot = c.local_count;
-        c.scopes.last_mut().unwrap().insert(arg.name.clone(), slot);
-        c.local_count += 1;
-    }
-    // Compile body
-    for stmt in body {
-        c.emit_stmt(stmt);
-    }
-    // Exit scope (pop parameters if needed, but they're handled by caller)
-    c.exit_scope_with_preserve(block_leaves_value(body));
-    c.chunk.instructions.push(Instruction::Return);
-    c.chunk.local_count = arity as u16; // Store arity in the chunk
-    c.chunk
-}
-
 fn push_const(chunk: &mut Chunk, c: Constant) -> usize {
     chunk.constants.push(c);
     chunk.constants.len() - 1
@@ -65,6 +43,7 @@ struct UpvalueInfo {
     /// Which local or upvalue in the enclosing function this upvalue captures
     descriptor: UpvalueDescriptor,
     /// Name of the variable being captured (for debugging)
+    #[allow(dead_code)]
     name: String,
 }
 
