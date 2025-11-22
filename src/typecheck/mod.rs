@@ -60,10 +60,31 @@ struct TypeEnv {
 
 impl TypeEnv {
     fn new() -> Self {
-        TypeEnv {
+        let mut env = TypeEnv {
             scopes: vec![HashMap::new()],
             errors: Vec::new(),
-        }
+        };
+        
+        // Register built-in functions
+        env.declare("cast".to_string(), VarInfo {
+            ty: TcType::Function {
+                params: vec![TcType::Any, TcType::Any],
+                ret: Box::new(TcType::Any),
+            },
+            mutable: false,
+            annotated: true,
+        });
+        
+        env.declare("isInstanceOf".to_string(), VarInfo {
+            ty: TcType::Function {
+                params: vec![TcType::Any, TcType::Any],
+                ret: Box::new(TcType::Boolean),
+            },
+            mutable: false,
+            annotated: true,
+        });
+        
+        env
     }
 
     fn push_scope(&mut self) {

@@ -1,0 +1,23 @@
+-- Test multi-level inheritance (grandparent)
+let LivingThing = {
+  alive = true
+}
+
+let Animal = {
+  __parent = LivingThing,
+  species = "String"
+}
+
+let Dog = {
+  __parent = Animal,
+  breed = "String"
+}
+
+let raw = {
+  alive = true,
+  species = "Canine",
+  breed = "Beagle"
+}
+
+let dog = cast(Dog, raw)
+isInstanceOf(dog, LivingThing)

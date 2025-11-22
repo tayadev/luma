@@ -1,0 +1,11 @@
+-- Test that cast preserves type through re-casting
+let Person = {
+  name = "String"
+}
+
+let raw = {
+  name = "Jane"
+}
+
+let person = cast(Person, raw)
+isInstanceOf(person, Person)

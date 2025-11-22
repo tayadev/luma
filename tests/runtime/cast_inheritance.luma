@@ -1,0 +1,17 @@
+-- Test inheritance with __parent
+let Animal = {
+  name = "String"
+}
+
+let Dog = {
+  __parent = Animal,
+  breed = "String"
+}
+
+let raw = {
+  name = "Buddy",
+  breed = "Golden Retriever"
+}
+
+let dog = cast(Dog, raw)
+dog.name

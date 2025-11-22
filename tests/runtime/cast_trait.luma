@@ -1,0 +1,13 @@
+-- Test cast with trait (structural matching)
+let Drawable = {
+  x = 0,
+  y = 0
+}
+
+let raw = {
+  x = 5,
+  y = 10
+}
+
+let drawable = cast(Drawable, raw)
+drawable.x
