@@ -492,7 +492,7 @@ fn native_cast(args: &[Value]) -> Result<Value, String> {
     let type_borrowed = type_def.borrow();
     let merged_type = merge_parent_fields(&type_borrowed);
     
-    // For tables, attach type metadata by creating a new table with __type field
+    // At this point, value is guaranteed to be a Table
     match value {
         Value::Table(table) => {
             let value_borrowed = table.borrow();
@@ -513,10 +513,7 @@ fn native_cast(args: &[Value]) -> Result<Value, String> {
             
             Ok(Value::Table(Rc::new(RefCell::new(new_table))))
         }
-        _ => {
-            // For non-table values, just return as-is
-            Ok(value.clone())
-        }
+        _ => unreachable!("is_castable ensures value is a Table"),
     }
 }
 
