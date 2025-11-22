@@ -777,6 +777,29 @@ impl VM {
         }
     }
     
+    /// Evaluate a chunk in the context of this VM's existing state (globals, etc.)
+    /// This is useful for REPL-style evaluation where state persists across evaluations.
+    pub fn eval(&mut self, chunk: Chunk) -> Result<Value, VmError> {
+        // Save current state
+        let saved_chunk = std::mem::replace(&mut self.chunk, chunk);
+        let saved_ip = self.ip;
+        let saved_base = self.base;
+        
+        // Reset execution state for new chunk
+        self.ip = 0;
+        self.base = 0;
+        
+        // Run the chunk
+        let result = self.run();
+        
+        // Restore state (but keep globals, module_cache, etc.)
+        self.chunk = saved_chunk;
+        self.ip = saved_ip;
+        self.base = saved_base;
+        
+        result
+    }
+    
     fn resolve_import_path(&self, path: &str) -> Result<String, VmError> {
         use std::path::Path;
         
