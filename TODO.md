@@ -7,9 +7,6 @@
 ### Type System & Runtime
 - [ ] Module system with `import()` (local files, URLs, git repos) _(for v1 only local files)_
 - [ ] Async/await support (`await` keyword, `Promise` type)
-- [ ] User-defined types with `cast()` and `isInstanceOf()`
-- [ ] Inheritance via `__parent`
-- [ ] Traits (structural matching)
 - [ ] Operator overloading (`__add`, `__sub`, `__mul`, etc.)
 - [ ] Conversions (`__into` method)
 - [ ] Built-in `Result(Ok, Err)` and `Option(T)` types
