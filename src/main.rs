@@ -151,7 +151,7 @@ fn run_file(file: &str) {
     
     let mut vm = luma::vm::VM::new_with_file(chunk, absolute_path);
     match vm.run() {
-        Ok(val) => println!("{:?}", val),
+        Ok(val) => println!("{}", val),
         Err(e) => {
             eprintln!("Runtime error: {:?}", e);
             process::exit(1);

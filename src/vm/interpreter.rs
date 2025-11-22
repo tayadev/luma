@@ -52,6 +52,7 @@ impl VM {
         vm.register_native_function("cast", 2, native_cast);
         vm.register_native_function("isInstanceOf", 2, native_is_instance_of);
         vm.register_native_function("into", 2, native_into);
+        vm.register_native_function("print", 0, native_print);  // Variadic, arity 0 is placeholder
         
         vm
     }
@@ -548,7 +549,8 @@ impl VM {
                             self.ip = 0;
                         }
                         Value::NativeFunction { name, arity: fn_arity } => {
-                            if arity != fn_arity {
+                            // Skip arity check for variadic functions (print)
+                            if name != "print" && arity != fn_arity {
                                 return Err(VmError::Runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
                             }
                             // Collect arguments
@@ -954,4 +956,18 @@ fn native_into(args: &[Value]) -> Result<Value, String> {
             }
         }
     }
+}
+
+// Native function: print(...values) -> null
+// Prints all arguments to stdout, separated by tabs
+fn native_print(args: &[Value]) -> Result<Value, String> {
+    let mut output = String::new();
+    for (i, arg) in args.iter().enumerate() {
+        if i > 0 {
+            output.push('\t');
+        }
+        output.push_str(&format!("{}", arg));
+    }
+    println!("{}", output);
+    Ok(Value::Null)
 }
