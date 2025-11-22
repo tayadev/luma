@@ -68,7 +68,37 @@
     ```
   - **Related work**: Python `__del__`, Java `finalize()` (deprecated), C# `IDisposable`, Rust Drop trait
 
-- [ ] Built-in `Result(Ok, Err)` and `Option(T)` types
+- [x] **Built-in `Result(Ok, Err)` and `Option(T)` types — COMPLETED**
+  - [x] `Result` type with `new_ok`, `new_err`, `is_ok`, `is_err`, `unwrap`, `unwrap_or` methods
+  - [x] `Option` type with `new_some`, `new_none`, `is_some`, `is_none`, `unwrap`, `unwrap_or` methods
+  - **Implementation**: Defined in `src/prelude.luma` (lines 9-82)
+  - **Tests**: `tests/runtime/prelude_result.luma` and `tests/runtime/prelude_option.luma`
+  - **Usage example**:
+    ```luma
+    let result = Result.new_ok(42)
+    if Result.is_ok(result) do
+      print(Result.unwrap(result))  -- prints 42
+    end
+    
+    let maybe = Option.new_some("hello")
+    let value = Option.unwrap_or(maybe, "default")
+    ```
+  - **Pattern matching**: Works with standard `match` statements checking `err == null` or `none == true`
+  - **Convention**: For Result, exactly one of `ok`/`err` is null; for Option, `none` is a boolean flag
+
+- [x] **Built-in `typeof()` function — COMPLETED**
+  - Returns the runtime type name as a string
+  - **Implementation**: `native_typeof` in `src/vm/interpreter.rs` (lines 1265-1295)
+  - **Test**: `tests/runtime/typeof_test.luma`
+  - **Usage example**:
+    ```luma
+    let type_name = typeof(42)        -- "Number"
+    let str_type = typeof("hello")    -- "String"
+    let arr_type = typeof([1, 2, 3])  -- "Array"
+    ```
+  - **Supported types**: Number, String, Boolean, Null, Array, Table, Function, Type
+
+- [ ] Other std (prelude.luma) enhancements and expansion (only the very basics should be in the prelude, rest should be in optional packages)
 - [ ] Async/await support (`await` keyword, `Promise` type)
 
 ## Deferred to v2

@@ -93,6 +93,15 @@ impl TypeEnv {
             annotated: true,
         });
         
+        env.declare("typeof".to_string(), VarInfo {
+            ty: TcType::Function {
+                params: vec![TcType::Any],
+                ret: Box::new(TcType::String),
+            },
+            mutable: false,
+            annotated: true,
+        });
+        
         // print is variadic - we use Any to accept any number of arguments
         // The actual arity check is skipped for print in the VM
         env.declare("print".to_string(), VarInfo {

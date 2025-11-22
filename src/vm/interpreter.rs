@@ -55,6 +55,7 @@ impl VM {
         vm.register_native_function("cast", 2, native_cast);
         vm.register_native_function("isInstanceOf", 2, native_is_instance_of);
         vm.register_native_function("into", 2, native_into);
+        vm.register_native_function("typeof", 1, native_typeof);
         vm.register_native_function("print", 0, native_print);  // Variadic, arity 0 is placeholder
         
         // Register I/O functions
@@ -1256,6 +1257,39 @@ fn native_panic(args: &[Value]) -> Result<Value, String> {
     
     eprintln!("PANIC: {}", message);
     std::process::exit(1);
+}
+
+// Native function: typeof(value: Any) -> String
+// Returns the runtime type name of a value
+fn native_typeof(args: &[Value]) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!("typeof() expects 1 argument, got {}", args.len()));
+    }
+    
+    let type_name = match &args[0] {
+        Value::Number(_) => "Number",
+        Value::String(_) => "String",
+        Value::Boolean(_) => "Boolean",
+        Value::Null => "Null",
+        Value::Array(_) => "Array",
+        Value::Table(table) => {
+            // Check if this table has a __type field (from cast())
+            let borrowed = table.borrow();
+            if let Some(Value::Type(_)) = borrowed.get("__type") {
+                // This is a typed instance, return "Table" as the base type
+                // The actual type information is in the __type field
+                "Table"
+            } else {
+                "Table"
+            }
+        }
+        Value::Function { .. } => "Function",
+        Value::Closure { .. } => "Function",
+        Value::NativeFunction { .. } => "Function",
+        Value::Type(_) => "Type",
+    };
+    
+    Ok(Value::String(type_name.to_string()))
 }
 
 // Helper: Create a Result value with ok field set
