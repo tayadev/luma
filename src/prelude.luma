@@ -183,6 +183,42 @@ let String = {
   end
 }
 
+-- =========================================================================
+-- Generic Conversion Function (dynamic __into dispatch)
+-- =========================================================================
+
+-- High-level conversion function overriding native stub.
+-- Dispatch order:
+-- 1. Direct value.__into
+-- 2. value.__type.__into (if present via cast metadata)
+-- 3. Primitive no-op / simple identity fallbacks
+-- Returns null if no conversion path found.
+let into = fn(value: Any, target: Any) do
+  -- Direct method on value
+  if value.__into != null do
+    return value.__into(value, target)
+  end
+  -- Method on type metadata
+  if value.__type != null do
+    let t = value.__type
+    if t.__into != null do
+      return t.__into(value, target)
+    end
+  end
+  -- Primitive fallback: if target is String and value has common primitive type
+  let k = typeof(value)
+  if target == String do
+    if k == "Number" do return "" + value end  -- relies on operator overloading
+    if k == "Boolean" do return "" + value end
+    if k == "Null" do return "null" end
+  end
+  -- Identity if types already match
+  if typeof(target) == typeof(value) do
+    return value
+  end
+  return null
+end
+
 -- ============================================================================
 -- Export prelude as module (all definitions are now in global scope)
 -- ============================================================================
@@ -196,4 +232,5 @@ let String = {
   print = print,
   Array = Array,
   String = String
+  , into = into
 }

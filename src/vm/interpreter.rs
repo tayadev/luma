@@ -116,21 +116,24 @@ impl VM {
         let saved_base = self.base;
         
         // Execute the prelude in the current VM context
-        // This will populate globals with Result, Option, File, print, Array, etc.
+        // This will return the prelude export table as the result
         self.chunk = prelude_chunk;
         self.ip = 0;
         self.base = 0;
-        
+
         let result = self.run();
-        
+
         // Restore VM state
         self.chunk = saved_chunk;
         self.ip = saved_ip;
         self.base = saved_base;
-        
-        // Check execution result
+
+        // Inject only the prelude export table as `prelude` in the global scope
         match result {
-            Ok(_) => Ok(()),
+            Ok(prelude_exports) => {
+                self.globals.insert("prelude".to_string(), prelude_exports);
+                Ok(())
+            },
             Err(e) => Err(VmError::Runtime(format!("Failed to execute prelude: {:?}", e))),
         }
     }
