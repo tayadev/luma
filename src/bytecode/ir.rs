@@ -17,6 +17,7 @@ pub enum Instruction {
     Mul,
     Div,
     Mod,
+    Neg, // Unary negation
     Eq,
     Ne,
     Lt,

@@ -738,11 +738,8 @@ impl Compiler {
             Expr::Unary { op, operand } => {
                 match op {
                     UnaryOp::Neg => {
-                        // 0 - operand
-                        let zero = push_const(&mut self.chunk, Constant::Number(0.0));
-                        self.chunk.instructions.push(Instruction::Const(zero));
                         self.emit_expr(operand);
-                        self.chunk.instructions.push(Instruction::Sub);
+                        self.chunk.instructions.push(Instruction::Neg);
                     }
                     UnaryOp::Not => {
                         self.emit_expr(operand);
