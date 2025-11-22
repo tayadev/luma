@@ -51,6 +51,7 @@ impl VM {
         // Register native functions
         vm.register_native_function("cast", 2, native_cast);
         vm.register_native_function("isInstanceOf", 2, native_is_instance_of);
+        vm.register_native_function("into", 2, native_into);
         
         vm
     }
@@ -62,6 +63,140 @@ impl VM {
         };
         self.globals.insert(name.to_string(), native_val.clone());
         self.native_functions.insert(name.to_string(), _func);
+    }
+    
+    /// Helper method to check if a value is a table with a specific method
+    /// Checks both the value itself and its type definition (if it has __type metadata)
+    fn has_method(value: &Value, method_name: &str) -> Option<Value> {
+        match value {
+            Value::Table(table) => {
+                let borrowed = table.borrow();
+                
+                // First check if the method exists directly on the value
+                if let Some(method) = borrowed.get(method_name) {
+                    return Some(method.clone());
+                }
+                
+                // If not, check the type definition (if value has __type metadata)
+                // __type can be either Value::Type (created by cast()) or Value::Table (user-defined)
+                if let Some(Value::Type(type_table) | Value::Table(type_table)) = borrowed.get("__type") {
+                    let type_borrowed = type_table.borrow();
+                    if let Some(method) = type_borrowed.get(method_name) {
+                        return Some(method.clone());
+                    }
+                }
+                
+                None
+            }
+            _ => None,
+        }
+    }
+    
+    /// Helper method to set up and execute a method call for operator overloading
+    fn call_overload_method(
+        &mut self,
+        method: Value,
+        args: Vec<Value>,
+        expected_arity: usize,
+        method_name: &str,
+    ) -> Result<(), VmError> {
+        match &method {
+            Value::Function { chunk, arity } => {
+                if *arity != expected_arity {
+                    return Err(VmError::Runtime(format!(
+                        "{} method must have arity {}, got {}", method_name, expected_arity, arity
+                    )));
+                }
+                
+                // Save current frame
+                let frame = CallFrame {
+                    chunk: self.chunk.clone(),
+                    ip: self.ip,
+                    base: self.base,
+                };
+                self.frames.push(frame);
+                
+                // Set up stack for function call
+                self.stack.push(method.clone());
+                for arg in args {
+                    self.stack.push(arg);
+                }
+                
+                // Set new base to point to first argument
+                self.base = self.stack.len() - expected_arity;
+                // Switch to method chunk
+                self.chunk = chunk.clone();
+                self.ip = 0;
+                Ok(())
+            }
+            _ => Err(VmError::Runtime(format!("{} must be a function", method_name))),
+        }
+    }
+    
+    /// Helper method to execute a binary operator with optional operator overloading
+    fn execute_binary_op(
+        &mut self,
+        a: Value,
+        b: Value,
+        method_name: &str,
+        default_op: impl FnOnce(&Value, &Value) -> Result<Value, String>,
+    ) -> Result<(), VmError> {
+        // Try default operation first
+        match default_op(&a, &b) {
+            Ok(result) => {
+                self.stack.push(result);
+                Ok(())
+            }
+            Err(_) => {
+                // Try operator overloading
+                if let Some(method) = Self::has_method(&a, method_name) {
+                    self.call_overload_method(method, vec![a, b], 2, method_name)
+                } else {
+                    Err(VmError::Runtime(format!(
+                        "Operation requires compatible types or {} method", method_name
+                    )))
+                }
+            }
+        }
+    }
+    
+    /// Helper for equality comparison with operator overloading
+    fn execute_eq_op(&mut self, a: Value, b: Value) -> Result<(), VmError> {
+        // Try operator overloading first for tables
+        if let Some(method) = Self::has_method(&a, "__eq") {
+            self.call_overload_method(method, vec![a, b], 2, "__eq")
+        } else {
+            // Default equality
+            self.stack.push(Value::Boolean(a == b));
+            Ok(())
+        }
+    }
+    
+    /// Helper for comparison operations with operator overloading
+    fn execute_cmp_op(
+        &mut self,
+        a: Value,
+        b: Value,
+        method_name: &str,
+        default_cmp: impl FnOnce(f64, f64) -> bool,
+    ) -> Result<(), VmError> {
+        // Try default numeric comparison
+        match (&a, &b) {
+            (Value::Number(x), Value::Number(y)) => {
+                self.stack.push(Value::Boolean(default_cmp(*x, *y)));
+                Ok(())
+            }
+            _ => {
+                // Try operator overloading
+                if let Some(method) = Self::has_method(&a, method_name) {
+                    self.call_overload_method(method, vec![a, b], 2, method_name)
+                } else {
+                    Err(VmError::Runtime(format!(
+                        "Comparison requires Number or {} method", method_name
+                    )))
+                }
+            }
+        }
     }
 
     pub fn run(&mut self) -> Result<Value, VmError> {
@@ -107,17 +242,80 @@ impl VM {
                     }
                 }
                 Instruction::Add => {
-                    let (b, a) = (self.stack.pop(), self.stack.pop());
-                    match (a, b) {
-                        (Some(Value::Number(x)), Some(Value::Number(y))) => self.stack.push(Value::Number(x + y)),
-                        (Some(Value::String(x)), Some(Value::String(y))) => self.stack.push(Value::String(x + &y)),
-                        _ => return Err(VmError::Runtime("ADD requires (Number, Number) or (String, String)".into())),
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("ADD right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("ADD left underflow".into()))?;
+                    
+                    self.execute_binary_op(a, b, "__add", |a, b| {
+                        match (a, b) {
+                            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x + y)),
+                            (Value::String(x), Value::String(y)) => Ok(Value::String(format!("{}{}", x, y))),
+                            _ => Err("Type mismatch".to_string()),
+                        }
+                    })?;
+                }
+                Instruction::Sub => {
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("SUB right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("SUB left underflow".into()))?;
+                    
+                    self.execute_binary_op(a, b, "__sub", |a, b| {
+                        match (a, b) {
+                            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x - y)),
+                            _ => Err("Type mismatch".to_string()),
+                        }
+                    })?;
+                }
+                Instruction::Mul => {
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("MUL right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("MUL left underflow".into()))?;
+                    
+                    self.execute_binary_op(a, b, "__mul", |a, b| {
+                        match (a, b) {
+                            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x * y)),
+                            _ => Err("Type mismatch".to_string()),
+                        }
+                    })?;
+                }
+                Instruction::Div => {
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("DIV right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("DIV left underflow".into()))?;
+                    
+                    self.execute_binary_op(a, b, "__div", |a, b| {
+                        match (a, b) {
+                            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x / y)),
+                            _ => Err("Type mismatch".to_string()),
+                        }
+                    })?;
+                }
+                Instruction::Mod => {
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("MOD right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("MOD left underflow".into()))?;
+                    
+                    self.execute_binary_op(a, b, "__mod", |a, b| {
+                        match (a, b) {
+                            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x % y)),
+                            _ => Err("Type mismatch".to_string()),
+                        }
+                    })?;
+                }
+                Instruction::Neg => {
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("NEG underflow".into()))?;
+                    
+                    match &a {
+                        Value::Number(x) => {
+                            self.stack.push(Value::Number(-x));
+                        }
+                        _ => {
+                            // Try operator overloading for __neg
+                            if let Some(method) = Self::has_method(&a, "__neg") {
+                                self.call_overload_method(method, vec![a], 1, "__neg")?;
+                            } else {
+                                return Err(VmError::Runtime(
+                                    "NEG requires Number or __neg method".into()
+                                ));
+                            }
+                        }
                     }
                 }
-                Instruction::Sub => bin_num(&mut self.stack, |a,b| a-b)?,
-                Instruction::Mul => bin_num(&mut self.stack, |a,b| a*b)?,
-                Instruction::Div => bin_num(&mut self.stack, |a,b| a/b)?,
-                Instruction::Mod => bin_num(&mut self.stack, |a,b| a%b)?,
                 Instruction::GetGlobal(idx) => {
                     let name = match self.chunk.constants.get(idx) {
                         Some(Constant::String(s)) => s.clone(),
@@ -269,12 +467,37 @@ impl VM {
                         _ => return Err(VmError::Runtime("SLICE_ARRAY requires an array".into())),
                     }
                 }
-                Instruction::Eq => bin_eq(&mut self.stack)?,
-                Instruction::Ne => { bin_eq(&mut self.stack)?; flip_bool(&mut self.stack)?; }
-                Instruction::Lt => bin_cmp(&mut self.stack, |a,b| a<b)?,
-                Instruction::Le => bin_cmp(&mut self.stack, |a,b| a<=b)?,
-                Instruction::Gt => bin_cmp(&mut self.stack, |a,b| a>b)?,
-                Instruction::Ge => bin_cmp(&mut self.stack, |a,b| a>=b)?,
+                Instruction::Eq => {
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("EQ right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("EQ left underflow".into()))?;
+                    self.execute_eq_op(a, b)?;
+                }
+                Instruction::Ne => {
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("NE right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("NE left underflow".into()))?;
+                    self.execute_eq_op(a, b)?;
+                    flip_bool(&mut self.stack)?;
+                }
+                Instruction::Lt => {
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("LT right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("LT left underflow".into()))?;
+                    self.execute_cmp_op(a, b, "__lt", |a, b| a < b)?;
+                }
+                Instruction::Le => {
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("LE right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("LE left underflow".into()))?;
+                    self.execute_cmp_op(a, b, "__le", |a, b| a <= b)?;
+                }
+                Instruction::Gt => {
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("GT right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("GT left underflow".into()))?;
+                    self.execute_cmp_op(a, b, "__gt", |a, b| a > b)?;
+                }
+                Instruction::Ge => {
+                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("GE right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("GE left underflow".into()))?;
+                    self.execute_cmp_op(a, b, "__ge", |a, b| a >= b)?;
+                }
                 Instruction::Not => {
                     let v = self.stack.pop().ok_or_else(|| VmError::Runtime("NOT on empty stack".into()))?;
                     self.stack.push(Value::Boolean(!truthy(&v)));
@@ -491,32 +714,6 @@ impl VM {
     }
 }
 
-fn bin_num<F>(stack: &mut Vec<Value>, f: F) -> Result<(), VmError>
-where F: FnOnce(f64,f64)->f64 {
-    let (b, a) = (stack.pop(), stack.pop());
-    match (a, b) {
-        (Some(Value::Number(x)), Some(Value::Number(y))) => { stack.push(Value::Number(f(x,y))); Ok(()) }
-        _ => Err(VmError::Runtime("Numeric op type error".into())),
-    }
-}
-
-fn bin_eq(stack: &mut Vec<Value>) -> Result<(), VmError> {
-    let (b, a) = (stack.pop(), stack.pop());
-    match (a, b) {
-        (Some(x), Some(y)) => { stack.push(Value::Boolean(x == y)); Ok(()) }
-        _ => Err(VmError::Runtime("EQ underflow".into())),
-    }
-}
-
-fn bin_cmp<F>(stack: &mut Vec<Value>, f: F) -> Result<(), VmError>
-where F: FnOnce(f64,f64)->bool {
-    let (b, a) = (stack.pop(), stack.pop());
-    match (a, b) {
-        (Some(Value::Number(x)), Some(Value::Number(y))) => { stack.push(Value::Boolean(f(x,y))); Ok(()) }
-        _ => Err(VmError::Runtime("Comparison type error".into())),
-    }
-}
-
 fn flip_bool(stack: &mut Vec<Value>) -> Result<(), VmError> {
     let v = stack.pop().ok_or_else(|| VmError::Runtime("flip bool underflow".into()))?;
     match v {
@@ -704,4 +901,57 @@ fn native_is_instance_of(args: &[Value]) -> Result<Value, String> {
     }
     
     Ok(Value::Boolean(false))
+}
+
+// Native function: into(value, target_type) -> converted_value
+// Calls the __into method on the value with the target type
+fn native_into(args: &[Value]) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!("into() expects 2 arguments, got {}", args.len()));
+    }
+    
+    let value = &args[0];
+    let target_type = &args[1];
+    
+    // Check if value has __into method
+    match value {
+        Value::Table(table) => {
+            let borrowed = table.borrow();
+            if let Some(_into_method) = borrowed.get("__into") {
+                // We need to call the __into method with (self, target_type)
+                // But we can't easily call it from here without access to the VM
+                // For now, return an error suggesting that __into calls must happen in VM context
+                return Err(format!(
+                    "Type conversions via __into are not fully implemented yet. \
+                     For now, use explicit conversion methods or wait for v2. \
+                     See GC_HOOKS.md for details."
+                ));
+            } else {
+                return Err(format!("Type does not support conversion (no __into method)"));
+            }
+        }
+        _ => {
+            // For non-table values, provide default conversions
+            match target_type {
+                Value::Type(type_map) | Value::Table(type_map) => {
+                    let type_borrowed = type_map.borrow();
+                    // Check if target is String type (basic heuristic)
+                    // TODO: Improve type matching logic
+                    if type_borrowed.contains_key("String") || type_borrowed.is_empty() {
+                        // Default string conversion for primitive types
+                        match value {
+                            Value::Number(n) => Ok(Value::String(n.to_string())),
+                            Value::String(s) => Ok(Value::String(s.clone())),
+                            Value::Boolean(b) => Ok(Value::String(b.to_string())),
+                            Value::Null => Ok(Value::String("null".to_string())),
+                            _ => Err("Cannot convert value to String".to_string()),
+                        }
+                    } else {
+                        Err(format!("Unsupported conversion target"))
+                    }
+                }
+                _ => Err("Second argument to into() must be a type".to_string()),
+            }
+        }
+    }
 }
