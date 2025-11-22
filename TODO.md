@@ -5,7 +5,7 @@
 ## MVP (v1) — In Progress
 
 ### Type System & Runtime
-- [ ] Module system with `import()` (local files, URLs, git repos) _(for v1 only local files)_
+- [x] Module system with `import()` (local files, URLs, git repos) _(for v1 only local files)_
 
 - [x] **Operator overloading (`__add`, `__sub`, `__mul`, etc.) — COMPLETED**
   - [x] Arithmetic operators: `__add`, `__sub`, `__mul`, `__div`, `__mod`
@@ -81,4 +81,5 @@
 - [ ] Better diagnostics with source spans (node IDs/spans throughout)
 - [ ] Error recovery in parser/typechecker
 - [ ] Standard library expansion (beyond `print`)
+
 - [ ] JIT compiler or compact byte encoding for instructions
