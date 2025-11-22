@@ -1,0 +1,16 @@
+let Vector2 = {
+  x = Number,
+  y = Number,
+  
+  __add = fn(a: Any, b: Any): Any do
+    return { x = 1, y = 2 }
+  end,
+  
+  __into = fn(self: Any, target: Any): String do
+    return "Vector2"
+  end,
+  
+  __gc = fn(self: Any): Any do
+    return null
+  end
+}

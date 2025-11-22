@@ -1,0 +1,5 @@
+let x = { 
+  __add = fn(a, b) do 
+    return a 
+  end 
+}
