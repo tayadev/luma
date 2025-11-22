@@ -22,11 +22,35 @@ pub struct VM {
     globals: HashMap<String, Value>,
     base: usize,
     frames: Vec<CallFrame>,
+    native_functions: HashMap<String, fn(&[Value]) -> Result<Value, String>>,
 }
 
 impl VM {
     pub fn new(chunk: Chunk) -> Self {
-        VM { stack: Vec::new(), ip: 0, chunk, globals: HashMap::new(), base: 0, frames: Vec::new() }
+        let mut vm = VM { 
+            stack: Vec::new(), 
+            ip: 0, 
+            chunk, 
+            globals: HashMap::new(), 
+            base: 0, 
+            frames: Vec::new(),
+            native_functions: HashMap::new(),
+        };
+        
+        // Register native functions
+        vm.register_native_function("cast", 2, native_cast);
+        vm.register_native_function("isInstanceOf", 2, native_is_instance_of);
+        
+        vm
+    }
+    
+    fn register_native_function(&mut self, name: &str, arity: usize, _func: fn(&[Value]) -> Result<Value, String>) {
+        let native_val = Value::NativeFunction { 
+            name: name.to_string(), 
+            arity 
+        };
+        self.globals.insert(name.to_string(), native_val.clone());
+        self.native_functions.insert(name.to_string(), _func);
     }
 
     pub fn run(&mut self) -> Result<Value, VmError> {
@@ -289,6 +313,22 @@ impl VM {
                             self.chunk = fn_chunk;
                             self.ip = 0;
                         }
+                        Value::NativeFunction { name, arity: fn_arity } => {
+                            if arity != fn_arity {
+                                return Err(VmError::Runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
+                            }
+                            // Collect arguments
+                            let args: Vec<Value> = self.stack.drain(callee_idx + 1..).collect();
+                            // Pop callee
+                            self.stack.pop();
+                            
+                            // Call native function
+                            let func = self.native_functions.get(&name)
+                                .ok_or_else(|| VmError::Runtime(format!("Native function '{}' not found", name)))?;
+                            let result = func(&args)
+                                .map_err(|e| VmError::Runtime(e))?;
+                            self.stack.push(result);
+                        }
                         _ => return Err(VmError::Runtime("CALL on non-function".into())),
                     }
                 }
@@ -356,4 +396,181 @@ fn flip_bool(stack: &mut Vec<Value>) -> Result<(), VmError> {
 
 fn truthy(v: &Value) -> bool {
     !matches!(v, Value::Boolean(false) | Value::Null)
+}
+
+// Helper function to check if a value matches a type definition
+fn matches_type_def(value: &Value, type_def: &HashMap<String, Value>) -> Result<bool, String> {
+    match value {
+        Value::Table(table) => {
+            let borrowed = table.borrow();
+            
+            // Check all required fields in the type definition
+            for (field_name, field_type) in type_def.iter() {
+                // Skip special fields like __parent and methods (functions)
+                if field_name.starts_with("__") {
+                    continue;
+                }
+                
+                // If the field type is a function, it's a method - skip validation for methods
+                if matches!(field_type, Value::Function { .. } | Value::NativeFunction { .. }) {
+                    continue;
+                }
+                
+                // Check if the field exists in the value
+                if !borrowed.contains_key(field_name) {
+                    return Ok(false);
+                }
+                
+                // For now, we do structural matching - just check if field exists
+                // Full type checking would require recursively validating field types
+            }
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
+// Helper function to merge parent fields into child
+fn merge_parent_fields(type_def: &HashMap<String, Value>) -> HashMap<String, Value> {
+    let mut merged = type_def.clone();
+    
+    // Check if there's a __parent field
+    if let Some(Value::Table(parent_table)) = type_def.get("__parent") {
+        let parent_borrowed = parent_table.borrow();
+        
+        // Recursively merge parent's fields
+        let parent_merged = merge_parent_fields(&parent_borrowed);
+        
+        // Add parent fields that don't exist in child
+        for (key, value) in parent_merged.iter() {
+            if !merged.contains_key(key) {
+                merged.insert(key.clone(), value.clone());
+            }
+        }
+    } else if let Some(Value::Type(parent_type)) = type_def.get("__parent") {
+        let parent_borrowed = parent_type.borrow();
+        
+        // Recursively merge parent's fields
+        let parent_merged = merge_parent_fields(&parent_borrowed);
+        
+        // Add parent fields that don't exist in child
+        for (key, value) in parent_merged.iter() {
+            if !merged.contains_key(key) {
+                merged.insert(key.clone(), value.clone());
+            }
+        }
+    }
+    
+    merged
+}
+
+// Native function: cast(type, value) -> typed_value
+fn native_cast(args: &[Value]) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!("cast() expects 2 arguments, got {}", args.len()));
+    }
+    
+    let type_def = match &args[0] {
+        Value::Table(t) => t.clone(),
+        Value::Type(t) => t.clone(),
+        _ => return Err("cast() first argument must be a type (table)".to_string()),
+    };
+    
+    let value = &args[1];
+    
+    // Validate that the value matches the type definition
+    let type_borrowed = type_def.borrow();
+    let merged_type = merge_parent_fields(&type_borrowed);
+    
+    if !matches_type_def(value, &merged_type)? {
+        return Err("cast() validation failed: value does not match type definition".to_string());
+    }
+    
+    // For tables, attach type metadata by creating a new table with __type field
+    match value {
+        Value::Table(table) => {
+            let value_borrowed = table.borrow();
+            let mut new_table = value_borrowed.clone();
+            
+            // Merge inherited fields from parent if any
+            for (key, val) in merged_type.iter() {
+                if !key.starts_with("__") && !new_table.contains_key(key) {
+                    // Don't copy methods, only data fields
+                    if !matches!(val, Value::Function { .. } | Value::NativeFunction { .. }) {
+                        new_table.insert(key.clone(), val.clone());
+                    }
+                }
+            }
+            
+            // Attach the type definition as metadata
+            new_table.insert("__type".to_string(), Value::Type(type_def.clone()));
+            
+            Ok(Value::Table(Rc::new(RefCell::new(new_table))))
+        }
+        _ => {
+            // For non-table values, just return as-is if validation passed
+            Ok(value.clone())
+        }
+    }
+}
+
+// Native function: isInstanceOf(value, type) -> boolean
+fn native_is_instance_of(args: &[Value]) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!("isInstanceOf() expects 2 arguments, got {}", args.len()));
+    }
+    
+    let value = &args[0];
+    let type_def = match &args[1] {
+        Value::Table(t) => t.clone(),
+        Value::Type(t) => t.clone(),
+        _ => return Err("isInstanceOf() second argument must be a type (table)".to_string()),
+    };
+    
+    // Check if the value is a table with __type metadata
+    if let Value::Table(table) = value {
+        let borrowed = table.borrow();
+        
+        // Check direct type match
+        if let Some(Value::Type(value_type)) = borrowed.get("__type") {
+            // Compare type references
+            if Rc::ptr_eq(value_type, &type_def) {
+                return Ok(Value::Boolean(true));
+            }
+            
+            // Check if value_type inherits from type_def via __parent chain
+            let mut current_type = value_type.clone();
+            loop {
+                let has_parent = {
+                    let current_borrowed = current_type.borrow();
+                    current_borrowed.get("__parent").cloned()
+                };
+                
+                match has_parent {
+                    Some(Value::Type(parent)) => {
+                        if Rc::ptr_eq(&parent, &type_def) {
+                            return Ok(Value::Boolean(true));
+                        }
+                        current_type = parent;
+                    }
+                    Some(Value::Table(parent)) => {
+                        // Convert table to type for comparison
+                        if Rc::ptr_eq(&parent, &type_def) {
+                            return Ok(Value::Boolean(true));
+                        }
+                        current_type = Rc::new(RefCell::new(parent.borrow().clone()));
+                    }
+                    _ => break,
+                }
+            }
+        }
+        
+        // Fallback to structural matching (trait-like behavior)
+        let type_borrowed = type_def.borrow();
+        if matches_type_def(value, &type_borrowed)? {
+            return Ok(Value::Boolean(true));
+        }
+    }
+    
+    Ok(Value::Boolean(false))
 }

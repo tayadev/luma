@@ -1,0 +1,13 @@
+-- Test isInstanceOf with a simple type
+let Person = {
+  name = "String",
+  age = 42
+}
+
+let raw = {
+  name = "Bob",
+  age = 25
+}
+
+let person = cast(Person, raw)
+isInstanceOf(person, Person)
