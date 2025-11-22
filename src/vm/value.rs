@@ -18,9 +18,15 @@ pub enum Value {
     #[serde(skip)]
     Table(Rc<RefCell<HashMap<String, Value>>>),
     Function { chunk: Chunk, arity: usize },
+    /// NativeFunction stores only metadata (name, arity).
+    /// The actual function pointer is stored in VM's native_functions HashMap.
+    /// This design allows Values to be serializable while keeping function pointers
+    /// in the VM runtime.
     #[serde(skip)]
     NativeFunction { name: String, arity: usize },
-    // Type represents a type definition (used for cast and isInstanceOf)
+    /// Type represents a type definition (used for cast and isInstanceOf).
+    /// It's essentially a table that describes the structure of a type,
+    /// including field definitions and optional __parent for inheritance.
     #[serde(skip)]
     Type(Rc<RefCell<HashMap<String, Value>>>),
 }

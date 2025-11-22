@@ -398,6 +398,15 @@ fn truthy(v: &Value) -> bool {
     !matches!(v, Value::Boolean(false) | Value::Null)
 }
 
+// Helper to extract type definition from a Value (either Table or Type)
+fn get_type_map(value: &Value) -> Option<Rc<RefCell<HashMap<String, Value>>>> {
+    match value {
+        Value::Type(t) => Some(t.clone()),
+        Value::Table(t) => Some(t.clone()),
+        _ => None,
+    }
+}
+
 // Helper function to check if a value has all required fields for a type (for trait matching)
 fn has_required_fields(value: &Value, type_def: &HashMap<String, Value>) -> Result<bool, String> {
     match value {
@@ -441,28 +450,18 @@ fn merge_parent_fields(type_def: &HashMap<String, Value>) -> HashMap<String, Val
     let mut merged = type_def.clone();
     
     // Check if there's a __parent field
-    if let Some(Value::Table(parent_table)) = type_def.get("__parent") {
-        let parent_borrowed = parent_table.borrow();
-        
-        // Recursively merge parent's fields
-        let parent_merged = merge_parent_fields(&parent_borrowed);
-        
-        // Add parent fields that don't exist in child
-        for (key, value) in parent_merged.iter() {
-            if !merged.contains_key(key) {
-                merged.insert(key.clone(), value.clone());
-            }
-        }
-    } else if let Some(Value::Type(parent_type)) = type_def.get("__parent") {
-        let parent_borrowed = parent_type.borrow();
-        
-        // Recursively merge parent's fields
-        let parent_merged = merge_parent_fields(&parent_borrowed);
-        
-        // Add parent fields that don't exist in child
-        for (key, value) in parent_merged.iter() {
-            if !merged.contains_key(key) {
-                merged.insert(key.clone(), value.clone());
+    if let Some(parent_val) = type_def.get("__parent") {
+        if let Some(parent_map) = get_type_map(parent_val) {
+            let parent_borrowed = parent_map.borrow();
+            
+            // Recursively merge parent's fields
+            let parent_merged = merge_parent_fields(&parent_borrowed);
+            
+            // Add parent fields that don't exist in child
+            for (key, value) in parent_merged.iter() {
+                if !merged.contains_key(key) {
+                    merged.insert(key.clone(), value.clone());
+                }
             }
         }
     }
@@ -553,21 +552,18 @@ fn native_is_instance_of(args: &[Value]) -> Result<Value, String> {
                     current_borrowed.get("__parent").cloned()
                 };
                 
-                match has_parent {
-                    Some(Value::Type(parent)) => {
-                        if Rc::ptr_eq(&parent, &type_def) {
+                if let Some(parent_val) = has_parent {
+                    if let Some(parent_map) = get_type_map(&parent_val) {
+                        // Check if this parent matches the target type
+                        if Rc::ptr_eq(&parent_map, &type_def) {
                             return Ok(Value::Boolean(true));
                         }
-                        current_type = parent;
+                        current_type = parent_map;
+                    } else {
+                        break;
                     }
-                    Some(Value::Table(parent)) => {
-                        // Convert table to type for comparison
-                        if Rc::ptr_eq(&parent, &type_def) {
-                            return Ok(Value::Boolean(true));
-                        }
-                        current_type = Rc::new(RefCell::new(parent.borrow().clone()));
-                    }
-                    _ => break,
+                } else {
+                    break;
                 }
             }
         }
