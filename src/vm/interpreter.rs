@@ -67,6 +67,7 @@ impl VM {
                 }
                 
                 // If not, check the type definition (if value has __type metadata)
+                // __type can be either Value::Type (created by cast()) or Value::Table (user-defined)
                 if let Some(Value::Type(type_table) | Value::Table(type_table)) = borrowed.get("__type") {
                     let type_borrowed = type_table.borrow();
                     if let Some(method) = type_borrowed.get(method_name) {
@@ -236,7 +237,7 @@ impl VM {
                     self.execute_binary_op(a, b, "__add", |a, b| {
                         match (a, b) {
                             (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x + y)),
-                            (Value::String(x), Value::String(y)) => Ok(Value::String(x.clone() + y)),
+                            (Value::String(x), Value::String(y)) => Ok(Value::String(format!("{}{}", x, y))),
                             _ => Err("Type mismatch".to_string()),
                         }
                     })?;
@@ -789,7 +790,6 @@ fn native_into(args: &[Value]) -> Result<Value, String> {
                 // We need to call the __into method with (self, target_type)
                 // But we can't easily call it from here without access to the VM
                 // For now, return an error suggesting that __into calls must happen in VM context
-                drop(borrowed);
                 return Err(format!(
                     "Type conversions via __into are not fully implemented yet. \
                      For now, use explicit conversion methods or wait for v2. \
@@ -804,10 +804,10 @@ fn native_into(args: &[Value]) -> Result<Value, String> {
             match target_type {
                 Value::Type(type_map) | Value::Table(type_map) => {
                     let type_borrowed = type_map.borrow();
-                    // Check if target is String type
+                    // Check if target is String type (basic heuristic)
+                    // TODO: Improve type matching logic
                     if type_borrowed.contains_key("String") || type_borrowed.is_empty() {
                         // Default string conversion for primitive types
-                        drop(type_borrowed);
                         match value {
                             Value::Number(n) => Ok(Value::String(n.to_string())),
                             Value::String(s) => Ok(Value::String(s.clone())),
