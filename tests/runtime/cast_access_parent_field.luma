@@ -1,0 +1,19 @@
+-- Test accessing inherited field from cast
+let Animal = {
+  name = "String",
+  sound = "String"
+}
+
+let Dog = {
+  __parent = Animal,
+  breed = "String"
+}
+
+let raw = {
+  name = "Rex",
+  sound = "Woof",
+  breed = "Shepherd"
+}
+
+let dog = cast(Dog, raw)
+dog.sound

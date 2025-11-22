@@ -1,0 +1,54 @@
+-- Comprehensive example demonstrating user-defined types, inheritance, and traits
+
+-- Define a base type
+let Animal = {
+  name = "unnamed",
+  species = "unknown"
+}
+
+-- Define a type that inherits from Animal
+let Dog = {
+  __parent = Animal,
+  breed = "unknown"
+}
+
+-- Define another type inheriting from Dog (multi-level inheritance)
+let Puppy = {
+  __parent = Dog,
+  age_months = 0
+}
+
+-- Create instances using cast()
+let generic_animal = cast(Animal, {
+  name = "Generic",
+  species = "Mammal"
+})
+
+let buddy = cast(Dog, {
+  name = "Buddy",
+  breed = "Golden Retriever"
+})
+
+let max = cast(Puppy, {
+  name = "Max",
+  breed = "Labrador",
+  age_months = 3
+})
+
+-- Test isInstanceOf with direct types
+let test1 = isInstanceOf(buddy, Dog)
+let test2 = isInstanceOf(max, Puppy)
+
+-- Test isInstanceOf with inheritance
+let test3 = isInstanceOf(max, Dog)
+let test4 = isInstanceOf(max, Animal)
+
+-- Test structural matching (traits)
+let Nameable = {
+  name = "default"
+}
+
+let test5 = isInstanceOf(buddy, Nameable)
+
+-- Return true if all tests pass
+test1 && test2 && test3 && test4 && test5

@@ -398,8 +398,8 @@ fn truthy(v: &Value) -> bool {
     !matches!(v, Value::Boolean(false) | Value::Null)
 }
 
-// Helper function to check if a value matches a type definition
-fn matches_type_def(value: &Value, type_def: &HashMap<String, Value>) -> Result<bool, String> {
+// Helper function to check if a value has all required fields for a type (for trait matching)
+fn has_required_fields(value: &Value, type_def: &HashMap<String, Value>) -> Result<bool, String> {
     match value {
         Value::Table(table) => {
             let borrowed = table.borrow();
@@ -428,6 +428,12 @@ fn matches_type_def(value: &Value, type_def: &HashMap<String, Value>) -> Result<
         }
         _ => Ok(false),
     }
+}
+
+// Helper function to check if a value is compatible for casting
+// For casting, we allow missing fields (they'll be filled with defaults)
+fn is_castable(value: &Value) -> bool {
+    matches!(value, Value::Table(_))
 }
 
 // Helper function to merge parent fields into child
@@ -478,13 +484,14 @@ fn native_cast(args: &[Value]) -> Result<Value, String> {
     
     let value = &args[1];
     
-    // Validate that the value matches the type definition
+    // Check that the value is a table (castable)
+    if !is_castable(value) {
+        return Err("cast() can only cast table values".to_string());
+    }
+    
+    // Merge inherited fields from parent types
     let type_borrowed = type_def.borrow();
     let merged_type = merge_parent_fields(&type_borrowed);
-    
-    if !matches_type_def(value, &merged_type)? {
-        return Err("cast() validation failed: value does not match type definition".to_string());
-    }
     
     // For tables, attach type metadata by creating a new table with __type field
     match value {
@@ -508,7 +515,7 @@ fn native_cast(args: &[Value]) -> Result<Value, String> {
             Ok(Value::Table(Rc::new(RefCell::new(new_table))))
         }
         _ => {
-            // For non-table values, just return as-is if validation passed
+            // For non-table values, just return as-is
             Ok(value.clone())
         }
     }
@@ -567,7 +574,7 @@ fn native_is_instance_of(args: &[Value]) -> Result<Value, String> {
         
         // Fallback to structural matching (trait-like behavior)
         let type_borrowed = type_def.borrow();
-        if matches_type_def(value, &type_borrowed)? {
+        if has_required_fields(value, &type_borrowed)? {
             return Ok(Value::Boolean(true));
         }
     }
