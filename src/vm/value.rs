@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::fmt;
 use serde::{Serialize, Deserialize};
 use crate::bytecode::ir::Chunk;
 
@@ -54,6 +55,51 @@ impl PartialEq for Value {
                 Rc::ptr_eq(a, b) || *a.borrow() == *b.borrow()
             }
             _ => false,
+        }
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Number(n) => {
+                // Format numbers nicely - remove .0 for whole numbers
+                if n.fract() == 0.0 && n.is_finite() {
+                    write!(f, "{}", *n as i64)
+                } else {
+                    write!(f, "{}", n)
+                }
+            }
+            Value::String(s) => write!(f, "{}", s),
+            Value::Boolean(b) => write!(f, "{}", b),
+            Value::Null => write!(f, "null"),
+            Value::Array(arr) => {
+                let borrowed = arr.borrow();
+                write!(f, "[")?;
+                for (i, val) in borrowed.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", val)?;
+                }
+                write!(f, "]")
+            }
+            Value::Table(table) => {
+                let borrowed = table.borrow();
+                write!(f, "{{")?;
+                let mut first = true;
+                for (key, val) in borrowed.iter() {
+                    if !first {
+                        write!(f, ", ")?;
+                    }
+                    first = false;
+                    write!(f, "{}: {}", key, val)?;
+                }
+                write!(f, "}}")
+            }
+            Value::Function { arity, .. } => write!(f, "<function/{}>", arity),
+            Value::NativeFunction { name, arity } => write!(f, "<native function {}/{}>", name, arity),
+            Value::Type(_) => write!(f, "<type>"),
         }
     }
 }

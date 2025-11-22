@@ -681,8 +681,10 @@ impl Compiler {
                     self.loop_stack[target_loop_idx].continue_patches.push(jump_ip);
                 }
             }
-            _ => {
-                // For now, ignore non-return statements
+            Stmt::ExprStmt(expr) => {
+                // Evaluate the expression and pop the result (since it's not used)
+                self.emit_expr(expr);
+                self.chunk.instructions.push(Instruction::Pop);
             }
         }
     }
