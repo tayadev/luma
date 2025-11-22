@@ -54,8 +54,13 @@ fn test_runtime_programs() {
         // Compile
         let chunk = luma::bytecode::compile::compile_program(&ast);
 
+        // Get absolute path for the test file
+        let absolute_path = luma_path.canonicalize()
+            .ok()
+            .map(|p| p.to_string_lossy().to_string());
+
         // Run
-        let mut vm = luma::vm::VM::new(chunk);
+        let mut vm = luma::vm::VM::new_with_file(chunk, absolute_path);
         let value = match vm.run() {
             Ok(v) => v,
             Err(e) => {

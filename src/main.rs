@@ -139,7 +139,17 @@ fn run_file(file: &str) {
         process::exit(1);
     }
     let chunk = luma::bytecode::compile::compile_program(&ast);
-    let mut vm = luma::vm::VM::new(chunk);
+    
+    // Get absolute path for the file
+    let absolute_path = match std::path::Path::new(file).canonicalize() {
+        Ok(path) => Some(path.to_string_lossy().to_string()),
+        Err(_) => {
+            eprintln!("Warning: Could not resolve absolute path for '{}'", file);
+            Some(file.to_string())
+        }
+    };
+    
+    let mut vm = luma::vm::VM::new_with_file(chunk, absolute_path);
     match vm.run() {
         Ok(val) => println!("{:?}", val),
         Err(e) => {

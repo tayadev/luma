@@ -74,6 +74,9 @@ pub enum Expr {
         else_block: Option<Vec<Stmt>>,
     },
     Block(Vec<Stmt>),
+    Import {
+        path: Box<Expr>,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

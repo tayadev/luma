@@ -1,0 +1,14 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: false,
+      name: "result",
+      value: Import(
+        path: String("./helper.luma"),
+      ),
+    ),
+    Return(
+      Identifier("result"),
+    ),
+  ],
+)
