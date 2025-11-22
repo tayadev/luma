@@ -1,0 +1,5 @@
+-- Test File constants from prelude
+let stdout = File.stdout
+let stderr = File.stderr
+
+{ stdout = stdout, stderr = stderr }

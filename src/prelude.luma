@@ -1,0 +1,199 @@
+-- Luma Standard Library Prelude
+-- This file is automatically loaded before user code runs
+-- It provides core types and utilities written in Luma itself
+
+-- ============================================================================
+-- Core Types: Result and Option (per SPEC.md section 3.4)
+-- ============================================================================
+
+let Result = {
+  -- Result type constructor: used for operations that can fail
+  -- Fields: ok (success value), err (error value)
+  -- Convention: One of ok/err is null, the other contains the value
+  
+  new_ok = fn(value: Any) do
+    return { ok = value, err = null }
+  end,
+  
+  new_err = fn(error: Any) do
+    return { ok = null, err = error }
+  end,
+  
+  is_ok = fn(self: Any): Boolean do
+    return self.err == null
+  end,
+  
+  is_err = fn(self: Any): Boolean do
+    return self.err != null
+  end,
+  
+  unwrap = fn(self: Any): Any do
+    if self.err != null do
+      panic("Called unwrap on an error Result")
+    end
+    return self.ok
+  end,
+  
+  unwrap_or = fn(self: Any, default: Any): Any do
+    if self.err != null do
+      return default
+    end
+    return self.ok
+  end
+}
+
+let Option = {
+  -- Option type constructor: used for optional values
+  -- Fields: some (the value), none (boolean indicating absence)
+  
+  new_some = fn(value: Any) do
+    return { some = value, none = false }
+  end,
+  
+  new_none = fn() do
+    return { some = null, none = true }
+  end,
+  
+  is_some = fn(self: Any): Boolean do
+    return !self.none
+  end,
+  
+  is_none = fn(self: Any): Boolean do
+    return self.none
+  end,
+  
+  unwrap = fn(self: Any): Any do
+    if self.none do
+      panic("Called unwrap on None")
+    end
+    return self.some
+  end,
+  
+  unwrap_or = fn(self: Any, default: Any): Any do
+    if self.none do
+      return default
+    end
+    return self.some
+  end
+}
+
+-- ============================================================================
+-- File I/O Wrappers
+-- ============================================================================
+
+let File = {
+  stdout = STDOUT,
+  stderr = STDERR,
+  
+  -- Read entire file as string
+  read = fn(path: String) do
+    return read_file(path)
+  end,
+  
+  -- Write string to file
+  write = fn(path: String, content: String) do
+    return write_file(path, content)
+  end,
+  
+  -- Check if file exists
+  exists = fn(path: String): Boolean do
+    return file_exists(path)
+  end
+}
+
+-- ============================================================================
+-- Print Function (user-customizable)
+-- ============================================================================
+
+-- High-level print function
+let print = fn(input: Any) do
+  let fd = File.stdout
+  let result = write(fd, input)
+  if result.err != null do
+    panic("Failed to write to stdout")
+  end
+end
+
+-- ============================================================================
+-- Array Utilities
+-- ============================================================================
+
+let Array = {
+  -- Custom string conversion for arrays (simplified version)
+  __into = fn(self: Any, target: Any) do
+    -- For now, just return null to indicate no conversion available
+    -- Full implementation requires better string building support
+    return null
+  end,
+  
+  -- Map function: apply f to each element
+  map = fn(arr: Any, f: Any) do
+    let result = []
+    var idx = 0
+    for item in arr do
+      result[idx] = f(item)
+      idx = idx + 1
+    end
+    return result
+  end,
+  
+  -- Filter function: keep elements where predicate returns true
+  filter = fn(arr: Any, predicate: Any) do
+    let result = []
+    var idx = 0
+    for item in arr do
+      if predicate(item) do
+        result[idx] = item
+        idx = idx + 1
+      end
+    end
+    return result
+  end,
+  
+  -- Reduce function: fold array into single value
+  reduce = fn(arr: Any, initial: Any, f: Any) do
+    var acc = initial
+    for item in arr do
+      acc = f(acc, item)
+    end
+    return acc
+  end,
+  
+  -- Length function: count elements in array
+  length = fn(arr: Any): Number do
+    var count = 0
+    for item in arr do
+      count = count + 1
+    end
+    return count
+  end
+}
+
+-- ============================================================================
+-- String Utilities
+-- ============================================================================
+
+let String = {
+  -- String concatenation (already built-in via + operator)
+  -- Additional utilities can be added here
+  
+  length = fn(s: String): Number do
+    -- TODO: Implement string length once VM supports it
+    return 0
+  end
+}
+
+-- ============================================================================
+-- Export prelude as module (all definitions are now in global scope)
+-- ============================================================================
+
+-- The last expression is the implicit return value
+-- We return a table with all exported names for potential explicit imports
+{
+  Result = Result,
+  Option = Option,
+  File = File,
+  print = print,
+  Array = Array,
+  String = String
+}

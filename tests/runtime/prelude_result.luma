@@ -1,0 +1,10 @@
+-- Test Result type from prelude
+let ok_val = Result.new_ok(42)
+let err_val = Result.new_err("failed")
+
+let is_ok_true = Result.is_ok(ok_val)
+let is_err_true = Result.is_err(err_val)
+
+let unwrapped = Result.unwrap_or(err_val, 100)
+
+{ ok_is_ok = is_ok_true, err_is_err = is_err_true, default_value = unwrapped }

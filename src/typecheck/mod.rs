@@ -101,6 +101,97 @@ impl TypeEnv {
             annotated: true,
         });
         
+        // Register I/O native functions
+        env.declare("write".to_string(), VarInfo {
+            ty: TcType::Function {
+                params: vec![TcType::Number, TcType::Any],
+                ret: Box::new(TcType::Table),  // Returns Result
+            },
+            mutable: false,
+            annotated: true,
+        });
+        
+        env.declare("read_file".to_string(), VarInfo {
+            ty: TcType::Function {
+                params: vec![TcType::String],
+                ret: Box::new(TcType::Table),  // Returns Result
+            },
+            mutable: false,
+            annotated: true,
+        });
+        
+        env.declare("write_file".to_string(), VarInfo {
+            ty: TcType::Function {
+                params: vec![TcType::String, TcType::Any],
+                ret: Box::new(TcType::Table),  // Returns Result
+            },
+            mutable: false,
+            annotated: true,
+        });
+        
+        env.declare("file_exists".to_string(), VarInfo {
+            ty: TcType::Function {
+                params: vec![TcType::String],
+                ret: Box::new(TcType::Boolean),
+            },
+            mutable: false,
+            annotated: true,
+        });
+        
+        env.declare("panic".to_string(), VarInfo {
+            ty: TcType::Function {
+                params: vec![TcType::Any],
+                ret: Box::new(TcType::Any),  // Never returns, but use Any
+            },
+            mutable: false,
+            annotated: true,
+        });
+        
+        // Register file descriptor constants
+        env.declare("STDOUT".to_string(), VarInfo {
+            ty: TcType::Number,
+            mutable: false,
+            annotated: true,
+        });
+        
+        env.declare("STDERR".to_string(), VarInfo {
+            ty: TcType::Number,
+            mutable: false,
+            annotated: true,
+        });
+        
+        // Register prelude types/tables (from prelude.luma)
+        // These are tables containing methods/constructors
+        env.declare("Result".to_string(), VarInfo {
+            ty: TcType::Table,
+            mutable: false,
+            annotated: true,
+        });
+        
+        env.declare("Option".to_string(), VarInfo {
+            ty: TcType::Table,
+            mutable: false,
+            annotated: true,
+        });
+        
+        env.declare("File".to_string(), VarInfo {
+            ty: TcType::Table,
+            mutable: false,
+            annotated: true,
+        });
+        
+        env.declare("Array".to_string(), VarInfo {
+            ty: TcType::Table,
+            mutable: false,
+            annotated: true,
+        });
+        
+        env.declare("String".to_string(), VarInfo {
+            ty: TcType::Table,
+            mutable: false,
+            annotated: true,
+        });
+        
         env
     }
 

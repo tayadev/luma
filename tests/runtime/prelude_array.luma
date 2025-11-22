@@ -1,0 +1,7 @@
+-- Test Array utilities exist in prelude
+let has_map = Array.map
+let has_filter = Array.filter  
+let has_reduce = Array.reduce
+let has_length = Array.length
+
+true
