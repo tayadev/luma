@@ -859,6 +859,13 @@ impl Compiler {
                     self.patch_jump(jend, end);
                 }
             }
+
+            Expr::Import { path } => {
+                // Emit the path expression (should be a string)
+                self.emit_expr(path);
+                // Emit the Import instruction
+                self.chunk.instructions.push(Instruction::Import);
+            }
             // Other expressions not yet supported
         }
     }

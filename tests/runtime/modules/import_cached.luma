@@ -1,0 +1,4 @@
+-- Test that modules are cached (second import should return same value)
+let first = import("./number_module.luma")
+let second = import("./number_module.luma")
+first + second

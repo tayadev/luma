@@ -1,0 +1,2 @@
+-- Test importing a module from parent directory
+import("../number_module.luma")

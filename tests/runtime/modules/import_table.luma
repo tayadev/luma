@@ -1,0 +1,3 @@
+-- Test importing a module that exports a table and accessing members
+let math = import("./math_module.luma")
+math.add(2, 3)

@@ -422,6 +422,20 @@ impl TypeEnv {
                     then_ty
                 }
             }
+
+            Expr::Import { path } => {
+                // Check that path is a string expression
+                let path_ty = self.check_expr(path);
+                if !path_ty.is_compatible(&TcType::String) && path_ty != TcType::Unknown {
+                    self.error(format!(
+                        "Import path should be a String, got {:?}",
+                        path_ty
+                    ));
+                }
+                // Import returns the module's exported value
+                // For now, we type it as Unknown (proper typing would require module analysis)
+                TcType::Unknown
+            }
         }
     }
 

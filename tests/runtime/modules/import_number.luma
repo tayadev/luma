@@ -1,0 +1,2 @@
+-- Test importing a module that exports a number
+import("./number_module.luma")
