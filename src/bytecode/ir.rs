@@ -72,3 +72,16 @@ pub struct Chunk {
     /// Each upvalue descriptor tells us how to capture the value when creating a closure
     pub upvalue_descriptors: Vec<UpvalueDescriptor>,
 }
+
+impl Chunk {
+    /// Creates a new empty chunk with the given name
+    pub fn new_empty(name: String) -> Self {
+        Chunk {
+            instructions: vec![Instruction::Halt],
+            constants: vec![],
+            local_count: 0,
+            name,
+            upvalue_descriptors: vec![],
+        }
+    }
+}

@@ -784,7 +784,6 @@ impl VM {
         let saved_chunk = std::mem::replace(&mut self.chunk, chunk);
         let saved_ip = self.ip;
         let saved_base = self.base;
-        let saved_stack_len = self.stack.len();
         
         // Reset execution state for new chunk
         self.ip = 0;
@@ -797,13 +796,6 @@ impl VM {
         self.chunk = saved_chunk;
         self.ip = saved_ip;
         self.base = saved_base;
-        // Clear any stack items added during eval (but keep the result)
-        if result.is_ok() {
-            // Keep the stack as is since run() already managed it properly
-        } else {
-            // On error, restore original stack
-            self.stack.truncate(saved_stack_len);
-        }
         
         result
     }

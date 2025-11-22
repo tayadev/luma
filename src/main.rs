@@ -191,13 +191,7 @@ fn run_repl() {
     
     // Create an empty chunk to initialize the VM
     // The VM will be reused across evaluations to maintain state
-    let empty_chunk = luma::bytecode::ir::Chunk {
-        instructions: vec![luma::bytecode::ir::Instruction::Halt],
-        constants: vec![],
-        local_count: 0,
-        name: "<init>".to_string(),
-        upvalue_descriptors: vec![],
-    };
+    let empty_chunk = luma::bytecode::ir::Chunk::new_empty("<init>".to_string());
     let mut vm = luma::vm::VM::new_with_file(empty_chunk, Some("<repl>".to_string()));
     
     let stdin = io::stdin();
@@ -243,15 +237,9 @@ fn run_repl() {
             }
         };
         
-        // Typecheck (but don't fail on errors, just warn)
-        // For REPL, we silently skip typechecking since globals accumulate over time
-        // and the typechecker doesn't have visibility into previous REPL statements
+        // Skip typechecking in REPL mode since each statement is evaluated independently
+        // The typechecker doesn't have visibility into variables defined in previous REPL statements
         // Runtime errors will still be caught during execution
-        // if let Err(errs) = luma::typecheck::typecheck_program(&ast) {
-        //     for e in &errs {
-        //         eprintln!("Warning: {}", e.message);
-        //     }
-        // }
         
         // Compile the AST
         let chunk = luma::bytecode::compile::compile_program(&ast);
