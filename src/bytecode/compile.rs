@@ -686,9 +686,6 @@ impl Compiler {
                 self.emit_expr(expr);
                 self.chunk.instructions.push(Instruction::Pop);
             }
-            _ => {
-                // For now, ignore non-return statements
-            }
         }
     }
 
