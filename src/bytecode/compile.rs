@@ -500,6 +500,8 @@ impl Compiler {
                         self.emit_expr(value);
                         if let Some(slot) = self.lookup_local(name) {
                             self.chunk.instructions.push(Instruction::SetLocal(slot));
+                        } else if let Some(upvalue_idx) = self.resolve_upvalue(name) {
+                            self.chunk.instructions.push(Instruction::SetUpvalue(upvalue_idx));
                         } else {
                             let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
                             self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
@@ -822,10 +824,17 @@ impl Compiler {
                 }
             }
             Expr::Function { arguments, body, .. } => {
-                // Compile function body into a new chunk
-                let fn_chunk = compile_function(arguments, body);
+                // Compile function as closure (may capture upvalues from enclosing scope)
+                let (fn_chunk, upvalue_descriptors) = self.compile_nested_function(arguments, body);
                 let idx = push_const(&mut self.chunk, Constant::Function(fn_chunk));
-                self.chunk.instructions.push(Instruction::MakeFunction(idx));
+                
+                // If the function captures upvalues, emit Closure instruction
+                // Otherwise, use MakeFunction for simpler non-capturing functions
+                if upvalue_descriptors.is_empty() {
+                    self.chunk.instructions.push(Instruction::MakeFunction(idx));
+                } else {
+                    self.chunk.instructions.push(Instruction::Closure(idx));
+                }
             }
             Expr::Call { callee, arguments } => {
                 // Push callee
@@ -979,6 +988,50 @@ impl Compiler {
         let idx = self.upvalues.len();
         self.upvalues.push(UpvalueInfo { descriptor, name });
         idx
+    }
+
+    /// Compile a nested function with access to parent scope for closures.
+    /// This is done by temporarily moving self to become the parent of a new compiler.
+    fn compile_nested_function(&mut self, arguments: &[Argument], body: &[Stmt]) -> (Chunk, Vec<UpvalueDescriptor>) {
+        // We need to create a new compiler with self as parent, but we can't move self
+        // Instead, we'll use std::mem::replace to temporarily swap self with a dummy
+        let parent = std::mem::replace(self, Compiler::new("__temp__"));
+        
+        // Create nested compiler with parent
+        let mut nested = Compiler::new_with_parent("<function>", parent);
+        let arity = arguments.len();
+        
+        // Enter scope for function parameters
+        nested.enter_scope();
+        // Parameters become locals in order
+        for arg in arguments {
+            let slot = nested.local_count;
+            nested.scopes.last_mut().unwrap().insert(arg.name.clone(), slot);
+            nested.local_count += 1;
+        }
+        
+        // Compile body
+        for stmt in body {
+            nested.emit_stmt(stmt);
+        }
+        
+        // Exit scope
+        nested.exit_scope_with_preserve(block_leaves_value(body));
+        nested.chunk.instructions.push(Instruction::Return);
+        nested.chunk.local_count = arity as u16;
+        
+        // Extract upvalue descriptors and chunk
+        let upvalue_descriptors: Vec<UpvalueDescriptor> = nested.upvalues.iter()
+            .map(|uv| uv.descriptor.clone())
+            .collect();
+        nested.chunk.upvalue_descriptors = upvalue_descriptors.clone();
+        let chunk = nested.chunk.clone();
+        
+        // Restore self from parent
+        let parent = nested.parent.take().unwrap();
+        *self = *parent;
+        
+        (chunk, upvalue_descriptors)
     }
 }
 
