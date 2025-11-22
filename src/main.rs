@@ -1,5 +1,6 @@
 
 use std::fs;
+use std::io::{self, Read};
 use std::process;
 use clap::{Parser, Subcommand};
 
@@ -32,12 +33,24 @@ enum Commands {
     },
 }
 
+/// Read source code from a file or stdin.
+/// If `file` is "-", reads from stdin. Otherwise reads from the specified file.
+fn read_source(file: &str) -> io::Result<String> {
+    if file == "-" {
+        let mut source = String::new();
+        io::stdin().read_to_string(&mut source)?;
+        Ok(source)
+    } else {
+        fs::read_to_string(file)
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
         Some(Commands::Ast { file }) => {
-            let source = match fs::read_to_string(file) {
+            let source = match read_source(file) {
                 Ok(content) => content,
                 Err(err) => {
                     eprintln!("Error reading file '{}': {}", file, err);
@@ -56,7 +69,7 @@ fn main() {
             println!("{:#?}", ast);
         }
         Some(Commands::Check { file }) => {
-            let source = match fs::read_to_string(file) {
+            let source = match read_source(file) {
                 Ok(content) => content,
                 Err(err) => {
                     eprintln!("Error reading file '{}': {}", file, err);
@@ -82,7 +95,7 @@ fn main() {
             }
         }
         Some(Commands::Bytecode { file }) => {
-            let source = match fs::read_to_string(file) {
+            let source = match read_source(file) {
                 Ok(content) => content,
                 Err(err) => {
                     eprintln!("Error reading file '{}': {}", file, err);
@@ -117,7 +130,7 @@ fn main() {
 }
 
 fn run_file(file: &str) {
-    let source = match fs::read_to_string(file) {
+    let source = match read_source(file) {
         Ok(content) => content,
         Err(err) => {
             eprintln!("Error reading file '{}': {}", file, err);
@@ -141,11 +154,16 @@ fn run_file(file: &str) {
     let chunk = luma::bytecode::compile::compile_program(&ast);
     
     // Get absolute path for the file
-    let absolute_path = match std::path::Path::new(file).canonicalize() {
-        Ok(path) => Some(path.to_string_lossy().to_string()),
-        Err(_) => {
-            eprintln!("Warning: Could not resolve absolute path for '{}'", file);
-            Some(file.to_string())
+    // For stdin ("-"), don't try to resolve an absolute path
+    let absolute_path = if file == "-" {
+        Some("<stdin>".to_string())
+    } else {
+        match std::path::Path::new(file).canonicalize() {
+            Ok(path) => Some(path.to_string_lossy().to_string()),
+            Err(_) => {
+                eprintln!("Warning: Could not resolve absolute path for '{}'", file);
+                Some(file.to_string())
+            }
         }
     };
     
