@@ -1,5 +1,5 @@
-use crate::bytecode::ir::{Chunk, Instruction, Constant};
-use super::value::Value;
+use crate::bytecode::ir::{Chunk, Instruction, Constant, UpvalueDescriptor};
+use super::value::{Value, Upvalue};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -13,6 +13,7 @@ struct CallFrame {
     chunk: Chunk,
     ip: usize,
     base: usize,
+    upvalues: Vec<Upvalue>,  // Captured upvalues for this function
 }
 
 pub struct VM {
@@ -22,6 +23,7 @@ pub struct VM {
     globals: HashMap<String, Value>,
     base: usize,
     frames: Vec<CallFrame>,
+    upvalues: Vec<Upvalue>,  // Current function's upvalues
     native_functions: HashMap<String, fn(&[Value]) -> Result<Value, String>>,
     // Module system fields
     module_cache: Rc<RefCell<HashMap<String, Value>>>,  // Shared cache of loaded modules
@@ -42,6 +44,7 @@ impl VM {
             globals: HashMap::new(), 
             base: 0, 
             frames: Vec::new(),
+            upvalues: Vec::new(),  // Initialize empty upvalues for top-level
             native_functions: HashMap::new(),
             module_cache: Rc::new(RefCell::new(HashMap::new())),
             loading_modules: Rc::new(RefCell::new(Vec::new())),
@@ -188,6 +191,7 @@ impl VM {
                     chunk: self.chunk.clone(),
                     ip: self.ip,
                     base: self.base,
+                    upvalues: self.upvalues.clone(),
                 };
                 self.frames.push(frame);
                 
@@ -596,6 +600,56 @@ impl VM {
                     };
                     self.stack.push(v);
                 }
+                Instruction::Closure(idx) => {
+                    // Create a closure by capturing upvalues from the current environment
+                    let chunk = match self.chunk.constants.get(idx) {
+                        Some(Constant::Function(chunk)) => chunk.clone(),
+                        _ => return Err(VmError::Runtime("CLOSURE expects function constant".into())),
+                    };
+                    
+                    // Capture upvalues according to the function's upvalue descriptors
+                    let mut upvalues = Vec::new();
+                    for descriptor in &chunk.upvalue_descriptors {
+                        let upvalue = match descriptor {
+                            UpvalueDescriptor::Local(slot) => {
+                                // Capture a local variable from the current stack frame
+                                let value = self.stack.get(self.base + slot)
+                                    .ok_or_else(|| VmError::Runtime(format!("Upvalue capture: local slot {} out of bounds", slot)))?
+                                    .clone();
+                                Upvalue::new(value)
+                            }
+                            UpvalueDescriptor::Upvalue(upvalue_idx) => {
+                                // Capture an upvalue from the current function's upvalues
+                                self.upvalues.get(*upvalue_idx)
+                                    .ok_or_else(|| VmError::Runtime(format!("Upvalue capture: upvalue {} out of bounds", upvalue_idx)))?
+                                    .clone()
+                            }
+                        };
+                        upvalues.push(upvalue);
+                    }
+                    
+                    let closure = Value::Closure {
+                        chunk: chunk.clone(),
+                        arity: chunk.local_count as usize,  // Number of parameters
+                        upvalues,
+                    };
+                    self.stack.push(closure);
+                }
+                Instruction::GetUpvalue(idx) => {
+                    // Get value from upvalue at index
+                    let upvalue = self.upvalues.get(idx)
+                        .ok_or_else(|| VmError::Runtime(format!("GetUpvalue: index {} out of bounds", idx)))?;
+                    let value = upvalue.value.borrow().clone();
+                    self.stack.push(value);
+                }
+                Instruction::SetUpvalue(idx) => {
+                    // Set value in upvalue at index
+                    let value = self.stack.pop()
+                        .ok_or_else(|| VmError::Runtime("SetUpvalue: stack underflow".into()))?;
+                    let upvalue = self.upvalues.get(idx)
+                        .ok_or_else(|| VmError::Runtime(format!("SetUpvalue: index {} out of bounds", idx)))?;
+                    *upvalue.value.borrow_mut() = value;
+                }
                 Instruction::Call(arity) => {
                     // Stack: [... callee arg1 arg2 ... argN]
                     // After call: [... result]
@@ -613,6 +667,7 @@ impl VM {
                                 chunk: self.chunk.clone(),
                                 ip: self.ip,
                                 base: self.base,
+                                upvalues: self.upvalues.clone(),
                             };
                             self.frames.push(frame);
                             
@@ -621,6 +676,29 @@ impl VM {
                             // Switch to function chunk
                             self.chunk = fn_chunk;
                             self.ip = 0;
+                            // Functions don't have upvalues
+                            self.upvalues = Vec::new();
+                        }
+                        Value::Closure { chunk: fn_chunk, arity: fn_arity, upvalues: fn_upvalues } => {
+                            if arity != fn_arity {
+                                return Err(VmError::Runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
+                            }
+                            // Save current frame
+                            let frame = CallFrame {
+                                chunk: self.chunk.clone(),
+                                ip: self.ip,
+                                base: self.base,
+                                upvalues: self.upvalues.clone(),
+                            };
+                            self.frames.push(frame);
+                            
+                            // Set new base to point to first argument
+                            self.base = callee_idx + 1;
+                            // Switch to function chunk
+                            self.chunk = fn_chunk;
+                            self.ip = 0;
+                            // Set upvalues for the closure
+                            self.upvalues = fn_upvalues;
                         }
                         Value::NativeFunction { name, arity: fn_arity } => {
                             // Skip arity check for variadic functions (print)
@@ -654,6 +732,7 @@ impl VM {
                         self.chunk = frame.chunk;
                         self.ip = frame.ip;
                         self.base = frame.base;
+                        self.upvalues = frame.upvalues;
                         
                         // Push return value
                         self.stack.push(ret_val);

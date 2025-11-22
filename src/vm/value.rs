@@ -8,6 +8,21 @@ use crate::bytecode::ir::Chunk;
 // Type for native function pointers
 pub type NativeFn = fn(&[Value]) -> Result<Value, String>;
 
+/// An upvalue is a reference to a variable captured by a closure.
+/// It uses RefCell to allow mutation of the captured value.
+#[derive(Debug, Clone)]
+pub struct Upvalue {
+    pub value: Rc<RefCell<Value>>,
+}
+
+impl Upvalue {
+    pub fn new(value: Value) -> Self {
+        Self {
+            value: Rc::new(RefCell::new(value)),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     Number(f64),
@@ -19,6 +34,9 @@ pub enum Value {
     #[serde(skip)]
     Table(Rc<RefCell<HashMap<String, Value>>>),
     Function { chunk: Chunk, arity: usize },
+    /// Closure is like a function but also captures upvalues from its enclosing scope
+    #[serde(skip)]
+    Closure { chunk: Chunk, arity: usize, upvalues: Vec<Upvalue> },
     /// NativeFunction stores only metadata (name, arity).
     /// The actual function pointer is stored in VM's native_functions HashMap.
     /// This design allows Values to be serializable while keeping function pointers
@@ -48,6 +66,7 @@ impl PartialEq for Value {
                 Rc::ptr_eq(a, b) || *a.borrow() == *b.borrow()
             }
             (Value::Function { arity: a1, .. }, Value::Function { arity: a2, .. }) => a1 == a2,
+            (Value::Closure { arity: a1, .. }, Value::Closure { arity: a2, .. }) => a1 == a2,
             (Value::NativeFunction { name: n1, arity: a1 }, Value::NativeFunction { name: n2, arity: a2 }) => {
                 n1 == n2 && a1 == a2
             }
@@ -98,6 +117,7 @@ impl fmt::Display for Value {
                 write!(f, "}}")
             }
             Value::Function { arity, .. } => write!(f, "<function/{}>", arity),
+            Value::Closure { arity, .. } => write!(f, "<closure/{}>", arity),
             Value::NativeFunction { name, arity } => write!(f, "<native function {}/{}>", name, arity),
             Value::Type(_) => write!(f, "<type>"),
         }

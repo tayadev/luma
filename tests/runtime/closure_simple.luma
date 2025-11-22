@@ -1,0 +1,12 @@
+var makeCounter = fn() do
+  var count = 0
+  return fn() do
+    count = count + 1
+    count
+  end
+end
+
+let counter = makeCounter()
+print(counter())
+print(counter())
+counter()
