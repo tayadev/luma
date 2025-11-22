@@ -127,3 +127,44 @@ Chumsky errors show span/position. Common issues:
 - Test coverage grows organically as features are added
 
 Add test fixtures in the appropriate `tests/fixtures/{category}/` or `tests/runtime/` directory rather than creating one-off manual tests.
+
+## Code Quality Standards
+
+### Rust Warnings Must Be Fixed
+
+**Always build and test with zero warnings.** Rust warnings indicate potential issues that must be addressed:
+
+```bash
+cargo build 2>&1 | grep warning  # Check for warnings
+cargo test 2>&1 | grep warning   # Check warnings in tests
+```
+
+**Common warnings to watch for:**
+- **Unreachable patterns** - Remove catch-all patterns (`_ =>`) when all enum variants are explicitly handled
+- **Unused variables** - Prefix with underscore (`_var`) or remove if truly unused
+- **Dead code** - Remove or use `#[allow(dead_code)]` with justification
+- **Unused imports** - Remove unused `use` statements
+
+**When adding new enum variants:**
+1. Check all existing match statements that handle that enum
+2. Add explicit handling for the new variant
+3. Remove catch-all patterns (`_ =>`) if all variants are now covered
+4. Verify with `cargo build` and `cargo test` to ensure no warnings
+
+**Example:** When adding `Stmt::ExprStmt` variant, the catch-all pattern in `emit_stmt` became unreachable:
+```rust
+// Before (causes warning):
+match stmt {
+    Stmt::Return(_) => { /* ... */ }
+    Stmt::If { ... } => { /* ... */ }
+    // ... other variants ...
+    _ => { /* catch-all - UNREACHABLE if all variants handled */ }
+}
+
+// After (no warning):
+match stmt {
+    Stmt::Return(_) => { /* ... */ }
+    Stmt::If { ... } => { /* ... */ }
+    // ... all variants explicitly handled ...
+}  // No catch-all needed
+```
