@@ -24,9 +24,9 @@ pub struct VM {
     frames: Vec<CallFrame>,
     native_functions: HashMap<String, fn(&[Value]) -> Result<Value, String>>,
     // Module system fields
-    module_cache: HashMap<String, Value>,  // Cache of loaded modules (absolute path -> value)
-    loading_modules: Vec<String>,          // Stack of currently loading modules (for circular detection)
-    current_file: Option<String>,          // Current file being executed (for relative path resolution)
+    module_cache: Rc<RefCell<HashMap<String, Value>>>,  // Shared cache of loaded modules
+    loading_modules: Rc<RefCell<Vec<String>>>,          // Shared stack for circular detection
+    current_file: Option<String>,                       // Current file being executed
 }
 
 impl VM {
@@ -43,8 +43,8 @@ impl VM {
             base: 0, 
             frames: Vec::new(),
             native_functions: HashMap::new(),
-            module_cache: HashMap::new(),
-            loading_modules: Vec::new(),
+            module_cache: Rc::new(RefCell::new(HashMap::new())),
+            loading_modules: Rc::new(RefCell::new(Vec::new())),
             current_file,
         };
         
@@ -374,12 +374,12 @@ impl VM {
                     let resolved_path = self.resolve_import_path(&path)?;
                     
                     // Check if module is already cached
-                    if let Some(cached_value) = self.module_cache.get(&resolved_path).cloned() {
+                    if let Some(cached_value) = self.module_cache.borrow().get(&resolved_path).cloned() {
                         self.stack.push(cached_value);
                     } else {
                         // Check for circular dependencies
-                        if self.loading_modules.contains(&resolved_path) {
-                            let mut cycle = self.loading_modules.clone();
+                        if self.loading_modules.borrow().contains(&resolved_path) {
+                            let mut cycle = self.loading_modules.borrow().clone();
                             cycle.push(resolved_path.clone());
                             return Err(VmError::Runtime(format!(
                                 "Circular dependency detected: {}",
@@ -436,53 +436,58 @@ impl VM {
         use std::fs;
         
         // Mark module as loading (for circular dependency detection)
-        self.loading_modules.push(path.to_string());
+        self.loading_modules.borrow_mut().push(path.to_string());
         
-        // Read the module source
-        let source = fs::read_to_string(path)
-            .map_err(|e| VmError::Runtime(format!("Failed to read module '{}': {}", path, e)))?;
+        // Ensure we always unmark the module, even on error
+        let result = (|| {
+            // Read the module source
+            let source = fs::read_to_string(path)
+                .map_err(|e| VmError::Runtime(format!("Failed to read module '{}': {}", path, e)))?;
+            
+            // Parse the module
+            let ast = crate::parser::parse(&source)
+                .map_err(|errors| {
+                    VmError::Runtime(format!(
+                        "Parse error in module '{}': {}",
+                        path,
+                        errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
+                    ))
+                })?;
+            
+            // Typecheck the module (if enabled)
+            crate::typecheck::typecheck_program(&ast)
+                .map_err(|errs| {
+                    VmError::Runtime(format!(
+                        "Typecheck error in module '{}': {}",
+                        path,
+                        errs.iter().map(|e| e.message.clone()).collect::<Vec<_>>().join(", ")
+                    ))
+                })?;
+            
+            // Compile the module
+            let chunk = crate::bytecode::compile::compile_program(&ast);
+            
+            // Create a new VM for the module with the module's path as current file
+            let mut module_vm = VM::new_with_file(chunk, Some(path.to_string()));
+            
+            // Share the module cache and loading stack (now using Rc, so they're truly shared)
+            module_vm.module_cache = Rc::clone(&self.module_cache);
+            module_vm.loading_modules = Rc::clone(&self.loading_modules);
+            
+            // Execute the module
+            let module_value = module_vm.run()
+                .map_err(|e| VmError::Runtime(format!("Error executing module '{}': {:?}", path, e)))?;
+            
+            // Cache the module value
+            self.module_cache.borrow_mut().insert(path.to_string(), module_value.clone());
+            
+            Ok(module_value)
+        })();
         
-        // Parse the module
-        let ast = crate::parser::parse(&source)
-            .map_err(|errors| {
-                VmError::Runtime(format!(
-                    "Parse error in module '{}': {}",
-                    path,
-                    errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
-                ))
-            })?;
+        // Always unmark module as loading, even on error
+        self.loading_modules.borrow_mut().pop();
         
-        // Typecheck the module (if enabled)
-        crate::typecheck::typecheck_program(&ast)
-            .map_err(|errs| {
-                VmError::Runtime(format!(
-                    "Typecheck error in module '{}': {}",
-                    path,
-                    errs.iter().map(|e| e.message.clone()).collect::<Vec<_>>().join(", ")
-                ))
-            })?;
-        
-        // Compile the module
-        let chunk = crate::bytecode::compile::compile_program(&ast);
-        
-        // Create a new VM for the module with the module's path as current file
-        let mut module_vm = VM::new_with_file(chunk, Some(path.to_string()));
-        
-        // Share the module cache and loading stack to prevent re-loading
-        module_vm.module_cache = self.module_cache.clone();
-        module_vm.loading_modules = self.loading_modules.clone();
-        
-        // Execute the module
-        let module_value = module_vm.run()
-            .map_err(|e| VmError::Runtime(format!("Error executing module '{}': {:?}", path, e)))?;
-        
-        // Cache the module value
-        self.module_cache.insert(path.to_string(), module_value.clone());
-        
-        // Unmark module as loading
-        self.loading_modules.pop();
-        
-        Ok(module_value)
+        result
     }
 }
 
