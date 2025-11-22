@@ -588,64 +588,54 @@ impl TypeEnv {
                 }
             }
             Stmt::VarDecl { mutable, name, r#type, value } => {
-                // For function values, we need to declare the variable first to support recursion
+                // For function values, we already pre-declared them in typecheck_program
+                // Just check the function body here
                 let value_ty = match value {
-                    Expr::Function { arguments, return_type, body: _ } => {
-                        // Pre-declare the function variable to support recursion
-                        let mut param_types = Vec::new();
-                        for arg in arguments {
-                            param_types.push(self.type_from_ast(&arg.r#type));
-                        }
-                        let ret_ty = if let Some(rt) = return_type {
-                            self.type_from_ast(rt)
+                    Expr::Function { .. } => {
+                        // Function was already declared, just check its body
+                        self.check_expr(value)
+                    }
+                    _ => {
+                        // Non-function: check value and declare normally
+                        let val_ty = self.check_expr(value);
+                        
+                        let declared_ty = if let Some(ty) = r#type {
+                            let t = self.type_from_ast(ty);
+                            if !val_ty.is_compatible(&t) {
+                                self.error(format!(
+                                    "Variable {}: declared type {:?}, got {:?}",
+                                    name, t, val_ty
+                                ));
+                            }
+                            t
                         } else {
-                            TcType::Unknown
+                            val_ty.clone()
                         };
-                        
-                        let func_ty = TcType::Function {
-                            params: param_types,
-                            ret: Box::new(ret_ty),
-                        };
-                        
-                        // Declare the function variable before checking body
+
                         self.declare(
                             name.clone(),
                             VarInfo {
-                                ty: func_ty.clone(),
+                                ty: declared_ty,
                                 mutable: *mutable,
                                 annotated: r#type.is_some(),
                             },
                         );
                         
-                        // Now check the function expression (which may reference itself)
-                        self.check_expr(value)
+                        val_ty
                     }
-                    _ => self.check_expr(value),
                 };
                 
-                // If not a function, declare normally
-                if !matches!(value, Expr::Function { .. }) {
-                    let declared_ty = if let Some(ty) = r#type {
-                        let t = self.type_from_ast(ty);
-                        if !value_ty.is_compatible(&t) {
+                // Verify declared type matches if annotated (for functions)
+                if matches!(value, Expr::Function { .. }) {
+                    if let Some(ty) = r#type {
+                        let declared = self.type_from_ast(ty);
+                        if !value_ty.is_compatible(&declared) {
                             self.error(format!(
                                 "Variable {}: declared type {:?}, got {:?}",
-                                name, t, value_ty
+                                name, declared, value_ty
                             ));
                         }
-                        t
-                    } else {
-                        value_ty
-                    };
-
-                    self.declare(
-                        name.clone(),
-                        VarInfo {
-                            ty: declared_ty,
-                            mutable: *mutable,
-                            annotated: r#type.is_some(),
-                        },
-                    );
+                    }
                 }
             }
 
@@ -938,6 +928,41 @@ impl TypeEnv {
 pub fn typecheck_program(program: &Program) -> TypecheckResult<()> {
     let mut env = TypeEnv::new();
 
+    // First pass: Pre-declare all top-level let/var with function values
+    // This enables mutual recursion between functions
+    for stmt in &program.statements {
+        if let Stmt::VarDecl { mutable, name, r#type, value } = stmt {
+            if let Expr::Function { arguments, return_type, .. } = value {
+                // Compute function type from signature
+                let mut param_types = Vec::new();
+                for arg in arguments {
+                    param_types.push(env.type_from_ast(&arg.r#type));
+                }
+                let ret_ty = if let Some(rt) = return_type {
+                    env.type_from_ast(rt)
+                } else {
+                    TcType::Unknown
+                };
+                
+                let func_ty = TcType::Function {
+                    params: param_types,
+                    ret: Box::new(ret_ty),
+                };
+                
+                // Pre-declare the function variable
+                env.declare(
+                    name.clone(),
+                    VarInfo {
+                        ty: func_ty,
+                        mutable: *mutable,
+                        annotated: r#type.is_some(),
+                    },
+                );
+            }
+        }
+    }
+
+    // Second pass: Check all statements (function bodies can now reference each other)
     for stmt in &program.statements {
         env.check_stmt(stmt);
     }
