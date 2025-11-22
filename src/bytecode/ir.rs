@@ -1,5 +1,14 @@
 use serde::{Serialize, Deserialize};
 
+/// Describes where an upvalue is captured from
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum UpvalueDescriptor {
+    /// Captured from a local variable at the given stack slot in the enclosing function
+    Local(usize),
+    /// Captured from an upvalue in the enclosing function at the given upvalue index
+    Upvalue(usize),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Constant {
     Number(f64),
@@ -44,6 +53,9 @@ pub enum Instruction {
     SetLocal(usize),
     SliceArray(usize),   // pops array, pushes sliced array from index onwards
     MakeFunction(usize), // const index of Function chunk
+    Closure(usize),      // const index of Function chunk, captures upvalues from stack/upvalues
+    GetUpvalue(usize),   // get upvalue at index
+    SetUpvalue(usize),   // set upvalue at index
     Call(usize),         // arity (number of arguments)
     Return,              // return top of stack
     Halt,
@@ -56,4 +68,7 @@ pub struct Chunk {
     pub constants: Vec<Constant>,
     pub local_count: u16,
     pub name: String,
+    /// Describes which upvalues this chunk needs, in order
+    /// Each upvalue descriptor tells us how to capture the value when creating a closure
+    pub upvalue_descriptors: Vec<UpvalueDescriptor>,
 }

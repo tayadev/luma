@@ -1,5 +1,5 @@
 use crate::ast::{Program, Stmt, Expr, BinaryOp, UnaryOp, LogicalOp, Argument, Pattern, CallArgument};
-use super::ir::{Chunk, Instruction, Constant};
+use super::ir::{Chunk, Instruction, Constant, UpvalueDescriptor};
 use std::collections::HashMap;
 
 pub fn compile_program(program: &Program) -> Chunk {
@@ -59,11 +59,22 @@ struct LoopContext {
     continue_target: Option<usize>, // Explicit continue target (set after body for for-loops)
 }
 
+/// Tracks upvalues for a function being compiled
+#[derive(Debug, Clone)]
+struct UpvalueInfo {
+    /// Which local or upvalue in the enclosing function this upvalue captures
+    descriptor: UpvalueDescriptor,
+    /// Name of the variable being captured (for debugging)
+    name: String,
+}
+
 struct Compiler {
     chunk: Chunk,
     scopes: Vec<HashMap<String, usize>>, // name -> slot index
     local_count: usize,
     loop_stack: Vec<LoopContext>, // Track nested loops for break/continue
+    upvalues: Vec<UpvalueInfo>, // Upvalues captured by this function
+    parent: Option<Box<Compiler>>, // Parent compiler (for nested functions)
 }
 
 impl Compiler {
@@ -73,6 +84,19 @@ impl Compiler {
             scopes: Vec::new(), 
             local_count: 0,
             loop_stack: Vec::new(),
+            upvalues: Vec::new(),
+            parent: None,
+        }
+    }
+
+    fn new_with_parent(name: &str, parent: Compiler) -> Self {
+        Self {
+            chunk: Chunk { name: name.to_string(), ..Default::default() },
+            scopes: Vec::new(),
+            local_count: 0,
+            loop_stack: Vec::new(),
+            upvalues: Vec::new(),
+            parent: Some(Box::new(parent)),
         }
     }
 
@@ -732,6 +756,8 @@ impl Compiler {
             Expr::Identifier(name) => {
                 if let Some(slot) = self.lookup_local(name) {
                     self.chunk.instructions.push(Instruction::GetLocal(slot));
+                } else if let Some(upvalue_idx) = self.resolve_upvalue(name) {
+                    self.chunk.instructions.push(Instruction::GetUpvalue(upvalue_idx));
                 } else {
                     let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
                     self.chunk.instructions.push(Instruction::GetGlobal(name_idx));
@@ -911,6 +937,48 @@ impl Compiler {
             if let Some(&slot) = scope.get(name) { return Some(slot); }
         }
         None
+    }
+
+    /// Resolve an upvalue by searching parent scopes.
+    /// Returns the upvalue index if found, None otherwise.
+    fn resolve_upvalue(&mut self, name: &str) -> Option<usize> {
+        // If there's no parent, we can't have upvalues
+        let parent = self.parent.as_mut()?;
+        
+        // First check if the variable is a local in the parent
+        if let Some(slot) = parent.lookup_local(name) {
+            // It's a local in the parent - capture it
+            let descriptor = UpvalueDescriptor::Local(slot);
+            return Some(self.add_upvalue(descriptor, name.to_string()));
+        }
+        
+        // Otherwise, try to resolve it as an upvalue in the parent
+        if let Some(parent_upvalue_idx) = parent.resolve_upvalue(name) {
+            // It's an upvalue in the parent - capture that upvalue
+            let descriptor = UpvalueDescriptor::Upvalue(parent_upvalue_idx);
+            return Some(self.add_upvalue(descriptor, name.to_string()));
+        }
+        
+        None
+    }
+
+    /// Add an upvalue to this function's upvalue list.
+    /// Returns the index of the upvalue.
+    /// If the upvalue already exists, returns its existing index.
+    fn add_upvalue(&mut self, descriptor: UpvalueDescriptor, name: String) -> usize {
+        // Check if we already have this upvalue
+        for (i, uv) in self.upvalues.iter().enumerate() {
+            match (&uv.descriptor, &descriptor) {
+                (UpvalueDescriptor::Local(a), UpvalueDescriptor::Local(b)) if a == b => return i,
+                (UpvalueDescriptor::Upvalue(a), UpvalueDescriptor::Upvalue(b)) if a == b => return i,
+                _ => {}
+            }
+        }
+        
+        // Add new upvalue
+        let idx = self.upvalues.len();
+        self.upvalues.push(UpvalueInfo { descriptor, name });
+        idx
     }
 }
 
