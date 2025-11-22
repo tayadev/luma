@@ -80,6 +80,47 @@ impl VM {
         }
     }
     
+    /// Helper method to set up and execute a method call for operator overloading
+    fn call_overload_method(
+        &mut self,
+        method: Value,
+        args: Vec<Value>,
+        expected_arity: usize,
+        method_name: &str,
+    ) -> Result<(), VmError> {
+        match &method {
+            Value::Function { chunk, arity } => {
+                if *arity != expected_arity {
+                    return Err(VmError::Runtime(format!(
+                        "{} method must have arity {}, got {}", method_name, expected_arity, arity
+                    )));
+                }
+                
+                // Save current frame
+                let frame = CallFrame {
+                    chunk: self.chunk.clone(),
+                    ip: self.ip,
+                    base: self.base,
+                };
+                self.frames.push(frame);
+                
+                // Set up stack for function call
+                self.stack.push(method.clone());
+                for arg in args {
+                    self.stack.push(arg);
+                }
+                
+                // Set new base to point to first argument
+                self.base = self.stack.len() - expected_arity;
+                // Switch to method chunk
+                self.chunk = chunk.clone();
+                self.ip = 0;
+                Ok(())
+            }
+            _ => Err(VmError::Runtime(format!("{} must be a function", method_name))),
+        }
+    }
+    
     /// Helper method to execute a binary operator with optional operator overloading
     fn execute_binary_op(
         &mut self,
@@ -97,36 +138,7 @@ impl VM {
             Err(_) => {
                 // Try operator overloading
                 if let Some(method) = Self::has_method(&a, method_name) {
-                    match &method {
-                        Value::Function { chunk, arity } => {
-                            if *arity != 2 {
-                                return Err(VmError::Runtime(format!(
-                                    "{} method must have arity 2, got {}", method_name, arity
-                                )));
-                            }
-                            
-                            // Save current frame
-                            let frame = CallFrame {
-                                chunk: self.chunk.clone(),
-                                ip: self.ip,
-                                base: self.base,
-                            };
-                            self.frames.push(frame);
-                            
-                            // Set up stack for function call
-                            self.stack.push(method.clone());
-                            self.stack.push(a);
-                            self.stack.push(b);
-                            
-                            // Set new base to point to first argument
-                            self.base = self.stack.len() - 2;
-                            // Switch to method chunk
-                            self.chunk = chunk.clone();
-                            self.ip = 0;
-                            Ok(())
-                        }
-                        _ => Err(VmError::Runtime(format!("{} must be a function", method_name))),
-                    }
+                    self.call_overload_method(method, vec![a, b], 2, method_name)
                 } else {
                     Err(VmError::Runtime(format!(
                         "Operation requires compatible types or {} method", method_name
@@ -140,36 +152,7 @@ impl VM {
     fn execute_eq_op(&mut self, a: Value, b: Value) -> Result<(), VmError> {
         // Try operator overloading first for tables
         if let Some(method) = Self::has_method(&a, "__eq") {
-            match &method {
-                Value::Function { chunk, arity } => {
-                    if *arity != 2 {
-                        return Err(VmError::Runtime(format!(
-                            "__eq method must have arity 2, got {}", arity
-                        )));
-                    }
-                    
-                    // Save current frame
-                    let frame = CallFrame {
-                        chunk: self.chunk.clone(),
-                        ip: self.ip,
-                        base: self.base,
-                    };
-                    self.frames.push(frame);
-                    
-                    // Set up stack for function call
-                    self.stack.push(method.clone());
-                    self.stack.push(a);
-                    self.stack.push(b);
-                    
-                    // Set new base to point to first argument
-                    self.base = self.stack.len() - 2;
-                    // Switch to method chunk
-                    self.chunk = chunk.clone();
-                    self.ip = 0;
-                    Ok(())
-                }
-                _ => Err(VmError::Runtime("__eq must be a function".into())),
-            }
+            self.call_overload_method(method, vec![a, b], 2, "__eq")
         } else {
             // Default equality
             self.stack.push(Value::Boolean(a == b));
@@ -194,36 +177,7 @@ impl VM {
             _ => {
                 // Try operator overloading
                 if let Some(method) = Self::has_method(&a, method_name) {
-                    match &method {
-                        Value::Function { chunk, arity } => {
-                            if *arity != 2 {
-                                return Err(VmError::Runtime(format!(
-                                    "{} method must have arity 2, got {}", method_name, arity
-                                )));
-                            }
-                            
-                            // Save current frame
-                            let frame = CallFrame {
-                                chunk: self.chunk.clone(),
-                                ip: self.ip,
-                                base: self.base,
-                            };
-                            self.frames.push(frame);
-                            
-                            // Set up stack for function call
-                            self.stack.push(method.clone());
-                            self.stack.push(a);
-                            self.stack.push(b);
-                            
-                            // Set new base to point to first argument
-                            self.base = self.stack.len() - 2;
-                            // Switch to method chunk
-                            self.chunk = chunk.clone();
-                            self.ip = 0;
-                            Ok(())
-                        }
-                        _ => Err(VmError::Runtime(format!("{} must be a function", method_name))),
-                    }
+                    self.call_overload_method(method, vec![a, b], 2, method_name)
                 } else {
                     Err(VmError::Runtime(format!(
                         "Comparison requires Number or {} method", method_name
@@ -341,36 +295,7 @@ impl VM {
                         _ => {
                             // Try operator overloading for __neg
                             if let Some(method) = Self::has_method(&a, "__neg") {
-                                match &method {
-                                    Value::Function { chunk, arity } => {
-                                        if *arity != 1 {
-                                            return Err(VmError::Runtime(format!(
-                                                "__neg method must have arity 1, got {}", arity
-                                            )));
-                                        }
-                                        
-                                        // Save current frame
-                                        let frame = CallFrame {
-                                            chunk: self.chunk.clone(),
-                                            ip: self.ip,
-                                            base: self.base,
-                                        };
-                                        self.frames.push(frame);
-                                        
-                                        // Set up stack for function call
-                                        self.stack.push(method.clone());
-                                        self.stack.push(a);
-                                        
-                                        // Set new base to point to first argument
-                                        self.base = self.stack.len() - 1;
-                                        // Switch to method chunk
-                                        self.chunk = chunk.clone();
-                                        self.ip = 0;
-                                    }
-                                    _ => {
-                                        return Err(VmError::Runtime("__neg must be a function".into()));
-                                    }
-                                }
+                                self.call_overload_method(method, vec![a], 1, "__neg")?;
                             } else {
                                 return Err(VmError::Runtime(
                                     "NEG requires Number or __neg method".into()
@@ -865,7 +790,11 @@ fn native_into(args: &[Value]) -> Result<Value, String> {
                 // But we can't easily call it from here without access to the VM
                 // For now, return an error suggesting that __into calls must happen in VM context
                 drop(borrowed);
-                return Err("__into method calls must be executed in VM context. This is a limitation of the current implementation.".to_string());
+                return Err(format!(
+                    "Type conversions via __into are not fully implemented yet. \
+                     For now, use explicit conversion methods or wait for v2. \
+                     See GC_HOOKS.md for details."
+                ));
             } else {
                 return Err(format!("Type does not support conversion (no __into method)"));
             }

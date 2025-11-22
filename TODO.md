@@ -6,9 +6,18 @@
 
 ### Type System & Runtime
 - [ ] Module system with `import()` (local files, URLs, git repos) _(for v1 only local files)_
-- [ ] Operator overloading (`__add`, `__sub`, `__mul`, etc.)
-- [ ] Conversions (`__into` method)
-- [ ] Garbage collection hooks (`__gc` method)
+- [x] Operator overloading (`__add`, `__sub`, `__mul`, etc.) — **COMPLETED**
+  - [x] Arithmetic operators: `__add`, `__sub`, `__mul`, `__div`, `__mod`
+  - [x] Unary negation: `__neg`
+  - [x] Comparison operators: `__eq`, `__lt`, `__le`, `__gt`, `__ge`
+  - [x] VM checks both value and type definition (via `__type`) for special methods
+  - Note: Typechecker limitations prevent comprehensive automated testing
+- [ ] Conversions (`__into` method) — **PARTIAL**
+  - [x] `into()` native function registered
+  - [ ] Full `__into` method calling support (requires VM context)
+- [ ] Garbage collection hooks (`__gc` method) — **TODO**
+  - Current implementation uses Rc<RefCell<>> reference counting
+  - Need to add finalizer support via Drop trait or explicit GC
 - [ ] Built-in `Result(Ok, Err)` and `Option(T)` types
 - [ ] Async/await support (`await` keyword, `Promise` type)
 
