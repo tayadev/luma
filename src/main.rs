@@ -31,6 +31,8 @@ enum Commands {
         /// The file to compile
         file: String,
     },
+    /// Start an interactive REPL session
+    Repl,
 }
 
 /// Read source code from a file or stdin.
@@ -114,6 +116,9 @@ fn main() {
             let chunk = luma::bytecode::compile::compile_program(&ast);
             println!("{:#?}", chunk);
         }
+        Some(Commands::Repl) => {
+            run_repl();
+        }
         None => {
             // Default: run the file if provided
             let file = match &cli.file {
@@ -173,6 +178,92 @@ fn run_file(file: &str) {
         Err(e) => {
             eprintln!("Runtime error: {:?}", e);
             process::exit(1);
+        }
+    }
+}
+
+fn run_repl() {
+    use std::io::{BufRead, Write};
+    
+    println!("Luma REPL v{}", env!("CARGO_PKG_VERSION"));
+    println!("Type expressions and press Enter. Use Ctrl+D (Unix) or Ctrl+Z (Windows) to exit.");
+    println!();
+    
+    // Create an empty chunk to initialize the VM
+    // The VM will be reused across evaluations to maintain state
+    let empty_chunk = luma::bytecode::ir::Chunk {
+        instructions: vec![luma::bytecode::ir::Instruction::Halt],
+        constants: vec![],
+        local_count: 0,
+        name: "<init>".to_string(),
+        upvalue_descriptors: vec![],
+    };
+    let mut vm = luma::vm::VM::new_with_file(empty_chunk, Some("<repl>".to_string()));
+    
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    
+    loop {
+        print!(">>> ");
+        io::stdout().flush().unwrap();
+        
+        // Read input line by line, accumulating until we have a complete expression
+        let mut input = String::new();
+        
+        match lines.next() {
+            Some(Ok(line)) => {
+                input.push_str(&line);
+                input.push('\n');
+            }
+            Some(Err(e)) => {
+                eprintln!("Error reading input: {}", e);
+                continue;
+            }
+            None => {
+                // EOF reached
+                println!();
+                break;
+            }
+        }
+        
+        // Skip empty lines
+        if input.trim().is_empty() {
+            continue;
+        }
+        
+        // Try to parse the input
+        let ast = match luma::parser::parse(&input) {
+            Ok(ast) => ast,
+            Err(errors) => {
+                // Report parse errors
+                for error in errors {
+                    eprintln!("Parse error: {}", error);
+                }
+                continue;
+            }
+        };
+        
+        // Typecheck (but don't fail on errors, just warn)
+        // For REPL, we silently skip typechecking since globals accumulate over time
+        // and the typechecker doesn't have visibility into previous REPL statements
+        // Runtime errors will still be caught during execution
+        // if let Err(errs) = luma::typecheck::typecheck_program(&ast) {
+        //     for e in &errs {
+        //         eprintln!("Warning: {}", e.message);
+        //     }
+        // }
+        
+        // Compile the AST
+        let chunk = luma::bytecode::compile::compile_program(&ast);
+        
+        // Execute in the existing VM context
+        match vm.eval(chunk) {
+            Ok(val) => {
+                println!("{}", val);
+            }
+            Err(e) => {
+                eprintln!("Runtime error: {:?}", e);
+            }
         }
     }
 }
