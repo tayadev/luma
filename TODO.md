@@ -6,11 +6,11 @@
 
 ### Type System & Runtime
 - [ ] Module system with `import()` (local files, URLs, git repos) _(for v1 only local files)_
-- [ ] Async/await support (`await` keyword, `Promise` type)
 - [ ] Operator overloading (`__add`, `__sub`, `__mul`, etc.)
 - [ ] Conversions (`__into` method)
-- [ ] Built-in `Result(Ok, Err)` and `Option(T)` types
 - [ ] Garbage collection hooks (`__gc` method)
+- [ ] Built-in `Result(Ok, Err)` and `Option(T)` types
+- [ ] Async/await support (`await` keyword, `Promise` type)
 
 ## Deferred to v2
 
