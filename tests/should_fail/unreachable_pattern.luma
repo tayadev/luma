@@ -1,0 +1,6 @@
+-- Unreachable pattern: wildcard makes subsequent patterns unreachable
+let x = 1
+match x do
+  _ do print("wildcard") end
+  0 do print("zero") end
+end

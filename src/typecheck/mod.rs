@@ -1,6 +1,9 @@
 use crate::ast::*;
 use std::collections::HashMap;
 
+/// Known tag patterns for Result/Option types that should not be treated as catch-all bindings
+const KNOWN_TAG_PATTERNS: &[&str] = &["ok", "err", "some", "none"];
+
 #[derive(Debug, Clone)]
 pub struct TypeError {
     pub message: String,
@@ -653,6 +656,9 @@ impl TypeEnv {
                 // Type of the matched expression
                 let matched_ty = self.check_expr(expr);
                 
+                // Check for unreachable patterns
+                self.check_unreachable_patterns(arms);
+                
                 // Check exhaustiveness
                 self.check_match_exhaustiveness(arms, Some(&matched_ty));
                 
@@ -734,6 +740,9 @@ impl TypeEnv {
             Stmt::Match { expr, arms } => {
                 // Check the match expression
                 let expr_ty = self.check_expr(expr);
+                
+                // Check for unreachable patterns
+                self.check_unreachable_patterns(arms);
                 
                 // Check exhaustiveness
                 self.check_match_exhaustiveness(arms, Some(&expr_ty));
@@ -987,7 +996,7 @@ impl TypeEnv {
     fn check_pattern(&mut self, pattern: &Pattern, ty: &TcType, mutable: bool, in_match: bool) {
         match pattern {
             Pattern::Ident(name) => {
-                if in_match && matches!(name.as_str(), "ok" | "err" | "some" | "none") {
+                if in_match && KNOWN_TAG_PATTERNS.contains(&name.as_str()) {
                     // Tag pattern in match: don't bind a variable
                 } else {
                     self.declare(
@@ -1143,6 +1152,37 @@ impl TypeEnv {
         }
     }
 
+    /// Check for unreachable patterns in a match expression
+    /// A pattern is unreachable if a previous pattern already catches all cases
+    fn check_unreachable_patterns(&mut self, arms: &[(Pattern, Vec<Stmt>)]) {
+        let mut seen_catch_all = false;
+        
+        for (i, (pattern, _)) in arms.iter().enumerate() {
+            if seen_catch_all {
+                self.error(format!(
+                    "Unreachable pattern: pattern #{} is unreachable because a previous pattern already covers all cases",
+                    i + 1
+                ));
+            }
+            
+            // Check if this pattern is a catch-all
+            match pattern {
+                Pattern::Wildcard => {
+                    seen_catch_all = true;
+                }
+                Pattern::Ident(name) => {
+                    // Identifier patterns that are not known tags are catch-all bindings
+                    if !KNOWN_TAG_PATTERNS.contains(&name.as_str()) {
+                        seen_catch_all = true;
+                    }
+                }
+                _ => {
+                    // Other patterns are not catch-all
+                }
+            }
+        }
+    }
+
     /// Check if a match expression is exhaustive
     /// A match is exhaustive if:
     /// 1. It has a wildcard pattern (_), OR
@@ -1165,7 +1205,7 @@ impl TypeEnv {
                     // 1. A catch-all binding (acts like wildcard)
                     // 2. A tag pattern for Result/Option (ok/err/some/none)
                     // We check if it's a known tag; otherwise treat as catch-all
-                    if matches!(name.as_str(), "ok" | "err" | "some" | "none") {
+                    if KNOWN_TAG_PATTERNS.contains(&name.as_str()) {
                         tags.insert(name.as_str());
                     } else {
                         // Unknown identifier - treat as catch-all binding

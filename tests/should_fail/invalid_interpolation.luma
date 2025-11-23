@@ -1,0 +1,2 @@
+-- Invalid string interpolation: missing closing quote
+let x = "Hello ${name}
