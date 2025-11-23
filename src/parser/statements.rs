@@ -27,7 +27,7 @@ where
             .collect::<Vec<(Pattern, Vec<Stmt>)>>()
         )
         .then_ignore(just("end").padded_by(ws))
-        .map(|(expr, arms)| Stmt::Match { expr, arms })
+        .map(|(expr, arms)| Stmt::Match { expr, arms, span: None })
         .boxed()
 }
 use chumsky::prelude::*;
@@ -76,9 +76,9 @@ where
         .then(expr)
         .map(|(((mutable, (pattern, name)), opt_type), value)| {
             if let Some(pattern) = pattern {
-                Stmt::DestructuringVarDecl { mutable, pattern, value }
+                Stmt::DestructuringVarDecl { mutable, pattern, value, span: None }
             } else {
-                Stmt::VarDecl { mutable, name: name.unwrap(), r#type: opt_type, value }
+                Stmt::VarDecl { mutable, name: name.unwrap(), r#type: opt_type, value, span: None }
             }
         })
         .boxed()
@@ -98,7 +98,7 @@ where
     expr.clone()
         .then(assign_op)
         .then(expr)
-        .map(|((target, op), value)| Stmt::Assignment { target, op, value })
+        .map(|((target, op), value)| Stmt::Assignment { target, op, value, span: None })
         .boxed()
 }
 
@@ -140,7 +140,8 @@ where
                 condition, 
                 then_block: apply_implicit_return_stmts(then_block), 
                 elif_blocks, 
-                else_block 
+                else_block,
+                span: None,
             }
         })
         .boxed()
@@ -163,7 +164,7 @@ where
         .then_ignore(just("do").padded_by(ws.clone()))
         .then(stmt.repeated().collect::<Vec<Stmt>>())
         .then_ignore(just("end").padded_by(ws))
-        .map(|(condition, body)| Stmt::While { condition, body })
+        .map(|(condition, body)| Stmt::While { condition, body, span: None })
         .boxed()
 }
 
@@ -184,7 +185,7 @@ where
         .then_ignore(just("while").padded_by(ws.clone()))
         .then(expr)
         .then_ignore(just("end").padded_by(ws))
-        .map(|(body, condition)| Stmt::DoWhile { body, condition })
+        .map(|(body, condition)| Stmt::DoWhile { body, condition, span: None })
         .boxed()
 }
 
@@ -209,7 +210,7 @@ where
         .then_ignore(just("do").padded_by(ws.clone()))
         .then(stmt.repeated().collect::<Vec<Stmt>>())
         .then_ignore(just("end").padded_by(ws))
-        .map(|((pattern, iterator), body)| Stmt::For { pattern, iterator, body })
+        .map(|((pattern, iterator), body)| Stmt::For { pattern, iterator, body, span: None })
         .boxed()
 }
 

@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+use crate::ast::Span;
 
 /// Describes where an upvalue is captured from
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +72,11 @@ pub struct Chunk {
     /// Describes which upvalues this chunk needs, in order
     /// Each upvalue descriptor tells us how to capture the value when creating a closure
     pub upvalue_descriptors: Vec<UpvalueDescriptor>,
+    /// Maps instruction index to source span (parallel to instructions)
+    /// None indicates no source location available
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
+    pub spans: Vec<Option<Span>>,
 }
 
 impl Chunk {
@@ -82,6 +88,18 @@ impl Chunk {
             local_count: 0,
             name,
             upvalue_descriptors: vec![],
+            spans: vec![None],  // One span for the Halt instruction
         }
+    }
+
+    /// Get the span for an instruction at a given index
+    pub fn get_span(&self, ip: usize) -> Option<Span> {
+        self.spans.get(ip).and_then(|&s| s)
+    }
+
+    /// Push an instruction with an optional span
+    pub fn push_instruction(&mut self, instr: Instruction, span: Option<Span>) {
+        self.instructions.push(instr);
+        self.spans.push(span);
     }
 }

@@ -81,7 +81,8 @@ where
         .map(|((name, t), default): ((&str, Type), Option<Expr>)| Argument { 
             name: name.to_string(), 
             r#type: t, 
-            default 
+            default,
+            span: None,
         });
 
     let arg_list = argument

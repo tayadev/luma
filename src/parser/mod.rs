@@ -329,3 +329,37 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
 pub fn parse(source: &str) -> Result<Program, Vec<Rich<'_, char>>> {
     parser().parse(source).into_result()
 }
+
+/// Format a parser error with source context
+pub fn format_parse_error(error: &Rich<'_, char>, source: &str, file: Option<&str>) -> String {
+    use crate::ast::Span;
+    
+    let span = Span::new(error.span().start, error.span().end);
+    let loc = span.location(source);
+    
+    let mut result = String::new();
+    
+    // Add file location
+    if let Some(f) = file {
+        result.push_str(&format!("Parse error at {}:{}:{}\n", f, loc.line, loc.col));
+    } else {
+        result.push_str(&format!("Parse error at line {}:{}\n", loc.line, loc.col));
+    }
+    
+    // Show the line with the error
+    let lines: Vec<&str> = source.lines().collect();
+    if loc.line > 0 && loc.line <= lines.len() {
+        result.push_str(&format!("  {} | {}\n", loc.line, lines[loc.line - 1]));
+        result.push_str(&format!("  {} | {}{}\n", 
+            " ".repeat(loc.line.to_string().len()),
+            " ".repeat(loc.col.saturating_sub(1)),
+            "^"
+        ));
+    }
+    
+    // Add error message
+    result.push_str(&format!("{}", error));
+    
+    result
+}
+

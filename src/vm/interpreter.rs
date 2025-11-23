@@ -1,12 +1,72 @@
 use crate::bytecode::ir::{Chunk, Instruction, Constant, UpvalueDescriptor};
+use crate::ast::Span;
 use super::value::{Value, Upvalue};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+/// Represents a runtime error with optional source location information
 #[derive(Debug)]
-pub enum VmError {
-    Runtime(String),
+pub struct VmError {
+    pub message: String,
+    pub span: Option<Span>,
+    pub file: Option<String>,
+}
+
+impl std::fmt::Display for VmError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.format(None))
+    }
+}
+
+impl VmError {
+    /// Create a simple runtime error without location info
+    pub fn runtime(message: String) -> Self {
+        VmError {
+            message,
+            span: None,
+            file: None,
+        }
+    }
+
+    /// Create a runtime error with location info
+    pub fn with_location(message: String, span: Option<Span>, file: Option<String>) -> Self {
+        VmError {
+            message,
+            span,
+            file,
+        }
+    }
+
+    /// Format the error with source location if available
+    pub fn format(&self, source: Option<&str>) -> String {
+        let mut result = String::new();
+        
+        if let (Some(file), Some(span)) = (&self.file, &self.span) {
+            if let Some(src) = source {
+                let loc = span.location(src);
+                result.push_str(&format!("Runtime error at {}:{}:{}\n", file, loc.line, loc.col));
+                
+                // Show the line with the error
+                let lines: Vec<&str> = src.lines().collect();
+                if loc.line > 0 && loc.line <= lines.len() {
+                    result.push_str(&format!("  {} | {}\n", loc.line, lines[loc.line - 1]));
+                    result.push_str(&format!("  {} | {}{}\n", 
+                        " ".repeat(loc.line.to_string().len()),
+                        " ".repeat(loc.col.saturating_sub(1)),
+                        "^"
+                    ));
+                }
+            } else {
+                result.push_str(&format!("Runtime error at {}\n", file));
+            }
+        } else {
+            result.push_str("Runtime error\n");
+        }
+        
+        result.push_str(&self.message);
+        result
+    }
 }
 
 struct CallFrame {
@@ -33,6 +93,7 @@ pub struct VM {
     module_cache: Rc<RefCell<HashMap<String, Value>>>,  // Shared cache of loaded modules
     loading_modules: Rc<RefCell<Vec<String>>>,          // Shared stack for circular detection
     current_file: Option<String>,                       // Current file being executed
+    source: Option<String>,                             // Source code for error reporting
 }
 
 impl VM {
@@ -54,6 +115,7 @@ impl VM {
             module_cache: Rc::new(RefCell::new(HashMap::new())),
             loading_modules: Rc::new(RefCell::new(Vec::new())),
             current_file,
+            source: None,
         };
         
         // Register native functions
@@ -84,6 +146,21 @@ impl VM {
         
         vm
     }
+
+    /// Set the source code for error reporting
+    pub fn set_source(&mut self, source: String) {
+        self.source = Some(source);
+    }
+
+    /// Get the current span based on IP
+    fn _current_span(&self) -> Option<Span> {
+        self.chunk.get_span(self.ip)
+    }
+
+    /// Create a runtime error with current location
+    fn _error(&self, message: String) -> VmError {
+        VmError::with_location(message, self._current_span(), self.current_file.clone())
+    }
     
     /// Load and execute the prelude (standard library)
     /// This is called automatically during VM initialization
@@ -99,7 +176,7 @@ impl VM {
                     .map(|e| format!("{}", e))
                     .collect::<Vec<_>>()
                     .join(", ");
-                return Err(VmError::Runtime(format!("Failed to parse prelude: {}", error_msg)));
+                return Err(VmError::runtime(format!("Failed to parse prelude: {}", error_msg)));
             }
         };
         
@@ -110,7 +187,7 @@ impl VM {
         //         .map(|e| e.message.clone())
         //         .collect::<Vec<_>>()
         //         .join(", ");
-        //     return Err(VmError::Runtime(format!("Failed to typecheck prelude: {}", error_msg)));
+        //     return Err(VmError::runtime(format!("Failed to typecheck prelude: {}", error_msg)));
         // }
         
         // Compile the prelude
@@ -140,7 +217,7 @@ impl VM {
                 self.globals.insert("prelude".to_string(), prelude_exports);
                 Ok(())
             },
-            Err(e) => Err(VmError::Runtime(format!("Failed to execute prelude: {:?}", e))),
+            Err(e) => Err(VmError::runtime(format!("Failed to execute prelude: {:?}", e))),
         }
     }
     
@@ -191,7 +268,7 @@ impl VM {
         match &method {
             Value::Function { chunk, arity } => {
                 if *arity != expected_arity {
-                    return Err(VmError::Runtime(format!(
+                    return Err(VmError::runtime(format!(
                         "{} method must have arity {}, got {}", method_name, expected_arity, arity
                     )));
                 }
@@ -222,7 +299,7 @@ impl VM {
                 self.captured_locals = HashMap::new();
                 Ok(())
             }
-            _ => Err(VmError::Runtime(format!("{} must be a function", method_name))),
+            _ => Err(VmError::runtime(format!("{} must be a function", method_name))),
         }
     }
     
@@ -265,7 +342,7 @@ impl VM {
                         Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
                         Value::Type(_) => "Type",
                     };
-                    Err(VmError::Runtime(format!(
+                    Err(VmError::runtime(format!(
                         "Operator {} not supported for {} and {} (no {} method)",
                         method_name, at, bt, method_name
                     )))
@@ -325,7 +402,7 @@ impl VM {
                         Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
                         Value::Type(_) => "Type",
                     };
-                    Err(VmError::Runtime(format!(
+                    Err(VmError::runtime(format!(
                         "Comparison {} requires numbers or {} method; got {} and {}",
                         method_name, method_name, at, bt
                     )))
@@ -338,7 +415,7 @@ impl VM {
     pub fn run(&mut self) -> Result<Value, VmError> {
         loop {
             if self.ip >= self.chunk.instructions.len() {
-                return Err(VmError::Runtime("IP out of bounds".into()));
+                return Err(VmError::runtime("IP out of bounds".into()));
             }
             let instr = self.chunk.instructions[self.ip].clone();
             self.ip += 1;
@@ -353,7 +430,7 @@ impl VM {
                             chunk: chunk.clone(),
                             arity: chunk.local_count as usize,
                         },
-                        None => return Err(VmError::Runtime("Bad const index".into())),
+                        None => return Err(VmError::runtime("Bad const index".into())),
                     };
                     self.stack.push(v);
                 }
@@ -362,10 +439,10 @@ impl VM {
                 }
                 Instruction::PopNPreserve(n) => {
                     // Preserve the top value, pop n items beneath, then restore the preserved value
-                    let top = self.stack.pop().ok_or_else(|| VmError::Runtime("POPN_PRESERVE on empty stack".into()))?;
+                    let top = self.stack.pop().ok_or_else(|| VmError::runtime("POPN_PRESERVE on empty stack".into()))?;
                     for _ in 0..n {
                         if self.stack.pop().is_none() {
-                            return Err(VmError::Runtime("POPN_PRESERVE underflow".into()));
+                            return Err(VmError::runtime("POPN_PRESERVE underflow".into()));
                         }
                     }
                     self.stack.push(top);
@@ -374,12 +451,12 @@ impl VM {
                     if let Some(v) = self.stack.last().cloned() {
                         self.stack.push(v);
                     } else {
-                        return Err(VmError::Runtime("DUP on empty stack".into()));
+                        return Err(VmError::runtime("DUP on empty stack".into()));
                     }
                 }
                 Instruction::Add => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("ADD right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("ADD left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("ADD right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("ADD left underflow".into()))?;
                     
                     self.execute_binary_op(a, b, "__add", |a, b| {
                         match (a, b) {
@@ -390,8 +467,8 @@ impl VM {
                     })?;
                 }
                 Instruction::Sub => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("SUB right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("SUB left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("SUB right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("SUB left underflow".into()))?;
                     
                     self.execute_binary_op(a, b, "__sub", |a, b| {
                         match (a, b) {
@@ -401,8 +478,8 @@ impl VM {
                     })?;
                 }
                 Instruction::Mul => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("MUL right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("MUL left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("MUL right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("MUL left underflow".into()))?;
                     
                     self.execute_binary_op(a, b, "__mul", |a, b| {
                         match (a, b) {
@@ -412,8 +489,8 @@ impl VM {
                     })?;
                 }
                 Instruction::Div => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("DIV right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("DIV left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("DIV right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("DIV left underflow".into()))?;
                     
                     self.execute_binary_op(a, b, "__div", |a, b| {
                         match (a, b) {
@@ -423,8 +500,8 @@ impl VM {
                     })?;
                 }
                 Instruction::Mod => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("MOD right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("MOD left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("MOD right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("MOD left underflow".into()))?;
                     
                     self.execute_binary_op(a, b, "__mod", |a, b| {
                         match (a, b) {
@@ -434,7 +511,7 @@ impl VM {
                     })?;
                 }
                 Instruction::Neg => {
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("NEG underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("NEG underflow".into()))?;
                     
                     match &a {
                         Value::Number(x) => {
@@ -445,7 +522,7 @@ impl VM {
                             if let Some(method) = Self::has_method(&a, "__neg") {
                                 self.call_overload_method(method, vec![a], 1, "__neg")?;
                             } else {
-                                return Err(VmError::Runtime(
+                                return Err(VmError::runtime(
                                     "NEG requires Number or __neg method".into()
                                 ));
                             }
@@ -455,71 +532,71 @@ impl VM {
                 Instruction::GetGlobal(idx) => {
                     let name = match self.chunk.constants.get(idx) {
                         Some(Constant::String(s)) => s.clone(),
-                        _ => return Err(VmError::Runtime("GET_GLOBAL expects string constant".into())),
+                        _ => return Err(VmError::runtime("GET_GLOBAL expects string constant".into())),
                     };
                     if let Some(v) = self.globals.get(&name).cloned() {
                         self.stack.push(v);
                     } else {
-                        return Err(VmError::Runtime(format!("Undefined global '{}'", name)));
+                        return Err(VmError::runtime(format!("Undefined global '{}'", name)));
                     }
                 }
                 Instruction::SetGlobal(idx) => {
                     let name = match self.chunk.constants.get(idx) {
                         Some(Constant::String(s)) => s.clone(),
-                        _ => return Err(VmError::Runtime("SET_GLOBAL expects string constant".into())),
+                        _ => return Err(VmError::runtime("SET_GLOBAL expects string constant".into())),
                     };
-                    let v = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_GLOBAL pop underflow".into()))?;
+                    let v = self.stack.pop().ok_or_else(|| VmError::runtime("SET_GLOBAL pop underflow".into()))?;
                     self.globals.insert(name, v);
                 }
                 Instruction::BuildList(n) => {
-                    if self.stack.len() < n { return Err(VmError::Runtime("BUILD_LIST underflow".into())); }
+                    if self.stack.len() < n { return Err(VmError::runtime("BUILD_LIST underflow".into())); }
                     let mut tmp = Vec::with_capacity(n);
                     for _ in 0..n { tmp.push(self.stack.pop().unwrap()); }
                     tmp.reverse();
                     self.stack.push(Value::List(Rc::new(RefCell::new(tmp))));
                 }
                 Instruction::BuildTable(n) => {
-                    if self.stack.len() < n * 2 { return Err(VmError::Runtime("BUILD_TABLE underflow".into())); }
+                    if self.stack.len() < n * 2 { return Err(VmError::runtime("BUILD_TABLE underflow".into())); }
                     let mut map: HashMap<String, Value> = HashMap::with_capacity(n);
                     for _ in 0..n {
                         let val = self.stack.pop().unwrap();
                         let key_v = self.stack.pop().unwrap();
-                        let key = match key_v { Value::String(s) => s, _ => return Err(VmError::Runtime("TABLE key must be string".into())) };
+                        let key = match key_v { Value::String(s) => s, _ => return Err(VmError::runtime("TABLE key must be string".into())) };
                         map.insert(key, val);
                     }
                     self.stack.push(Value::Table(Rc::new(RefCell::new(map))));
                 }
                 Instruction::GetIndex => {
-                    let index = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_INDEX index underflow".into()))?;
-                    let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_INDEX obj underflow".into()))?;
+                    let index = self.stack.pop().ok_or_else(|| VmError::runtime("GET_INDEX index underflow".into()))?;
+                    let obj = self.stack.pop().ok_or_else(|| VmError::runtime("GET_INDEX obj underflow".into()))?;
                     match (obj, index) {
                         (Value::List(arr), Value::Number(n)) => {
                             let i = n as i64;
-                            if i < 0 { return Err(VmError::Runtime("List index negative".into())); }
+                            if i < 0 { return Err(VmError::runtime("List index negative".into())); }
                             let i = i as usize;
                             let borrowed = arr.borrow();
-                            match borrowed.get(i) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("List index out of bounds".into())) }
+                            match borrowed.get(i) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::runtime("List index out of bounds".into())) }
                         }
                         (Value::Table(map), Value::String(k)) => {
                             let borrowed = map.borrow();
-                            match borrowed.get(&k) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Table key not found".into())) }
+                            match borrowed.get(&k) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::runtime("Table key not found".into())) }
                         }
-                        _ => return Err(VmError::Runtime("GET_INDEX type error".into())),
+                        _ => return Err(VmError::runtime("GET_INDEX type error".into())),
                     }
                 }
                 Instruction::GetProp(idx) => {
-                    let name = match self.chunk.constants.get(idx) { Some(Constant::String(s)) => s.clone(), _ => return Err(VmError::Runtime("GET_PROP expects string const".into())) };
-                    let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_PROP obj underflow".into()))?;
+                    let name = match self.chunk.constants.get(idx) { Some(Constant::String(s)) => s.clone(), _ => return Err(VmError::runtime("GET_PROP expects string const".into())) };
+                    let obj = self.stack.pop().ok_or_else(|| VmError::runtime("GET_PROP obj underflow".into()))?;
                     match obj {
                         Value::Table(map) => {
                             let borrowed = map.borrow();
-                            match borrowed.get(&name) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Property not found".into())) }
+                            match borrowed.get(&name) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::runtime("Property not found".into())) }
                         }
-                        _ => return Err(VmError::Runtime("GET_PROP on non-table".into())),
+                        _ => return Err(VmError::runtime("GET_PROP on non-table".into())),
                     }
                 }
                 Instruction::GetLen => {
-                    let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_LEN obj underflow".into()))?;
+                    let obj = self.stack.pop().ok_or_else(|| VmError::runtime("GET_LEN obj underflow".into()))?;
                     match obj {
                         Value::List(arr) => {
                             let borrowed = arr.borrow();
@@ -532,19 +609,19 @@ impl VM {
                         Value::String(s) => {
                             self.stack.push(Value::Number(s.len() as f64));
                         }
-                        _ => return Err(VmError::Runtime("GET_LEN requires list, table, or string".into())),
+                        _ => return Err(VmError::runtime("GET_LEN requires list, table, or string".into())),
                     }
                 }
                 Instruction::SetIndex => {
                     // Stack: value, index, object
-                    let value = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_INDEX value underflow".into()))?;
-                    let index = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_INDEX index underflow".into()))?;
-                    let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_INDEX obj underflow".into()))?;
+                    let value = self.stack.pop().ok_or_else(|| VmError::runtime("SET_INDEX value underflow".into()))?;
+                    let index = self.stack.pop().ok_or_else(|| VmError::runtime("SET_INDEX index underflow".into()))?;
+                    let obj = self.stack.pop().ok_or_else(|| VmError::runtime("SET_INDEX obj underflow".into()))?;
                     
                     match (obj, index) {
                         (Value::List(arr), Value::Number(n)) => {
                             let i = n as i64;
-                            if i < 0 { return Err(VmError::Runtime("List index negative".into())); }
+                            if i < 0 { return Err(VmError::runtime("List index negative".into())); }
                             let i = i as usize;
                             let mut borrowed = arr.borrow_mut();
                             if i == borrowed.len() {
@@ -553,31 +630,31 @@ impl VM {
                             } else if i < borrowed.len() {
                                 borrowed[i] = value;
                             } else {
-                                return Err(VmError::Runtime("List index out of bounds".into()));
+                                return Err(VmError::runtime("List index out of bounds".into()));
                             }
                         }
                         (Value::Table(map), Value::String(k)) => {
                             let mut borrowed = map.borrow_mut();
                             borrowed.insert(k, value);
                         }
-                        _ => return Err(VmError::Runtime("SET_INDEX type error".into())),
+                        _ => return Err(VmError::runtime("SET_INDEX type error".into())),
                     }
                 }
                 Instruction::SetProp(idx) => {
                     // Stack: value, object
                     let name = match self.chunk.constants.get(idx) { 
                         Some(Constant::String(s)) => s.clone(), 
-                        _ => return Err(VmError::Runtime("SET_PROP expects string const".into())) 
+                        _ => return Err(VmError::runtime("SET_PROP expects string const".into())) 
                     };
-                    let value = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_PROP value underflow".into()))?;
-                    let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_PROP obj underflow".into()))?;
+                    let value = self.stack.pop().ok_or_else(|| VmError::runtime("SET_PROP value underflow".into()))?;
+                    let obj = self.stack.pop().ok_or_else(|| VmError::runtime("SET_PROP obj underflow".into()))?;
                     
                     match obj {
                         Value::Table(map) => {
                             let mut borrowed = map.borrow_mut();
                             borrowed.insert(name, value);
                         }
-                        _ => return Err(VmError::Runtime("SET_PROP on non-table".into())),
+                        _ => return Err(VmError::runtime("SET_PROP on non-table".into())),
                     }
                 }
                 Instruction::GetLocal(slot) => {
@@ -586,22 +663,22 @@ impl VM {
                         let v = cell.value.borrow().clone();
                         self.stack.push(v);
                     } else {
-                        let v = self.stack.get(idx).cloned().ok_or_else(|| VmError::Runtime("GET_LOCAL out of range".into()))?;
+                        let v = self.stack.get(idx).cloned().ok_or_else(|| VmError::runtime("GET_LOCAL out of range".into()))?;
                         self.stack.push(v);
                     }
                 }
                 Instruction::SetLocal(slot) => {
-                    let v = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_LOCAL pop underflow".into()))?;
+                    let v = self.stack.pop().ok_or_else(|| VmError::runtime("SET_LOCAL pop underflow".into()))?;
                     let idx = self.base + slot;
                     if let Some(cell) = self.captured_locals.get(&idx) {
                         *cell.value.borrow_mut() = v;
                     } else {
-                        if idx >= self.stack.len() { return Err(VmError::Runtime("SET_LOCAL out of range".into())); }
+                        if idx >= self.stack.len() { return Err(VmError::runtime("SET_LOCAL out of range".into())); }
                         self.stack[idx] = v;
                     }
                 }
                 Instruction::SliceList(start_index) => {
-                    let arr = self.stack.pop().ok_or_else(|| VmError::Runtime("SLICE_LIST pop underflow".into()))?;
+                    let arr = self.stack.pop().ok_or_else(|| VmError::runtime("SLICE_LIST pop underflow".into()))?;
                     match arr {
                         Value::List(arr_ref) => {
                             let borrowed = arr_ref.borrow();
@@ -613,49 +690,49 @@ impl VM {
                             
                             self.stack.push(Value::List(Rc::new(RefCell::new(sliced))));
                         }
-                        _ => return Err(VmError::Runtime("SLICE_LIST requires a list".into())),
+                        _ => return Err(VmError::runtime("SLICE_LIST requires a list".into())),
                     }
                 }
                 Instruction::Eq => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("EQ right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("EQ left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("EQ right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("EQ left underflow".into()))?;
                     self.execute_eq_op(a, b)?;
                 }
                 Instruction::Ne => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("NE right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("NE left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("NE right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("NE left underflow".into()))?;
                     self.execute_eq_op(a, b)?;
                     flip_bool(&mut self.stack)?;
                 }
                 Instruction::Lt => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("LT right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("LT left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("LT right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("LT left underflow".into()))?;
                     self.execute_cmp_op(a, b, "__lt", |a, b| a < b)?;
                 }
                 Instruction::Le => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("LE right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("LE left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("LE right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("LE left underflow".into()))?;
                     self.execute_cmp_op(a, b, "__le", |a, b| a <= b)?;
                 }
                 Instruction::Gt => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("GT right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("GT left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("GT right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("GT left underflow".into()))?;
                     self.execute_cmp_op(a, b, "__gt", |a, b| a > b)?;
                 }
                 Instruction::Ge => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::Runtime("GE right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::Runtime("GE left underflow".into()))?;
+                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("GE right underflow".into()))?;
+                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("GE left underflow".into()))?;
                     self.execute_cmp_op(a, b, "__ge", |a, b| a >= b)?;
                 }
                 Instruction::Not => {
-                    let v = self.stack.pop().ok_or_else(|| VmError::Runtime("NOT on empty stack".into()))?;
+                    let v = self.stack.pop().ok_or_else(|| VmError::runtime("NOT on empty stack".into()))?;
                     self.stack.push(Value::Boolean(!truthy(&v)));
                 }
                 Instruction::Jump(target) => {
                     self.ip = target;
                 }
                 Instruction::JumpIfFalse(target) => {
-                    let v = self.stack.pop().ok_or_else(|| VmError::Runtime("JUMP_IF_FALSE pop underflow".into()))?;
+                    let v = self.stack.pop().ok_or_else(|| VmError::runtime("JUMP_IF_FALSE pop underflow".into()))?;
                     if !truthy(&v) { self.ip = target; }
                 }
                 Instruction::MakeFunction(idx) => {
@@ -666,7 +743,7 @@ impl VM {
                             chunk: chunk.clone(),
                             arity: chunk.local_count as usize,
                         },
-                        _ => return Err(VmError::Runtime("MAKE_FUNCTION expects function constant".into())),
+                        _ => return Err(VmError::runtime("MAKE_FUNCTION expects function constant".into())),
                     };
                     self.stack.push(v);
                 }
@@ -674,7 +751,7 @@ impl VM {
                     // Create a closure by capturing upvalues from the current environment
                     let chunk = match self.chunk.constants.get(idx) {
                         Some(Constant::Function(chunk)) => chunk.clone(),
-                        _ => return Err(VmError::Runtime("CLOSURE expects function constant".into())),
+                        _ => return Err(VmError::runtime("CLOSURE expects function constant".into())),
                     };
                     
                     // Capture upvalues according to the function's upvalue descriptors
@@ -688,7 +765,7 @@ impl VM {
                                     cell.clone()
                                 } else {
                                     let value = self.stack.get(abs)
-                                        .ok_or_else(|| VmError::Runtime(format!("Upvalue capture: local slot {} out of bounds", slot)))?
+                                        .ok_or_else(|| VmError::runtime(format!("Upvalue capture: local slot {} out of bounds", slot)))?
                                         .clone();
                                     let cell = Upvalue::new(value);
                                     self.captured_locals.insert(abs, cell.clone());
@@ -698,7 +775,7 @@ impl VM {
                             UpvalueDescriptor::Upvalue(upvalue_idx) => {
                                 // Capture an upvalue from the current function's upvalues
                                 self.upvalues.get(*upvalue_idx)
-                                    .ok_or_else(|| VmError::Runtime(format!("Upvalue capture: upvalue {} out of bounds", upvalue_idx)))?
+                                    .ok_or_else(|| VmError::runtime(format!("Upvalue capture: upvalue {} out of bounds", upvalue_idx)))?
                                     .clone()
                             }
                         };
@@ -715,16 +792,16 @@ impl VM {
                 Instruction::GetUpvalue(idx) => {
                     // Get value from upvalue at index
                     let upvalue = self.upvalues.get(idx)
-                        .ok_or_else(|| VmError::Runtime(format!("GetUpvalue: index {} out of bounds", idx)))?;
+                        .ok_or_else(|| VmError::runtime(format!("GetUpvalue: index {} out of bounds", idx)))?;
                     let value = upvalue.value.borrow().clone();
                     self.stack.push(value);
                 }
                 Instruction::SetUpvalue(idx) => {
                     // Set value in upvalue at index
                     let value = self.stack.pop()
-                        .ok_or_else(|| VmError::Runtime("SetUpvalue: stack underflow".into()))?;
+                        .ok_or_else(|| VmError::runtime("SetUpvalue: stack underflow".into()))?;
                     let upvalue = self.upvalues.get(idx)
-                        .ok_or_else(|| VmError::Runtime(format!("SetUpvalue: index {} out of bounds", idx)))?;
+                        .ok_or_else(|| VmError::runtime(format!("SetUpvalue: index {} out of bounds", idx)))?;
                     *upvalue.value.borrow_mut() = value;
                 }
                 Instruction::Call(arity) => {
@@ -732,12 +809,12 @@ impl VM {
                     // After call: [... result]
                     let callee_idx = self.stack.len() - arity - 1;
                     let callee = self.stack.get(callee_idx).cloned()
-                        .ok_or_else(|| VmError::Runtime("CALL callee underflow".into()))?;
+                        .ok_or_else(|| VmError::runtime("CALL callee underflow".into()))?;
                     
                     match callee {
                         Value::Function { chunk: fn_chunk, arity: fn_arity } => {
                             if arity != fn_arity {
-                                return Err(VmError::Runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
+                                return Err(VmError::runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
                             }
                             // Save current frame
                             let frame = CallFrame {
@@ -760,7 +837,7 @@ impl VM {
                         }
                         Value::Closure { chunk: fn_chunk, arity: fn_arity, upvalues: fn_upvalues } => {
                             if arity != fn_arity {
-                                return Err(VmError::Runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
+                                return Err(VmError::runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
                             }
                             // Save current frame
                             let frame = CallFrame {
@@ -784,7 +861,7 @@ impl VM {
                         Value::NativeFunction { name, arity: fn_arity } => {
                             // Skip arity check for variadic functions (print)
                             if name != "print" && arity != fn_arity {
-                                return Err(VmError::Runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
+                                return Err(VmError::runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
                             }
                             // Collect arguments
                             let args: Vec<Value> = self.stack.drain(callee_idx + 1..).collect();
@@ -794,7 +871,7 @@ impl VM {
                             // Special dispatch for into(value, target_type)
                             if name == "into" {
                                 if args.len() != 2 {
-                                    return Err(VmError::Runtime(format!("into() expects 2 arguments, got {}", args.len())));
+                                    return Err(VmError::runtime(format!("into() expects 2 arguments, got {}", args.len())));
                                 }
                                 let value = args[0].clone();
                                 let target_type = args[1].clone();
@@ -820,24 +897,24 @@ impl VM {
                                                 };
                                                 self.stack.push(converted);
                                             } else {
-                                                return Err(VmError::Runtime("Type does not support conversion (no __into method)".to_string()));
+                                                return Err(VmError::runtime("Type does not support conversion (no __into method)".to_string()));
                                             }
                                         }
                                         _ => {
-                                            return Err(VmError::Runtime("Second argument to into() must be a type".to_string()));
+                                            return Err(VmError::runtime("Second argument to into() must be a type".to_string()));
                                         }
                                     }
                                 }
                             } else {
                                 // Call native function normally
                                 let func = self.native_functions.get(&name)
-                                    .ok_or_else(|| VmError::Runtime(format!("Native function '{}' not found", name)))?;
+                                    .ok_or_else(|| VmError::runtime(format!("Native function '{}' not found", name)))?;
                                 let result = func(&args)
-                                    .map_err(|e| VmError::Runtime(e))?;
+                                    .map_err(|e| VmError::runtime(e))?;
                                 self.stack.push(result);
                             }
                         }
-                        _ => return Err(VmError::Runtime("CALL on non-function".into())),
+                        _ => return Err(VmError::runtime("CALL on non-function".into())),
                     }
                 }
                 Instruction::Return => {
@@ -863,10 +940,10 @@ impl VM {
                     }
                 }
                 Instruction::Import => {
-                    let path_val = self.stack.pop().ok_or_else(|| VmError::Runtime("IMPORT requires path on stack".into()))?;
+                    let path_val = self.stack.pop().ok_or_else(|| VmError::runtime("IMPORT requires path on stack".into()))?;
                     let path = match path_val {
                         Value::String(s) => s,
-                        _ => return Err(VmError::Runtime("IMPORT requires String path".into())),
+                        _ => return Err(VmError::runtime("IMPORT requires String path".into())),
                     };
                     
                     // Resolve the path relative to current file
@@ -880,7 +957,7 @@ impl VM {
                         if self.loading_modules.borrow().contains(&resolved_path) {
                             let mut cycle = self.loading_modules.borrow().clone();
                             cycle.push(resolved_path.clone());
-                            return Err(VmError::Runtime(format!(
+                            return Err(VmError::runtime(format!(
                                 "Circular dependency detected: {}",
                                 cycle.join(" -> ")
                             )));
@@ -929,7 +1006,7 @@ impl VM {
         // If it's an absolute path, use it as-is
         if path_obj.is_absolute() {
             return Ok(path_obj.canonicalize()
-                .map_err(|e| VmError::Runtime(format!("Failed to resolve path '{}': {}", path, e)))?
+                .map_err(|e| VmError::runtime(format!("Failed to resolve path '{}': {}", path, e)))?
                 .to_string_lossy()
                 .to_string());
         }
@@ -937,19 +1014,19 @@ impl VM {
         // For relative paths, resolve relative to the current file
         let base_dir = if let Some(ref current_file) = self.current_file {
             Path::new(current_file).parent()
-                .ok_or_else(|| VmError::Runtime(format!("Invalid current file path: {}", current_file)))?
+                .ok_or_else(|| VmError::runtime(format!("Invalid current file path: {}", current_file)))?
                 .to_path_buf()
         } else {
             // No current file, use current working directory
             std::env::current_dir()
-                .map_err(|e| VmError::Runtime(format!("Failed to get current directory: {}", e)))?
+                .map_err(|e| VmError::runtime(format!("Failed to get current directory: {}", e)))?
         };
         
         let full_path = base_dir.join(path);
         
         // Canonicalize to get absolute path and resolve .. and .
         let canonical = full_path.canonicalize()
-            .map_err(|e| VmError::Runtime(format!("Failed to resolve import path '{}': {}", path, e)))?;
+            .map_err(|e| VmError::runtime(format!("Failed to resolve import path '{}': {}", path, e)))?;
         
         Ok(canonical.to_string_lossy().to_string())
     }
@@ -964,12 +1041,12 @@ impl VM {
         let result = (|| {
             // Read the module source
             let source = fs::read_to_string(path)
-                .map_err(|e| VmError::Runtime(format!("Failed to read module '{}': {}", path, e)))?;
+                .map_err(|e| VmError::runtime(format!("Failed to read module '{}': {}", path, e)))?;
             
             // Parse the module
             let ast = crate::parser::parse(&source)
                 .map_err(|errors| {
-                    VmError::Runtime(format!(
+                    VmError::runtime(format!(
                         "Parse error in module '{}': {}",
                         path,
                         errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
@@ -979,7 +1056,7 @@ impl VM {
             // Typecheck the module (if enabled)
             crate::typecheck::typecheck_program(&ast)
                 .map_err(|errs| {
-                    VmError::Runtime(format!(
+                    VmError::runtime(format!(
                         "Typecheck error in module '{}': {}",
                         path,
                         errs.iter().map(|e| e.message.clone()).collect::<Vec<_>>().join(", ")
@@ -998,7 +1075,7 @@ impl VM {
             
             // Execute the module
             let module_value = module_vm.run()
-                .map_err(|e| VmError::Runtime(format!("Error executing module '{}': {:?}", path, e)))?;
+                .map_err(|e| VmError::runtime(format!("Error executing module '{}': {:?}", path, e)))?;
             
             // Cache the module value
             self.module_cache.borrow_mut().insert(path.to_string(), module_value.clone());
@@ -1014,10 +1091,10 @@ impl VM {
 }
 
 fn flip_bool(stack: &mut Vec<Value>) -> Result<(), VmError> {
-    let v = stack.pop().ok_or_else(|| VmError::Runtime("flip bool underflow".into()))?;
+    let v = stack.pop().ok_or_else(|| VmError::runtime("flip bool underflow".into()))?;
     match v {
         Value::Boolean(b) => { stack.push(Value::Boolean(!b)); Ok(()) }
-        _ => Err(VmError::Runtime("flip bool type error".into())),
+        _ => Err(VmError::runtime("flip bool type error".into())),
     }
 }
 
