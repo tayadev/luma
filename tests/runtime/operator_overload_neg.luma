@@ -1,0 +1,7 @@
+let v: Any = {
+  __neg = fn(self: Any) do
+    return 42
+  end
+}
+let res = -v
+res

@@ -372,8 +372,30 @@ impl TypeEnv {
 
             Expr::Unary { op, operand } => match op {
                 UnaryOp::Neg => {
-                    self.expect_type(operand, &TcType::Number, "Unary negation");
-                    TcType::Number
+                    let ty = self.check_expr(operand);
+                    match ty {
+                        TcType::Number => TcType::Number,
+                        TcType::Any | TcType::Unknown => TcType::Unknown,
+                        TcType::Table => TcType::Unknown, // dynamic table may provide __neg at runtime
+                        TcType::TableWithFields(ref fields) => {
+                            if fields.iter().any(|f| f == "__neg") {
+                                TcType::Unknown
+                            } else {
+                                self.error(format!(
+                                    "Unary negation requires Number or type with __neg, got {:?}",
+                                    ty
+                                ));
+                                TcType::Unknown
+                            }
+                        }
+                        _ => {
+                            self.error(format!(
+                                "Unary negation requires Number or type with __neg, got {:?}",
+                                ty
+                            ));
+                            TcType::Unknown
+                        }
+                    }
                 }
                 UnaryOp::Not => {
                     self.expect_type(operand, &TcType::Boolean, "Logical not");
@@ -610,7 +632,7 @@ impl TypeEnv {
                 for (pattern, body) in arms {
                     self.push_scope();
                     // Bind pattern variables assuming matched expression type
-                    self.check_pattern(pattern, &matched_ty, false);
+                    self.check_pattern(pattern, &matched_ty, false, true);
                     // Determine arm return type similar to check_block
                     self.in_match_arm_depth += 1;
                     let arm_ret = self.check_block(body, &TcType::Unknown);
@@ -692,7 +714,7 @@ impl TypeEnv {
                 for (pattern, body) in arms {
                     self.push_scope();
                     // Bind pattern variables with the matched expression's type
-                    self.check_pattern(pattern, &expr_ty, false); // match bindings are immutable
+                    self.check_pattern(pattern, &expr_ty, false, true); // match bindings are immutable
                     
                     // Check the body statements
                     self.in_match_arm_depth += 1;
@@ -757,7 +779,7 @@ impl TypeEnv {
 
             Stmt::DestructuringVarDecl { mutable, pattern, value } => {
                 let value_ty = self.check_expr(value);
-                self.check_pattern(pattern, &value_ty, *mutable);
+                self.check_pattern(pattern, &value_ty, *mutable, false);
             }
 
             Stmt::Assignment { target, op: _, value } => {
@@ -823,17 +845,22 @@ impl TypeEnv {
                 self.push_scope();
                 match &iter_ty {
                     TcType::List(elem_ty) => {
-                        self.check_pattern(pattern, elem_ty, true);
+                        self.check_pattern(pattern, elem_ty, true, false);
+                    }
+                    TcType::Table | TcType::TableWithFields(_) => {
+                        // Iteration over tables yields [key, value] pairs
+                        let pair_elem = TcType::List(Box::new(TcType::Unknown));
+                        self.check_pattern(pattern, &pair_elem, true, false);
                     }
                     TcType::Unknown | TcType::Any => {
-                        self.check_pattern(pattern, &TcType::Unknown, true);
+                        self.check_pattern(pattern, &TcType::Unknown, true, false);
                     }
                     _ => {
                         self.error(format!(
-                            "For loop requires List iterator, got {:?}",
+                            "For loop requires List or Table iterator, got {:?}",
                             iter_ty
                         ));
-                        self.check_pattern(pattern, &TcType::Unknown, true);
+                        self.check_pattern(pattern, &TcType::Unknown, true, false);
                     }
                 }
 
@@ -929,23 +956,27 @@ impl TypeEnv {
         }
     }
 
-    fn check_pattern(&mut self, pattern: &Pattern, ty: &TcType, mutable: bool) {
+    fn check_pattern(&mut self, pattern: &Pattern, ty: &TcType, mutable: bool, in_match: bool) {
         match pattern {
             Pattern::Ident(name) => {
-                self.declare(
-                    name.clone(),
-                    VarInfo {
-                        ty: ty.clone(),
-                        mutable,
-                        annotated: false,
-                    },
-                );
+                if in_match && matches!(name.as_str(), "ok" | "err" | "some" | "none") {
+                    // Tag pattern in match: don't bind a variable
+                } else {
+                    self.declare(
+                        name.clone(),
+                        VarInfo {
+                            ty: ty.clone(),
+                            mutable,
+                            annotated: false,
+                        },
+                    );
+                }
             }
             Pattern::ListPattern { elements, rest } => {
                 match ty {
                     TcType::List(elem_ty) => {
                         for elem in elements {
-                            self.check_pattern(elem, elem_ty, mutable);
+                            self.check_pattern(elem, elem_ty, mutable, in_match);
                         }
                         if let Some(rest_name) = rest {
                             self.declare(
@@ -960,13 +991,13 @@ impl TypeEnv {
                     }
                     TcType::Unknown | TcType::Any => {
                         for elem in elements {
-                            self.check_pattern(elem, &TcType::Unknown, mutable);
+                            self.check_pattern(elem, &TcType::Unknown, mutable, in_match);
                         }
                         if let Some(rest_name) = rest {
                             self.declare(
                                 rest_name.clone(),
                                 VarInfo {
-                                    ty: TcType::Unknown,
+                                    ty: TcType::List(Box::new(TcType::Unknown)),
                                     mutable,
                                     annotated: false,
                                 },
@@ -983,7 +1014,30 @@ impl TypeEnv {
             }
             Pattern::TablePattern { fields } => {
                 match ty {
-                    TcType::Table | TcType::TableWithFields(_) => {
+                    TcType::TableWithFields(present) => {
+                        // Validate required fields exist by name
+                        for f in fields {
+                            if !present.contains(&f.key) {
+                                self.error(format!(
+                                    "Table pattern requires field '{}' not present on value",
+                                    f.key
+                                ));
+                            }
+                        }
+                        // Bind variables with Unknown type (no per-field typing yet)
+                        for field in fields {
+                            let binding_name = field.binding.as_ref().unwrap_or(&field.key);
+                            self.declare(
+                                binding_name.clone(),
+                                VarInfo {
+                                    ty: TcType::Unknown,
+                                    mutable,
+                                    annotated: false,
+                                },
+                            );
+                        }
+                    }
+                    TcType::Table => {
                         for field in fields {
                             let binding_name = field.binding.as_ref().unwrap_or(&field.key);
                             self.declare(

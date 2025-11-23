@@ -1,0 +1,3 @@
+let v = {}
+let res = -v
+res

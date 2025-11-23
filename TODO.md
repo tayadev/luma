@@ -5,40 +5,15 @@ When you complete an item, check it off. If a item is too big, break it down int
 If you realize the priority of an item has changed, feel free to reorder the list.
 If not specified otherwise, work on the tasks in the order they appear.
 
-- [x] Mutual recursion across separate function declarations (improve pre-declare mechanism beyond functions in same pass).
-	- Implemented local-scope predeclaration for function `let/var` bindings: allocate null-initialized locals before compiling the block, so mutually-recursive local functions resolve to locals instead of falling back to globals.
-	- During predeclaration, record parameter name lists in the scope for correct named-argument reordering against local functions.
-	- Applied to function bodies, blocks, and if/else/loop bodies. Global two-pass predeclare remains for top-level names.
-- [x] Closures & upvalues completeness review (capture semantics, lifetime tests).
-	- Implemented shared captured-local cells in VM so multiple closures share the same variable by reference; updates reflect across closures and after parent returns.
-	- Updated VM call frames to preserve/restore captured locals; adjusted GetLocal/SetLocal to read/write via captured cells when present.
-	- Added runtime test `closures_shared_state` verifying shared state across two closures.
-- [x] Typechecker: concrete generics (`GenericType { name, args }`) and function type validation (params & return). 
-	- Implemented `List<T>` mapping in typechecker and support for `FunctionType` param/return validation. Declared return types now propagate for function expressions.
-	- Added should-fail tests: `function_generic_arg_mismatch` and `function_return_mismatch`.
-- [ ] Structural typing improvements: table field presence + simple trait/tag matching.
-- [ ] Refine equality/comparison diagnostics (value vs reference semantics, lists/tables). 
-- [ ] Pattern typing inference (bind variable types from pattern shape).
-- [x] Add a way to set table values in a simpler way when the key is the same as the variable name (e.g. `{ a, b }` instead of `{ a = a, b = b }`).
-	- Parser accepts identifier-only table entries as shorthand; expands to key=name and value=Identifier(name).
-	- Added parser fixtures `collections/table_shorthand.{luma,ron}`.
-- [x] Enforce named argument semantics (reordering + mixing positional/named, detect duplicates).
-	- Compiler reorders named calls at compile time for statically-known callees; errors on positional-after-named and duplicate names. Defaults are not applied yet (all params required).
-- [ ] Iterator protocol formalization (table iteration, custom iterables). 
-- [x] Loop pattern destructuring (`for [k,v] in table`, `for [item,index] in list.indexed()`). Also make sure `for` loops only accept iterable expressions, aka objects that implement the iterable trait.
-	- Implemented list-pattern destructuring for `for` over lists (e.g., `for [item, i] in indexed(arr)`), handling identifiers and wildcards plus optional rest. Table iteration and an iterator trait remain future work.
-- [x] Range iteration helper `range(start,end)` & indexed iteration support (implement in prelude).
-	- Implemented `range(start, stop)` (half-open, ascending) and `indexed(arr)` in `prelude.luma`.
-	- Added runtime tests: `range_sum` and `indexed_sum`.
-	- VM now allows list append via `list[len] = value` to enable prelude builders.
 - [ ] Tests expansion: interpolation complex cases; match exhaustiveness success/fail; nested & renamed patterns; loop destructuring; named arg reorder; computed/quoted keys.
-- [ ] Refactor jump patching (eliminate global `Jump(usize::MAX)` scans; track jumps explicitly per construct).
 - [~] Optimize logical short-circuit codegen (avoid superfluous `Dup`). (Investigated: Dup is necessary with current JumpIfFalse instruction; would require new non-consuming jump instruction)
-- [ ] Implement real `__into` dispatch (invoke method; fallback conversions) and tests.
-- [ ] Ensure all overloadable operators (`%`, comparisons, unary `-`) attempt method fallback consistently.
+- [~] Ensure all overloadable operators (`%`, comparisons, unary `-`) attempt method fallback consistently.
+	- Added runtime tests for `%`, `<`, and unary `-`. `%` and `<` pass via method fallback. Unary `-` works at runtime when not conflated with prior statement; add typechecker alignment so negation-overload doesn't require numeric RHS when lowered to `0 - x`.
+	- Follow-up: teach typechecker that unary `-x` may be valid if `x` has `__neg` (or relax subtraction when RHS has `__neg`).
 - [ ] Result/Option pattern sugar (auto-detect tag fields; validation & exhaustive errors).
 - [ ] Documentation updates (`SPEC.md`, README) for new behaviors (match expr, interpolation, patterns, import semantics)
 - [ ] Negative test suite build-out (`should_fail`): non-exhaustive match, unreachable pattern, invalid interpolation, duplicate named args, illegal table key forms.
+	- Added: `should_fail/unary_neg_no_overload.{luma,expect}` expecting typecheck failure.
 - [ ] Performance microbench harness (parse + compile + run) for regression tracking.
 - [ ] Decide on async: implement minimal `await` + `Promise` placeholder or remove keyword until runtime ready.
 - [ ] Import resolution future-proofing (remote sources hooks, lockfile placeholder alignment).

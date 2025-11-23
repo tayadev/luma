@@ -61,6 +61,7 @@ impl VM {
         vm.register_native_function("isInstanceOf", 2, native_is_instance_of);
         vm.register_native_function("into", 2, native_into);
         vm.register_native_function("typeof", 1, native_typeof);
+        vm.register_native_function("iter", 1, native_iter);
         vm.register_native_function("print", 0, native_print);  // Variadic, arity 0 is placeholder
         
         // Register I/O functions
@@ -244,8 +245,29 @@ impl VM {
                 if let Some(method) = Self::has_method(&a, method_name) {
                     self.call_overload_method(method, vec![a, b], 2, method_name)
                 } else {
+                    let at = match &a {
+                        Value::Number(_) => "Number",
+                        Value::String(_) => "String",
+                        Value::Boolean(_) => "Boolean",
+                        Value::Null => "Null",
+                        Value::List(_) => "List",
+                        Value::Table(_) => "Table",
+                        Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
+                        Value::Type(_) => "Type",
+                    };
+                    let bt = match &b {
+                        Value::Number(_) => "Number",
+                        Value::String(_) => "String",
+                        Value::Boolean(_) => "Boolean",
+                        Value::Null => "Null",
+                        Value::List(_) => "List",
+                        Value::Table(_) => "Table",
+                        Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
+                        Value::Type(_) => "Type",
+                    };
                     Err(VmError::Runtime(format!(
-                        "Operation requires compatible types or {} method", method_name
+                        "Operator {} not supported for {} and {} (no {} method)",
+                        method_name, at, bt, method_name
                     )))
                 }
             }
@@ -283,14 +305,36 @@ impl VM {
                 if let Some(method) = Self::has_method(&a, method_name) {
                     self.call_overload_method(method, vec![a, b], 2, method_name)
                 } else {
+                    let at = match &a {
+                        Value::Number(_) => "Number",
+                        Value::String(_) => "String",
+                        Value::Boolean(_) => "Boolean",
+                        Value::Null => "Null",
+                        Value::List(_) => "List",
+                        Value::Table(_) => "Table",
+                        Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
+                        Value::Type(_) => "Type",
+                    };
+                    let bt = match &b {
+                        Value::Number(_) => "Number",
+                        Value::String(_) => "String",
+                        Value::Boolean(_) => "Boolean",
+                        Value::Null => "Null",
+                        Value::List(_) => "List",
+                        Value::Table(_) => "Table",
+                        Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
+                        Value::Type(_) => "Type",
+                    };
                     Err(VmError::Runtime(format!(
-                        "Comparison requires Number or {} method", method_name
+                        "Comparison {} requires numbers or {} method; got {} and {}",
+                        method_name, method_name, at, bt
                     )))
                 }
             }
         }
     }
 
+//
     pub fn run(&mut self) -> Result<Value, VmError> {
         loop {
             if self.ip >= self.chunk.instructions.len() {
@@ -746,13 +790,52 @@ impl VM {
                             let args: Vec<Value> = self.stack.drain(callee_idx + 1..).collect();
                             // Pop callee
                             self.stack.pop();
-                            
-                            // Call native function
-                            let func = self.native_functions.get(&name)
-                                .ok_or_else(|| VmError::Runtime(format!("Native function '{}' not found", name)))?;
-                            let result = func(&args)
-                                .map_err(|e| VmError::Runtime(e))?;
-                            self.stack.push(result);
+
+                            // Special dispatch for into(value, target_type)
+                            if name == "into" {
+                                if args.len() != 2 {
+                                    return Err(VmError::Runtime(format!("into() expects 2 arguments, got {}", args.len())));
+                                }
+                                let value = args[0].clone();
+                                let target_type = args[1].clone();
+
+                                // If value has __into, call it as a regular function
+                                if let Some(method) = VM::has_method(&value, "__into") {
+                                    // call_overload_method sets up the new frame and switches chunks
+                                    self.call_overload_method(method, vec![value, target_type], 2, "__into")?;
+                                    // Do not push a result here; execution will continue in the method
+                                } else {
+                                    // Primitive fallback: allow simple String conversions
+                                    match target_type {
+                                        Value::Type(tmap) | Value::Table(tmap) => {
+                                            let tb = tmap.borrow();
+                                            let is_string_target = tb.contains_key("String") || tb.is_empty();
+                                            if is_string_target {
+                                                let converted = match value {
+                                                    Value::Number(n) => Value::String(n.to_string()),
+                                                    Value::String(s) => Value::String(s),
+                                                    Value::Boolean(b) => Value::String(b.to_string()),
+                                                    Value::Null => Value::String("null".to_string()),
+                                                    other => Value::String(format!("{}", other)),
+                                                };
+                                                self.stack.push(converted);
+                                            } else {
+                                                return Err(VmError::Runtime("Type does not support conversion (no __into method)".to_string()));
+                                            }
+                                        }
+                                        _ => {
+                                            return Err(VmError::Runtime("Second argument to into() must be a type".to_string()));
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Call native function normally
+                                let func = self.native_functions.get(&name)
+                                    .ok_or_else(|| VmError::Runtime(format!("Native function '{}' not found", name)))?;
+                                let result = func(&args)
+                                    .map_err(|e| VmError::Runtime(e))?;
+                                self.stack.push(result);
+                            }
                         }
                         _ => return Err(VmError::Runtime("CALL on non-function".into())),
                     }
@@ -1327,6 +1410,29 @@ fn native_typeof(args: &[Value]) -> Result<Value, String> {
     };
     
     Ok(Value::String(type_name.to_string()))
+}
+
+// Native function: iter(value: List|Table) -> List
+// - List: returns the same list (no copy)
+// - Table: returns list of [key, value] pairs
+fn native_iter(args: &[Value]) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!("iter() expects 1 argument, got {}", args.len()));
+    }
+
+    match &args[0] {
+        Value::List(list_rc) => Ok(Value::List(list_rc.clone())),
+        Value::Table(map_rc) => {
+            let map = map_rc.borrow();
+            let mut out: Vec<Value> = Vec::with_capacity(map.len());
+            for (k, v) in map.iter() {
+                let pair = vec![Value::String(k.clone()), v.clone()];
+                out.push(Value::List(std::rc::Rc::new(std::cell::RefCell::new(pair))));
+            }
+            Ok(Value::List(std::rc::Rc::new(std::cell::RefCell::new(out))))
+        }
+        _ => Err("iter() requires a List or Table".to_string()),
+    }
 }
 
 // Helper: Create a Result value with ok field set

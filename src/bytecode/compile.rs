@@ -127,7 +127,9 @@ impl Compiler {
                     let null_idx = push_const(&mut self.chunk, Constant::Null);
                     self.chunk.instructions.push(Instruction::Const(null_idx));
                 }
-                let j_end = self.emit_jump();
+                // Track all end jumps (from then/elif branches) to patch to final end
+                let mut end_jumps: Vec<usize> = Vec::new();
+                end_jumps.push(self.emit_jump());
 
                 // else/elif chain
                 let mut next_start = self.current_ip();
@@ -149,7 +151,8 @@ impl Compiler {
                         let null_idx = push_const(&mut self.chunk, Constant::Null);
                         self.chunk.instructions.push(Instruction::Const(null_idx));
                     }
-                    let _j_after_elif = self.emit_jump();
+                    // Record this branch's end jump for later patching
+                    end_jumps.push(self.emit_jump());
                     // patch jf_elif to the next block start
                     next_start = self.current_ip();
                     self.patch_jump(jf_elif, next_start);
@@ -174,12 +177,7 @@ impl Compiler {
 
                 // Patch final end for main then and all elif end jumps
                 let end_ip = self.current_ip();
-                self.patch_jump(j_end, end_ip);
-                // Also patch any Jump(usize::MAX) left from elif bodies to end_ip
-                // Walk back and patch immediate previous Jump placeholders
-                for instr in &mut self.chunk.instructions {
-                    if let Instruction::Jump(addr) = instr && *addr == usize::MAX { *addr = end_ip; }
-                }
+                for j in end_jumps { self.patch_jump(j, end_ip); }
             }
             Stmt::While { condition, body } => {
                 let loop_start = self.current_ip();
@@ -615,8 +613,11 @@ impl Compiler {
                 // Create a new scope for the entire loop (including iterator, index, and pattern locals)
                 self.enter_scope();
 
-                // Evaluate iterator and store in a hidden local __iter
+                // Evaluate iterator via global iter() helper and store in a hidden local __iter
+                let iter_name_idx = push_const(&mut self.chunk, Constant::String("iter".to_string()));
+                self.chunk.instructions.push(Instruction::GetGlobal(iter_name_idx));
                 self.emit_expr(iterator);
+                self.chunk.instructions.push(Instruction::Call(1));
                 let iter_slot = self.local_count;
                 self.scopes.last_mut().unwrap().insert("__iter".to_string(), iter_slot);
                 self.local_count += 1;

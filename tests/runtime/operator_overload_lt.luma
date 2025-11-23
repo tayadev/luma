@@ -1,0 +1,11 @@
+let mk = fn(x: Number) do
+  return {
+    x = x,
+    __lt = fn(self: Any, other: Any) do
+      return self.x < other.x
+    end
+  }
+end
+let a: Any = mk(1)
+let b: Any = mk(2)
+a < b
