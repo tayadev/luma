@@ -33,6 +33,7 @@ where
 use chumsky::prelude::*;
 use crate::ast::{Stmt, Expr, Pattern, Type};
 use crate::parser::operators;
+use super::utils::apply_implicit_return_stmts;
 
 /// Creates a parser for return statements
 pub fn return_stmt<'a, WS, E>(ws: WS, expr: E) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich<'a, char>>>
@@ -118,29 +119,13 @@ where
         .ignore_then(expr.clone())
         .then_ignore(just("do").padded_by(ws.clone()))
         .then(stmt.clone().repeated().collect::<Vec<Stmt>>())
-        .map(|(cond, mut body)| {
-            if let Some(last) = body.pop() {
-                match last {
-                    Stmt::ExprStmt(e) => body.push(Stmt::Return(e)),
-                    other => body.push(other),
-                }
-            }
-            (cond, body)
-        });
+        .map(|(cond, body)| (cond, apply_implicit_return_stmts(body)));
     
     let else_block = just("else")
         .padded_by(ws.clone())
         .then_ignore(just("do").padded_by(ws.clone()))
         .ignore_then(stmt.clone().repeated().collect::<Vec<Stmt>>())
-        .map(|mut body| {
-            if let Some(last) = body.pop() {
-                match last {
-                    Stmt::ExprStmt(e) => body.push(Stmt::Return(e)),
-                    other => body.push(other),
-                }
-            }
-            body
-        });
+        .map(apply_implicit_return_stmts);
     
     just("if")
         .padded_by(ws.clone())
@@ -150,14 +135,13 @@ where
         .then(elif_block.repeated().collect::<Vec<(Expr, Vec<Stmt>)>>())
         .then(else_block.or_not())
         .then_ignore(just("end").padded_by(ws))
-        .map(|(((condition, mut then_block), elif_blocks), else_block)| {
-            if let Some(last) = then_block.pop() {
-                match last {
-                    Stmt::ExprStmt(e) => then_block.push(Stmt::Return(e)),
-                    other => then_block.push(other),
-                }
+        .map(|(((condition, then_block), elif_blocks), else_block)| {
+            Stmt::If { 
+                condition, 
+                then_block: apply_implicit_return_stmts(then_block), 
+                elif_blocks, 
+                else_block 
             }
-            Stmt::If { condition, then_block, elif_blocks, else_block }
         })
         .boxed()
 }

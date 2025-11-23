@@ -5,7 +5,7 @@ Ordered by near-term impact on correctness, developer ergonomics, and spec compl
 
 1. [x] Full string interpolation `${expr}` (use general expression parser; remove manual scan); multiline preservation tests. (Implemented)
 2. [x] Table literal enhancements: quoted keys and computed keys `[expr] = value`. (Implemented)
-3. [ ] Keyword audit & removal of `import` as keyword (treat as normal call); align reserved list with spec.
+3. [x] Keyword audit & removal of `import` as keyword (treat as normal call); align reserved list with spec. (Completed: removed 'import' from KEYWORDS)
 4. [x] Introduce `Expr::Match` (currently statement-only); allow match in expression contexts. (Implemented)
 5. [ ] Exhaustiveness enforcement for match (wildcard `_` or all variant tags like `ok/err`, `some/none`).
 6. [ ] Pattern system upgrade: nested array/table patterns, field renames `name: userName`, literal patterns, tag patterns.
@@ -14,10 +14,10 @@ Ordered by near-term impact on correctness, developer ergonomics, and spec compl
 9. [ ] Range iteration helper `range(start,end)` & indexed iteration support.
 10. [ ] Enforce named argument semantics (reordering + mixing positional/named, detect duplicates).
 11. [ ] Tests expansion: interpolation complex cases; match exhaustiveness success/fail; nested & renamed patterns; loop destructuring; named arg reorder; computed/quoted keys.
-12. [ ] Centralize implicit return injection into a shared helper (block/function/if/match).
+12. [x] Centralize implicit return injection into a shared helper (block/function/if/match). (Completed: created utils.rs with apply_implicit_return helpers)
 13. [ ] Refactor jump patching (eliminate global `Jump(usize::MAX)` scans; track jumps explicitly per construct).
-14. [ ] Remove unnecessary trailing `Const Null` from loop codegen (statement contexts).
-15. [ ] Optimize logical short-circuit codegen (avoid superfluous `Dup`).
+14. [x] Remove unnecessary trailing `Const Null` from loop codegen (statement contexts). (Completed: removed from For loops; VM Halt handles empty stack)
+15. [~] Optimize logical short-circuit codegen (avoid superfluous `Dup`). (Investigated: Dup is necessary with current JumpIfFalse instruction; would require new non-consuming jump instruction)
 16. [ ] Typechecker: concrete generics (`GenericType { name, args }`) and function type validation (params & return). 
 17. [ ] Structural typing improvements: table field presence + simple trait/tag matching.
 18. [ ] Refine equality/comparison diagnostics (value vs reference semantics, arrays/tables). 

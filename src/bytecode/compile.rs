@@ -616,10 +616,6 @@ impl Compiler {
                 
                 // Exit the entire loop scope (pop __iter, __i, and loop_var)
                 self.exit_scope_with_preserve(false);
-                
-                // For loops don't leave a value on the stack
-                let null_idx2 = push_const(&mut self.chunk, Constant::Null);
-                self.chunk.instructions.push(Instruction::Const(null_idx2));
             }
             Stmt::Break(level_opt) => {
                 let level = level_opt.unwrap_or(1) as usize;

@@ -1,5 +1,6 @@
 use chumsky::prelude::*;
 use crate::ast::{Expr, Stmt, Argument, Type, Pattern};
+use super::utils::{apply_implicit_return, apply_implicit_return_stmts};
 
 /// Creates a parser for block expressions (do...end)
 pub fn block<'a, WS, S, E>(
@@ -17,20 +18,8 @@ where
         .ignore_then(stmt.repeated().collect::<Vec<Stmt>>())
         .then(expr.or_not())
         .then_ignore(just("end").padded_by(ws))
-        .map(|(mut stmts, ret)| {
-            if let Some(expr) = ret {
-                // Explicit trailing expression captured separately
-                stmts.push(Stmt::Return(expr));
-            } else if let Some(last) = stmts.pop() {
-                // No separate trailing expression; convert last ExprStmt into implicit return
-                match last {
-                    Stmt::ExprStmt(e) => stmts.push(Stmt::Return(e)),
-                    other => {
-                        stmts.push(other);
-                    }
-                }
-            }
-            Expr::Block(stmts)
+        .map(|(stmts, ret)| {
+            Expr::Block(apply_implicit_return(stmts, ret))
         })
         .boxed()
 }
@@ -50,15 +39,7 @@ where
         .padded_by(ws.clone())
         .then_ignore(just("do").padded_by(ws.clone()))
         .ignore_then(stmt.clone().repeated().collect::<Vec<Stmt>>())
-        .map(|mut body| {
-            if let Some(last) = body.pop() {
-                match last {
-                    Stmt::ExprStmt(e) => body.push(Stmt::Return(e)),
-                    other => body.push(other),
-                }
-            }
-            body
-        });
+        .map(apply_implicit_return_stmts);
 
     just("if")
         .padded_by(ws.clone())
@@ -67,16 +48,10 @@ where
         .then(stmt.repeated().collect::<Vec<Stmt>>())
         .then(else_block.or_not())
         .then_ignore(just("end").padded_by(ws))
-        .map(|((condition, mut then_block), else_block)| {
-            if let Some(last) = then_block.pop() {
-                match last {
-                    Stmt::ExprStmt(e) => then_block.push(Stmt::Return(e)),
-                    other => then_block.push(other),
-                }
-            }
+        .map(|((condition, then_block), else_block)| {
             Expr::If { 
                 condition: Box::new(condition), 
-                then_block, 
+                then_block: apply_implicit_return_stmts(then_block), 
                 else_block 
             }
         })
@@ -119,17 +94,7 @@ where
     let body_block = stmt.repeated().collect::<Vec<Stmt>>()
         .then(expr.or_not())
         .then_ignore(just("end").padded_by(ws.clone()))
-        .map(|(mut stmts, ret)| {
-            if let Some(expr) = ret {
-                stmts.push(Stmt::Return(expr));
-            } else if let Some(last) = stmts.pop() {
-                match last {
-                    Stmt::ExprStmt(e) => stmts.push(Stmt::Return(e)),
-                    other => stmts.push(other),
-                }
-            }
-            stmts
-        });
+        .map(|(stmts, ret)| apply_implicit_return(stmts, ret));
 
     just("fn")
         .padded_by(ws.clone())
