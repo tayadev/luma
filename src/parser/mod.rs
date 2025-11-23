@@ -1,7 +1,8 @@
-use crate::ast::{CallArgument, Expr, Program, Span, Stmt, Type};
-use crate::diagnostics::{Diagnostic, DiagnosticKind};
+use crate::ast::{CallArgument, Expr, Program, Stmt};
+use crate::diagnostics::Diagnostic;
 use chumsky::prelude::*;
 
+mod errors;
 mod expressions;
 mod lexer;
 mod literals;
@@ -9,6 +10,7 @@ mod operators;
 mod patterns;
 mod statements;
 mod string;
+mod types;
 mod utils;
 
 use string::string_parser;
@@ -30,86 +32,8 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         })
         .padded_by(ws.clone());
 
-    // Type parser - handles TypeIdent, GenericType, FunctionType, and Any
-    let mut type_ref = Recursive::declare();
-
-    // Parse "Any" keyword as a type
-    let any_type = just("Any").padded_by(ws.clone()).to(Type::Any);
-
-    // Parse simple type identifier (not "Any")
-    let type_ident = text::ident()
-        .try_map(move |s: &str, span| {
-            if s == "Any" {
-                // "Any" should be parsed by any_type parser
-                Err(Rich::custom(span, ""))
-            } else if lexer::KEYWORDS.contains(&s) {
-                Err(Rich::custom(
-                    span,
-                    format!("'{}' is a keyword and cannot be used as a type", s),
-                ))
-            } else {
-                Ok(Type::TypeIdent(s.to_string()))
-            }
-        })
-        .padded_by(ws.clone());
-
-    // Parse function type: fn(Type, Type, ...): Type
-    let function_type = just("fn")
-        .padded_by(ws.clone())
-        .ignore_then(
-            type_ref
-                .clone()
-                .separated_by(just(',').padded_by(ws.clone()))
-                .allow_trailing()
-                .collect::<Vec<Type>>()
-                .delimited_by(
-                    just('(').padded_by(ws.clone()),
-                    just(')').padded_by(ws.clone()),
-                ),
-        )
-        .then_ignore(just(':').padded_by(ws.clone()))
-        .then(type_ref.clone())
-        .map(|(param_types, return_type)| Type::FunctionType {
-            param_types,
-            return_type: Box::new(return_type),
-        });
-
-    // Parse generic type: TypeIdent(Type, Type, ...)
-    let generic_type = text::ident()
-        .try_map(move |s: &str, span| {
-            if lexer::KEYWORDS.contains(&s) {
-                Err(Rich::custom(
-                    span,
-                    format!("'{}' is a keyword and cannot be used as a type", s),
-                ))
-            } else {
-                Ok(s.to_string())
-            }
-        })
-        .padded_by(ws.clone())
-        .then(
-            type_ref
-                .clone()
-                .separated_by(just(',').padded_by(ws.clone()))
-                .at_least(1)
-                .allow_trailing()
-                .collect::<Vec<Type>>()
-                .delimited_by(
-                    just('(').padded_by(ws.clone()),
-                    just(')').padded_by(ws.clone()),
-                ),
-        )
-        .map(|(name, type_args)| Type::GenericType { name, type_args });
-
-    // Combine all type parsers, with priority: function > generic > any > ident
-    let type_parser = choice((
-        function_type.boxed(),
-        generic_type.boxed(),
-        any_type.boxed(),
-        type_ident.boxed(),
-    ));
-
-    type_ref.define(type_parser.clone());
+    // Type parser
+    let type_parser = types::type_parser(ws.clone());
 
     let number = literals::number(ws.clone());
 
@@ -408,45 +332,9 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     )
 }
 
-/// Convert Chumsky error reason to readable message
-fn format_error_reason(reason: &chumsky::error::RichReason<char>) -> String {
-    use chumsky::error::RichReason;
-
-    match reason {
-        RichReason::ExpectedFound { expected, found } => {
-            let found_msg = match found {
-                Some(c) => format!("'{}'", c.escape_debug()),
-                None => "end of input".to_string(),
-            };
-
-            if expected.is_empty() {
-                format!("unexpected {}", found_msg)
-            } else {
-                // Just show a simplified message instead of listing all expected tokens
-                if found.is_none() {
-                    "unexpected end of input".to_string()
-                } else {
-                    format!("unexpected {}", found_msg)
-                }
-            }
-        }
-        RichReason::Custom(msg) => msg.to_string(),
-    }
-}
-
 pub fn parse(source: &str, filename: &str) -> Result<Program, Vec<Diagnostic>> {
     match parser().parse(source).into_result() {
         Ok(program) => Ok(program),
-        Err(errors) => {
-            let diags = errors
-                .into_iter()
-                .map(|e| {
-                    let span = Span::new(e.span().start, e.span().end);
-                    let message = format_error_reason(e.reason());
-                    Diagnostic::error(DiagnosticKind::Parse, message, span, filename.to_string())
-                })
-                .collect();
-            Err(diags)
-        }
+        Err(errs) => Err(errors::errors_to_diagnostics(errs, filename)),
     }
 }

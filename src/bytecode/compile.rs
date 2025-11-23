@@ -153,7 +153,7 @@ impl Compiler {
                 for st in then_block {
                     self.emit_stmt(st);
                 }
-                let then_preserve = block_leaves_value(then_block);
+                let then_preserve = does_block_leave_value(then_block);
                 self.exit_scope_with_preserve(then_preserve);
                 if !then_preserve {
                     // branch produced no value; push Null to keep if result arity
@@ -180,7 +180,7 @@ impl Compiler {
                     for st in elif_body {
                         self.emit_stmt(st);
                     }
-                    let elif_preserve = block_leaves_value(elif_body);
+                    let elif_preserve = does_block_leave_value(elif_body);
                     self.exit_scope_with_preserve(elif_preserve);
                     if !elif_preserve {
                         let null_idx = push_const(&mut self.chunk, Constant::Null);
@@ -204,7 +204,7 @@ impl Compiler {
                     for st in else_body {
                         self.emit_stmt(st);
                     }
-                    let else_preserve = block_leaves_value(else_body);
+                    let else_preserve = does_block_leave_value(else_body);
                     self.exit_scope_with_preserve(else_preserve);
                     if !else_preserve {
                         let null_idx = push_const(&mut self.chunk, Constant::Null);
@@ -325,22 +325,13 @@ impl Compiler {
                                 let jf_next_arm = self.emit_jump_if_false();
 
                                 // Execute this arm's body
-                                let mut arm_body = body.to_vec();
-                                if let Some(last) = arm_body.pop() {
-                                    match last {
-                                        Stmt::ExprStmt(e) => arm_body.push(Stmt::Return {
-                                            value: e,
-                                            span: None,
-                                        }),
-                                        other => arm_body.push(other),
-                                    }
-                                }
+                                let arm_body = apply_implicit_return_to_arm(body);
 
                                 for stmt in &arm_body {
                                     self.emit_stmt(stmt);
                                 }
 
-                                let arm_preserves = block_leaves_value(&arm_body);
+                                let arm_preserves = does_block_leave_value(&arm_body);
                                 if !arm_preserves {
                                     let null_idx = push_const(&mut self.chunk, Constant::Null);
                                     self.chunk.instructions.push(Instruction::Const(null_idx));
@@ -382,22 +373,13 @@ impl Compiler {
 
                                 let jf_next_arm = self.emit_jump_if_false();
 
-                                let mut arm_body = body.to_vec();
-                                if let Some(last) = arm_body.pop() {
-                                    match last {
-                                        Stmt::ExprStmt(e) => arm_body.push(Stmt::Return {
-                                            value: e,
-                                            span: None,
-                                        }),
-                                        other => arm_body.push(other),
-                                    }
-                                }
+                                let arm_body = apply_implicit_return_to_arm(body);
 
                                 for stmt in &arm_body {
                                     self.emit_stmt(stmt);
                                 }
 
-                                let arm_preserves = block_leaves_value(&arm_body);
+                                let arm_preserves = does_block_leave_value(&arm_body);
                                 if !arm_preserves {
                                     let null_idx = push_const(&mut self.chunk, Constant::Null);
                                     self.chunk.instructions.push(Instruction::Const(null_idx));
@@ -419,22 +401,13 @@ impl Compiler {
                     } else {
                         // Wildcard or Ident pattern - always matches (catch-all case)
                         // Handle implicit return
-                        let mut arm_body = body.to_vec();
-                        if let Some(last) = arm_body.pop() {
-                            match last {
-                                Stmt::ExprStmt(e) => arm_body.push(Stmt::Return {
-                                    value: e,
-                                    span: None,
-                                }),
-                                other => arm_body.push(other),
-                            }
-                        }
+                        let arm_body = apply_implicit_return_to_arm(body);
 
                         for stmt in &arm_body {
                             self.emit_stmt(stmt);
                         }
 
-                        let arm_preserves = block_leaves_value(&arm_body);
+                        let arm_preserves = does_block_leave_value(&arm_body);
                         if !arm_preserves {
                             let null_idx = push_const(&mut self.chunk, Constant::Null);
                             self.chunk.instructions.push(Instruction::Const(null_idx));
@@ -1379,21 +1352,11 @@ impl Compiler {
                                 let jf_next = self.emit_jump_if_false();
 
                                 // Execute arm and produce value
-                                let mut arm_body = body.to_vec();
-                                if let Some(last) = arm_body.pop() {
-                                    if let Stmt::ExprStmt(e) = last {
-                                        arm_body.push(Stmt::Return {
-                                            value: e,
-                                            span: None,
-                                        });
-                                    } else {
-                                        arm_body.push(last);
-                                    }
-                                }
+                                let arm_body = apply_implicit_return_to_arm(body);
                                 for st in &arm_body {
                                     self.emit_stmt(st);
                                 }
-                                if !block_leaves_value(&arm_body) {
+                                if !does_block_leave_value(&arm_body) {
                                     let null_idx = push_const(&mut self.chunk, Constant::Null);
                                     self.chunk.instructions.push(Instruction::Const(null_idx));
                                 }
@@ -1432,21 +1395,11 @@ impl Compiler {
                                 let jf_next = self.emit_jump_if_false();
 
                                 // Execute arm and produce value
-                                let mut arm_body = body.to_vec();
-                                if let Some(last) = arm_body.pop() {
-                                    if let Stmt::ExprStmt(e) = last {
-                                        arm_body.push(Stmt::Return {
-                                            value: e,
-                                            span: None,
-                                        });
-                                    } else {
-                                        arm_body.push(last);
-                                    }
-                                }
+                                let arm_body = apply_implicit_return_to_arm(body);
                                 for st in &arm_body {
                                     self.emit_stmt(st);
                                 }
-                                if !block_leaves_value(&arm_body) {
+                                if !does_block_leave_value(&arm_body) {
                                     let null_idx = push_const(&mut self.chunk, Constant::Null);
                                     self.chunk.instructions.push(Instruction::Const(null_idx));
                                 }
@@ -1460,21 +1413,11 @@ impl Compiler {
                         }
                     } else {
                         // Catch-all pattern
-                        let mut arm_body = body.to_vec();
-                        if let Some(last) = arm_body.pop() {
-                            if let Stmt::ExprStmt(e) = last {
-                                arm_body.push(Stmt::Return {
-                                    value: e,
-                                    span: None,
-                                });
-                            } else {
-                                arm_body.push(last);
-                            }
-                        }
+                        let arm_body = apply_implicit_return_to_arm(body);
                         for st in &arm_body {
                             self.emit_stmt(st);
                         }
-                        if !block_leaves_value(&arm_body) {
+                        if !does_block_leave_value(&arm_body) {
                             let null_idx = push_const(&mut self.chunk, Constant::Null);
                             self.chunk.instructions.push(Instruction::Const(null_idx));
                         }
@@ -1648,7 +1591,7 @@ impl Compiler {
         }
 
         // Exit scope
-        nested.exit_scope_with_preserve(block_leaves_value(body));
+        nested.exit_scope_with_preserve(does_block_leave_value(body));
         nested.chunk.instructions.push(Instruction::Return);
         nested.chunk.local_count = arity as u16;
 
@@ -1699,7 +1642,22 @@ impl Compiler {
     }
 }
 
-fn block_leaves_value(block: &[Stmt]) -> bool {
+/// Applies implicit return to a match arm body by converting trailing ExprStmt to Return
+fn apply_implicit_return_to_arm(body: &[Stmt]) -> Vec<Stmt> {
+    let mut arm_body = body.to_vec();
+    if let Some(last) = arm_body.pop() {
+        match last {
+            Stmt::ExprStmt(e) => arm_body.push(Stmt::Return {
+                value: e,
+                span: None,
+            }),
+            other => arm_body.push(other),
+        }
+    }
+    arm_body
+}
+
+fn does_block_leave_value(block: &[Stmt]) -> bool {
     match block.last() {
         Some(Stmt::Return { .. }) => true,
         Some(Stmt::If {
@@ -1709,9 +1667,9 @@ fn block_leaves_value(block: &[Stmt]) -> bool {
             ..
         }) => {
             // An if-statement leaves a value if all branches leave a value
-            let then_leaves = block_leaves_value(then_block);
-            let elif_leave = elif_blocks.iter().all(|(_, b)| block_leaves_value(b));
-            let else_leaves = else_block.as_ref().is_some_and(|b| block_leaves_value(b));
+            let then_leaves = does_block_leave_value(then_block);
+            let elif_leave = elif_blocks.iter().all(|(_, b)| does_block_leave_value(b));
+            let else_leaves = else_block.as_ref().is_some_and(|b| does_block_leave_value(b));
             then_leaves && elif_leave && else_leaves
         }
         _ => false,

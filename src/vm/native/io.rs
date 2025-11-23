@@ -3,6 +3,12 @@
 use super::helpers::{make_result_err, make_result_ok};
 use crate::vm::value::Value;
 
+/// Standard output file descriptor
+const FD_STDOUT: i32 = 1;
+
+/// Standard error file descriptor
+const FD_STDERR: i32 = 2;
+
 /// Native function: print(...values) -> null
 /// Prints all arguments to stdout, separated by tabs
 pub fn native_print(args: &[Value]) -> Result<Value, String> {
@@ -43,12 +49,12 @@ pub fn native_write(args: &[Value]) -> Result<Value, String> {
 
     use std::io::Write;
     let result = match fd {
-        1 => std::io::stdout().write_all(content.as_bytes()),
-        2 => std::io::stderr().write_all(content.as_bytes()),
+        FD_STDOUT => std::io::stdout().write_all(content.as_bytes()),
+        FD_STDERR => std::io::stderr().write_all(content.as_bytes()),
         _ => {
             return Ok(make_result_err(format!(
-                "Invalid file descriptor: {}. Only 1 (stdout) and 2 (stderr) are supported",
-                fd
+                "Invalid file descriptor: {}. Only {} (stdout) and {} (stderr) are supported",
+                fd, FD_STDOUT, FD_STDERR
             )));
         }
     };
