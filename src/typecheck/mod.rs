@@ -262,6 +262,16 @@ impl TypeEnv {
         ty
     }
 
+    /// Check if a type has an operator method (e.g., __neg, __mod, __lt)
+    fn has_operator_method(ty: &TcType, method_name: &str) -> bool {
+        match ty {
+            TcType::Any | TcType::Unknown => true,
+            TcType::Table => true,  // dynamic table may provide method at runtime
+            TcType::TableWithFields(fields) => fields.iter().any(|f| f == method_name),
+            _ => false,
+        }
+    }
+
     fn check_expr(&mut self, expr: &Expr) -> TcType {
         match expr {
             Expr::Number(_) => TcType::Number,
@@ -334,38 +344,58 @@ impl TypeEnv {
                         }
                     }
                     BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
-                        if !left_ty.is_compatible(&TcType::Number) {
-                            self.error(format!(
-                                "Arithmetic op {:?} requires Number on left, got {:?}",
-                                op, left_ty
-                            ));
+                        // Check if both operands are Numbers (default case)
+                        if left_ty.is_compatible(&TcType::Number) && right_ty.is_compatible(&TcType::Number) {
+                            TcType::Number
+                        } else {
+                            // Check for operator method fallback
+                            let method_name = match op {
+                                BinaryOp::Sub => "__sub",
+                                BinaryOp::Mul => "__mul",
+                                BinaryOp::Div => "__div",
+                                BinaryOp::Mod => "__mod",
+                                _ => unreachable!(),
+                            };
+                            
+                            if Self::has_operator_method(&left_ty, method_name) {
+                                TcType::Unknown  // Return type depends on implementation
+                            } else {
+                                self.error(format!(
+                                    "Arithmetic op {:?} requires Number operands or type with {} method, got ({:?}, {:?})",
+                                    op, method_name, left_ty, right_ty
+                                ));
+                                TcType::Unknown
+                            }
                         }
-                        if !right_ty.is_compatible(&TcType::Number) {
-                            self.error(format!(
-                                "Arithmetic op {:?} requires Number on right, got {:?}",
-                                op, right_ty
-                            ));
-                        }
-                        TcType::Number
                     }
                     BinaryOp::Eq | BinaryOp::Ne => {
                         // Allow any types for equality comparison
                         TcType::Boolean
                     }
                     BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => {
-                        if !left_ty.is_compatible(&TcType::Number) {
-                            self.error(format!(
-                                "Comparison op {:?} requires Number on left, got {:?}",
-                                op, left_ty
-                            ));
+                        // Check if both operands are Numbers (default case)
+                        if left_ty.is_compatible(&TcType::Number) && right_ty.is_compatible(&TcType::Number) {
+                            TcType::Boolean
+                        } else {
+                            // Check for operator method fallback
+                            let method_name = match op {
+                                BinaryOp::Lt => "__lt",
+                                BinaryOp::Le => "__le",
+                                BinaryOp::Gt => "__gt",
+                                BinaryOp::Ge => "__ge",
+                                _ => unreachable!(),
+                            };
+                            
+                            if Self::has_operator_method(&left_ty, method_name) {
+                                TcType::Boolean  // Comparison methods should return Boolean
+                            } else {
+                                self.error(format!(
+                                    "Comparison op {:?} requires Number operands or type with {} method, got ({:?}, {:?})",
+                                    op, method_name, left_ty, right_ty
+                                ));
+                                TcType::Boolean
+                            }
                         }
-                        if !right_ty.is_compatible(&TcType::Number) {
-                            self.error(format!(
-                                "Comparison op {:?} requires Number on right, got {:?}",
-                                op, right_ty
-                            ));
-                        }
-                        TcType::Boolean
                     }
                 }
             }
@@ -373,28 +403,16 @@ impl TypeEnv {
             Expr::Unary { op, operand } => match op {
                 UnaryOp::Neg => {
                     let ty = self.check_expr(operand);
-                    match ty {
-                        TcType::Number => TcType::Number,
-                        TcType::Any | TcType::Unknown => TcType::Unknown,
-                        TcType::Table => TcType::Unknown, // dynamic table may provide __neg at runtime
-                        TcType::TableWithFields(ref fields) => {
-                            if fields.iter().any(|f| f == "__neg") {
-                                TcType::Unknown
-                            } else {
-                                self.error(format!(
-                                    "Unary negation requires Number or type with __neg, got {:?}",
-                                    ty
-                                ));
-                                TcType::Unknown
-                            }
-                        }
-                        _ => {
-                            self.error(format!(
-                                "Unary negation requires Number or type with __neg, got {:?}",
-                                ty
-                            ));
-                            TcType::Unknown
-                        }
+                    if ty.is_compatible(&TcType::Number) {
+                        TcType::Number
+                    } else if Self::has_operator_method(&ty, "__neg") {
+                        TcType::Unknown  // Return type depends on implementation
+                    } else {
+                        self.error(format!(
+                            "Unary negation requires Number or type with __neg method, got {:?}",
+                            ty
+                        ));
+                        TcType::Unknown
                     }
                 }
                 UnaryOp::Not => {
