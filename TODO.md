@@ -4,12 +4,15 @@ Ordered by near-term impact on correctness, developer ergonomics, and spec compl
 When you complete an item, check it off. If an item is too big, break it down into smaller tasks first.
 If you realize the priority of an item has changed, feel free to reorder the list.
 
-- [ ] Documentation sync pass (SPEC + README)
-	- Verify coverage and examples for: match as expression, string interpolation, pattern forms, import semantics.
-	- Clarify and finalize reserved keywords list to match lexer.
+
 - [ ] Rich diagnostics across pipeline
 	- Propagate stable node IDs and precise spans AST → bytecode → runtime errors.
 	- Improve error messages and locations in REPL and test outputs.
+- [ ] Enhanced parser/typechecker error recovery strategies
+	- Recover past first error where possible; improve chumsky recovery and reporting.
+- [ ] Documentation sync pass (SPEC + README)
+	- Verify coverage and examples for: match as expression, string interpolation, pattern forms, import semantics.
+	- Clarify and finalize reserved keywords list to match lexer.
 - [ ] Import resolution future-proofing
 	- Hooks for remote sources; lockfile placeholder alignment for integrity.
 - [ ] Decide on async direction
@@ -21,8 +24,6 @@ If you realize the priority of an item has changed, feel free to reorder the lis
 	- Small suite to run parse → compile → run for regression tracking (CI-friendly).
 - [ ] Structured error hierarchy and mapping
 	- Define `Error`, `TypeError`, `IOError`, etc., and map runtime categories with standard formatting.
-- [ ] Enhanced parser/typechecker error recovery strategies
-	- Recover past first error where possible; improve chumsky recovery and reporting.
 - [ ] Prelude scope and ergonomics
 	- Trim/scope prelude core vs optional; add helpers (range, indexed, collection utilities) as needed.
 - [ ] Remote import caching & integrity verification groundwork
