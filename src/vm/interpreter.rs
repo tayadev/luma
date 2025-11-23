@@ -153,13 +153,13 @@ impl VM {
     }
 
     /// Get the current span based on IP
-    fn current_span(&self) -> Option<Span> {
+    fn _current_span(&self) -> Option<Span> {
         self.chunk.get_span(self.ip)
     }
 
     /// Create a runtime error with current location
-    fn error(&self, message: String) -> VmError {
-        VmError::with_location(message, self.current_span(), self.current_file.clone())
+    fn _error(&self, message: String) -> VmError {
+        VmError::with_location(message, self._current_span(), self.current_file.clone())
     }
     
     /// Load and execute the prelude (standard library)
