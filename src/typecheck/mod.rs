@@ -265,7 +265,11 @@ impl TypeEnv {
     /// Check if a type has an operator method (e.g., __neg, __mod, __lt)
     fn has_operator_method(ty: &TcType, method_name: &str) -> bool {
         match ty {
-            TcType::Any | TcType::Unknown => true,
+            // Any always allowed (by design)
+            TcType::Any => true,
+            // Unknown types are permissively allowed (we don't have enough info to reject)
+            // This matches the gradual typing philosophy and is_compatible behavior
+            TcType::Unknown => true,
             TcType::Table => true,  // dynamic table may provide method at runtime
             TcType::TableWithFields(fields) => fields.iter().any(|f| f == method_name),
             _ => false,
@@ -349,6 +353,9 @@ impl TypeEnv {
                             TcType::Number
                         } else {
                             // Check for operator method fallback
+                            // The method receives both operands; we can't validate right operand type
+                            // without full method signature info (table fields don't have type info).
+                            // Runtime will validate when the method executes.
                             let method_name = match op {
                                 BinaryOp::Sub => "__sub",
                                 BinaryOp::Mul => "__mul",
@@ -378,6 +385,9 @@ impl TypeEnv {
                             TcType::Boolean
                         } else {
                             // Check for operator method fallback
+                            // The method receives both operands; we can't validate right operand type
+                            // without full method signature info (table fields don't have type info).
+                            // Runtime will validate when the method executes.
                             let method_name = match op {
                                 BinaryOp::Lt => "__lt",
                                 BinaryOp::Le => "__le",
