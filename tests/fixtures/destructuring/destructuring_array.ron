@@ -2,11 +2,11 @@ Program(
   statements: [
     DestructuringVarDecl(
       mutable: false,
-      pattern: ArrayPattern(
+      pattern: ListPattern(
         elements: [Ident("head")],
         rest: Some("tail"),
       ),
-      value: Array([Number(1.0), Number(2.0), Number(3.0)]),
+      value: List([Number(1.0), Number(2.0), Number(3.0)]),
     ),
   ],
 )

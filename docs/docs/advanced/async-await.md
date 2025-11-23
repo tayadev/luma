@@ -88,7 +88,7 @@ let fetchUser = fn(id: String): Promise(User) do
   await http.get("/users/${id}")
 end
 
-let fetchPosts = fn(userId: String): Promise(Array(Post)) do
+let fetchPosts = fn(userId: String): Promise(List(Post)) do
   await http.get("/posts?user=${userId}")
 end
 

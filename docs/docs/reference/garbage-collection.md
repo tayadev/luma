@@ -21,7 +21,7 @@ You don't need to manually allocate or free memory.
 
 The following are heap-allocated and managed by the GC:
 - **Tables** — All table instances
-- **Arrays** — All array values
+- **Arrays** — All list values
 - **Strings** — String values
 - **Functions** — Function objects and closures
 - **Closures** — Functions that capture variables from outer scopes
@@ -33,7 +33,7 @@ The following are heap-allocated and managed by the GC:
 
 ```luma
 let a = [1, 2, 3]
-let b = a                          -- b references same array
+let b = a                          -- b references same list
 b[0] = 99
 print(a[0])                        -- 99
 ```
@@ -167,7 +167,7 @@ end
 
 4. **Avoid retaining unnecessary references**:
    ```luma
-   -- Bad: Keeps entire array in memory
+   -- Bad: Keeps entire list in memory
    var cache = []
    for item in items do
      cache.push(item)

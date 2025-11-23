@@ -13,7 +13,7 @@ Expressions are syntactic constructs that evaluate to a value.
 - **Binary expressions**: `a + b`, `x * y`
 - **Unary expressions**: `-x`, `!condition`
 - **Call expressions**: `func(arg1, arg2)`
-- **Member access**: `object.field`, `array[index]`
+- **Member access**: `object.field`, `list[index]`
 - **Block expressions**: `do ... end`
 - **Conditional expressions**: `if ... then ... else ...`
 
@@ -85,7 +85,7 @@ person.name
 ```luma
 object["field"]
 table["key with spaces"]
-array[0]
+list[0]
 ```
 
 ## Function Calls

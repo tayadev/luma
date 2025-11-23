@@ -418,12 +418,12 @@ impl VM {
                     let v = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_GLOBAL pop underflow".into()))?;
                     self.globals.insert(name, v);
                 }
-                Instruction::BuildArray(n) => {
-                    if self.stack.len() < n { return Err(VmError::Runtime("BUILD_ARRAY underflow".into())); }
+                Instruction::BuildList(n) => {
+                    if self.stack.len() < n { return Err(VmError::Runtime("BUILD_LIST underflow".into())); }
                     let mut tmp = Vec::with_capacity(n);
                     for _ in 0..n { tmp.push(self.stack.pop().unwrap()); }
                     tmp.reverse();
-                    self.stack.push(Value::Array(Rc::new(RefCell::new(tmp))));
+                    self.stack.push(Value::List(Rc::new(RefCell::new(tmp))));
                 }
                 Instruction::BuildTable(n) => {
                     if self.stack.len() < n * 2 { return Err(VmError::Runtime("BUILD_TABLE underflow".into())); }
@@ -440,12 +440,12 @@ impl VM {
                     let index = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_INDEX index underflow".into()))?;
                     let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_INDEX obj underflow".into()))?;
                     match (obj, index) {
-                        (Value::Array(arr), Value::Number(n)) => {
+                        (Value::List(arr), Value::Number(n)) => {
                             let i = n as i64;
-                            if i < 0 { return Err(VmError::Runtime("Array index negative".into())); }
+                            if i < 0 { return Err(VmError::Runtime("List index negative".into())); }
                             let i = i as usize;
                             let borrowed = arr.borrow();
-                            match borrowed.get(i) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("Array index out of bounds".into())) }
+                            match borrowed.get(i) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::Runtime("List index out of bounds".into())) }
                         }
                         (Value::Table(map), Value::String(k)) => {
                             let borrowed = map.borrow();
@@ -468,7 +468,7 @@ impl VM {
                 Instruction::GetLen => {
                     let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("GET_LEN obj underflow".into()))?;
                     match obj {
-                        Value::Array(arr) => {
+                        Value::List(arr) => {
                             let borrowed = arr.borrow();
                             self.stack.push(Value::Number(borrowed.len() as f64));
                         }
@@ -479,7 +479,7 @@ impl VM {
                         Value::String(s) => {
                             self.stack.push(Value::Number(s.len() as f64));
                         }
-                        _ => return Err(VmError::Runtime("GET_LEN requires array, table, or string".into())),
+                        _ => return Err(VmError::Runtime("GET_LEN requires list, table, or string".into())),
                     }
                 }
                 Instruction::SetIndex => {
@@ -489,13 +489,13 @@ impl VM {
                     let obj = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_INDEX obj underflow".into()))?;
                     
                     match (obj, index) {
-                        (Value::Array(arr), Value::Number(n)) => {
+                        (Value::List(arr), Value::Number(n)) => {
                             let i = n as i64;
-                            if i < 0 { return Err(VmError::Runtime("Array index negative".into())); }
+                            if i < 0 { return Err(VmError::Runtime("List index negative".into())); }
                             let i = i as usize;
                             let mut borrowed = arr.borrow_mut();
                             if i >= borrowed.len() {
-                                return Err(VmError::Runtime("Array index out of bounds".into()));
+                                return Err(VmError::Runtime("List index out of bounds".into()));
                             }
                             borrowed[i] = value;
                         }
@@ -534,10 +534,10 @@ impl VM {
                     if idx >= self.stack.len() { return Err(VmError::Runtime("SET_LOCAL out of range".into())); }
                     self.stack[idx] = v;
                 }
-                Instruction::SliceArray(start_index) => {
-                    let arr = self.stack.pop().ok_or_else(|| VmError::Runtime("SLICE_ARRAY pop underflow".into()))?;
+                Instruction::SliceList(start_index) => {
+                    let arr = self.stack.pop().ok_or_else(|| VmError::Runtime("SLICE_LIST pop underflow".into()))?;
                     match arr {
-                        Value::Array(arr_ref) => {
+                        Value::List(arr_ref) => {
                             let borrowed = arr_ref.borrow();
                             let len = borrowed.len();
                             
@@ -545,9 +545,9 @@ impl VM {
                             let slice_start = start_index.min(len);
                             let sliced: Vec<Value> = borrowed[slice_start..].to_vec();
                             
-                            self.stack.push(Value::Array(Rc::new(RefCell::new(sliced))));
+                            self.stack.push(Value::List(Rc::new(RefCell::new(sliced))));
                         }
-                        _ => return Err(VmError::Runtime("SLICE_ARRAY requires an array".into())),
+                        _ => return Err(VmError::Runtime("SLICE_LIST requires a list".into())),
                     }
                 }
                 Instruction::Eq => {
@@ -1274,7 +1274,7 @@ fn native_typeof(args: &[Value]) -> Result<Value, String> {
         Value::String(_) => "String",
         Value::Boolean(_) => "Boolean",
         Value::Null => "Null",
-        Value::Array(_) => "Array",
+        Value::List(_) => "List",
         Value::Table(table) => {
             // Check if this table has a __type field (from cast())
             let borrowed = table.borrow();

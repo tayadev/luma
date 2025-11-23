@@ -4,7 +4,7 @@ Ordered by near-term impact on correctness, developer ergonomics, and spec compl
 When you complete an item, check it off. If a item is too big, break it down into smaller tasks and then work on those.
 If you realize the priority of an item has changed, feel free to reorder the list.
 
-- [ ] Rename Array to List in spec & codebase for clarity.
+- [x] Rename Array to List in spec & codebase for clarity.
 - [ ] Mutual recursion across separate function declarations (improve pre-declare mechanism beyond functions in same pass).
 - [ ] Closures & upvalues completeness review (capture semantics, lifetime tests).
 - [ ] Typechecker: concrete generics (`GenericType { name, args }`) and function type validation (params & return). 

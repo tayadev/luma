@@ -6,14 +6,14 @@ Program(
             type: Some(FunctionType(
                 param_types: [
                     GenericType(
-                        name: "Array",
+                        name: "List",
                         type_args: [
                             TypeIdent("Number"),
                         ],
                     ),
                 ],
                 return_type: GenericType(
-                    name: "Array",
+                    name: "List",
                     type_args: [
                         TypeIdent("String"),
                     ],
@@ -24,7 +24,7 @@ Program(
                     Argument(
                         name: "nums",
                         type: GenericType(
-                            name: "Array",
+                            name: "List",
                             type_args: [
                                 TypeIdent("Number"),
                             ],
@@ -33,13 +33,13 @@ Program(
                     ),
                 ],
                 return_type: Some(GenericType(
-                    name: "Array",
+                    name: "List",
                     type_args: [
                         TypeIdent("String"),
                     ],
                 )),
                 body: [
-                    Return(Array([])),
+                    Return(List([])),
                 ],
             ),
         ),

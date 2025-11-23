@@ -47,7 +47,7 @@ pub enum Expr {
     },
     Boolean(bool),
     Null,
-    Array(Vec<Expr>),
+    List(Vec<Expr>),
     Table(Vec<(TableKey, Expr)>),
     Binary {
         left: Box<Expr>,
@@ -127,7 +127,7 @@ pub enum AssignOp {
 pub enum Pattern {
     Ident(String),
     Wildcard,
-    ArrayPattern {
+    ListPattern {
         elements: Vec<Pattern>,
         rest: Option<String>,
     },

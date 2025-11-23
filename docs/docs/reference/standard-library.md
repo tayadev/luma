@@ -57,25 +57,25 @@ String manipulation utilities
 let string = import("std:string")
 
 string.split(str, delimiter)
-string.join(array, separator)
+string.join(list, separator)
 string.trim(str)
 string.uppercase(str)
 string.lowercase(str)
 string.replace(str, pattern, replacement)
 ```
 
-### array
+### list
 
-Array utilities and higher-order functions
+List utilities and higher-order functions
 
 ```luma
-let array = import("std:array")
+let list = import("std:list")
 
-array.map(arr, fn)
-array.filter(arr, fn)
-array.reduce(arr, fn, initial)
-array.find(arr, predicate)
-array.sort(arr, comparator)
+list.map(arr, fn)
+list.filter(arr, fn)
+list.reduce(arr, fn, initial)
+list.find(arr, predicate)
+list.sort(arr, comparator)
 ```
 
 ### table

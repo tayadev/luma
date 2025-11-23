@@ -314,7 +314,7 @@ impl Compiler {
                                 let next_arm_ip = self.current_ip();
                                 self.patch_jump(jf_next_arm, next_arm_ip);
                             }
-                            Pattern::ArrayPattern { .. } | Pattern::TablePattern { .. } => {
+                            Pattern::ListPattern { .. } | Pattern::TablePattern { .. } => {
                                 // Structural patterns not yet fully supported in match
                                 panic!("Compiler error: Structural patterns in match statements not yet fully supported");
                             }
@@ -379,15 +379,15 @@ impl Compiler {
                 if self.scopes.is_empty() {
                     // Global destructuring
                     match pattern {
-                        Pattern::ArrayPattern { elements, rest } => {
-                            // Array destructuring: [a, b, ...rest] = array
+                        Pattern::ListPattern { elements, rest } => {
+                            // List destructuring: [a, b, ...rest] = list
                             // Strategy: Get each element by index and assign to globals
                             
-                            // Dup the array for each element access
+                            // Dup the list for each element access
                             for (i, elem_pattern) in elements.iter().enumerate() {
                                 match elem_pattern {
                                     Pattern::Ident(name) => {
-                                        self.chunk.instructions.push(Instruction::Dup); // dup array
+                                        self.chunk.instructions.push(Instruction::Dup); // dup list
                                         let idx = push_const(&mut self.chunk, Constant::Number(i as f64));
                                         self.chunk.instructions.push(Instruction::Const(idx));
                                         self.chunk.instructions.push(Instruction::GetIndex);
@@ -405,14 +405,14 @@ impl Compiler {
                             
                             // Handle rest pattern (e.g., ...tail)
                             if let Some(rest_name) = rest {
-                                // Build array slice from elements.len() onwards
+                                // Build list slice from elements.len() onwards
                                 let start_index = elements.len();
-                                self.chunk.instructions.push(Instruction::Dup); // dup array
-                                self.chunk.instructions.push(Instruction::SliceArray(start_index));
+                                self.chunk.instructions.push(Instruction::Dup); // dup list
+                                self.chunk.instructions.push(Instruction::SliceList(start_index));
                                 let name_idx = push_const(&mut self.chunk, Constant::String(rest_name.clone()));
                                 self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
                             } else {
-                                // No rest, pop the array
+                                // No rest, pop the list
                                 self.chunk.instructions.push(Instruction::Pop);
                             }
                         }
@@ -445,7 +445,7 @@ impl Compiler {
                 } else {
                     // Local destructuring
                     match pattern {
-                        Pattern::ArrayPattern { elements, rest } => {
+                        Pattern::ListPattern { elements, rest } => {
                             // For locals, the value is already on stack and will become local slots
                             let value_slot = self.local_count;
                             self.scopes.last_mut().unwrap().insert("__destructure_val".to_string(), value_slot);
@@ -479,7 +479,7 @@ impl Compiler {
                             if let Some(rest_name) = rest {
                                 let start_index = elements.len();
                                 self.chunk.instructions.push(Instruction::GetLocal(value_slot));
-                                self.chunk.instructions.push(Instruction::SliceArray(start_index));
+                                self.chunk.instructions.push(Instruction::SliceList(start_index));
                                 let rest_slot = self.local_count;
                                 self.scopes.last_mut().unwrap().insert(rest_name.clone(), rest_slot);
                                 self.local_count += 1;
@@ -753,9 +753,9 @@ impl Compiler {
                 let idx = push_const(&mut self.chunk, Constant::Null);
                 self.chunk.instructions.push(Instruction::Const(idx));
             }
-            Expr::Array(items) => {
+            Expr::List(items) => {
                 for item in items { self.emit_expr(item); }
-                self.chunk.instructions.push(Instruction::BuildArray(items.len()));
+                self.chunk.instructions.push(Instruction::BuildList(items.len()));
             }
             Expr::Table(fields) => {
                 for (key, value) in fields {

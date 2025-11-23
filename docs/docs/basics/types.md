@@ -11,7 +11,7 @@ Luma has a rich type system that supports primitive types, composite types, gene
 Luma has the following type categories:
 
 - **Primitive types**: `Number`, `Boolean`, `String`, `Null`
-- **Composite types**: `Array(T)`, `Table`
+- **Composite types**: `List(T)`, `Table`
 - **Function types**: `fn(T1, T2): R`
 - **Generic types**: `Result(T, E)`, `Option(T)`, `Promise(T)`
 - **User-defined types**: Custom types and traits
@@ -45,18 +45,18 @@ The `null` type has a single value: `null`, representing the absence of a value.
 
 ## Composite Types
 
-### Array(T)
+### List(T)
 
 Generic, ordered collection of elements of type `T`.
 
 **Operations:**
-- Indexing: `array[index]`
-- Length: `array.length()`
-- Iteration: `for item in array`
+- Indexing: `list[index]`
+- Length: `list.length()`
+- Iteration: `for item in list`
 
 **Example:**
 ```luma
-let numbers: Array(Number) = [1, 2, 3, 4, 5]
+let numbers: List(Number) = [1, 2, 3, 4, 5]
 let first = numbers[0]              -- 1
 let length = numbers.length()       -- 5
 ```

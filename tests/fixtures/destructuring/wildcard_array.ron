@@ -2,7 +2,7 @@ Program(
     statements: [
         DestructuringVarDecl(
             mutable: false,
-            pattern: ArrayPattern(
+            pattern: ListPattern(
                 elements: [
                     Ident("a"),
                     Wildcard,
@@ -10,7 +10,7 @@ Program(
                 ],
                 rest: None,
             ),
-            value: Array([
+            value: List([
                 Number(1.0),
                 Number(2.0),
                 Number(3.0),

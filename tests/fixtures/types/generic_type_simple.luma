@@ -1,1 +1,1 @@
-let numbers: Array(Number) = [1, 2, 3]
+let numbers: List(Number) = [1, 2, 3]

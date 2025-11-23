@@ -111,8 +111,8 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     let boolean = literals::boolean(ws.clone());
     let null = literals::null(ws.clone());
 
-    // Array and Table literals
-    let array = literals::array(ws.clone(), expr_ref.clone());
+    // List and Table literals
+    let list = literals::list(ws.clone(), expr_ref.clone());
     let table = literals::table(
         ws.clone(), 
         ident.clone(), 
@@ -144,7 +144,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         string_parser(ws.clone(), expr_ref.clone()).boxed(),
         boolean,
         null,
-        array,
+        list,
         table,
         if_expr,
         block_expr,

@@ -30,7 +30,7 @@ pub enum Value {
     Boolean(bool),
     Null,
     #[serde(skip)]
-    Array(Rc<RefCell<Vec<Value>>>),
+    List(Rc<RefCell<Vec<Value>>>),
     #[serde(skip)]
     Table(Rc<RefCell<HashMap<String, Value>>>),
     Function { chunk: Chunk, arity: usize },
@@ -57,7 +57,7 @@ impl PartialEq for Value {
             (Value::String(a), Value::String(b)) => a == b,
             (Value::Boolean(a), Value::Boolean(b)) => a == b,
             (Value::Null, Value::Null) => true,
-            (Value::Array(a), Value::Array(b)) => {
+            (Value::List(a), Value::List(b)) => {
                 // Compare by reference first, then by value
                 Rc::ptr_eq(a, b) || *a.borrow() == *b.borrow()
             }
@@ -92,7 +92,7 @@ impl fmt::Display for Value {
             Value::String(s) => write!(f, "{}", s),
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Null => write!(f, "null"),
-            Value::Array(arr) => {
+            Value::List(arr) => {
                 let borrowed = arr.borrow();
                 write!(f, "[")?;
                 for (i, val) in borrowed.iter().enumerate() {

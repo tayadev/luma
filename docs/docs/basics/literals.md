@@ -105,7 +105,7 @@ let name = "World"
 "Disable: \${variable}"
 ```
 
-## Array Literals
+## List Literals
 
 Arrays are ordered, heterogeneous collections:
 
@@ -113,7 +113,7 @@ Arrays are ordered, heterogeneous collections:
 [1, 2, 3]
 ["apple", "banana", "cherry"]
 [1, "mixed", true, null]
-[]                          -- empty array
+[]                          -- empty list
 ```
 
 ## Table Literals

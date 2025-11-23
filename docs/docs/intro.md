@@ -35,7 +35,7 @@ print(greet("World"))
 ```luma
 let x = 42                    -- inferred as Number
 let name = "Luma"             -- inferred as String
-let items: Array(Number) = [1, 2, 3]
+let items: List(Number) = [1, 2, 3]
 ```
 
 ### Error Handling Without Exceptions

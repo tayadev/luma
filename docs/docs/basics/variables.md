@@ -40,7 +40,7 @@ Types are inferred when annotations are omitted:
 ```luma
 let x = 42                         -- inferred as Number
 let name = "Alice"                 -- inferred as String
-let items = [1, 2, 3]              -- inferred as Array(Number)
+let items = [1, 2, 3]              -- inferred as List(Number)
 ```
 
 ## Type Annotations
@@ -50,13 +50,13 @@ Type annotations are optional but can be provided explicitly:
 ```luma
 let x: Number = 42
 let name: String = "Luma"
-let items: Array(String) = ["a", "b", "c"]
+let items: List(String) = ["a", "b", "c"]
 let value: Any = "flexible"            -- explicit Any
 ```
 
 ## Destructuring
 
-### Array Destructuring
+### List Destructuring
 
 ```luma
 let [first, second, third] = [1, 2, 3]
@@ -70,7 +70,7 @@ let [a, b, ...] = [10, 20, 30, 40]
 
 **Behavior:**
 - Missing elements assign `null`
-- `...name` captures remaining elements as array
+- `...name` captures remaining elements as list
 - `...` without name discards remaining elements
 
 ### Table Destructuring

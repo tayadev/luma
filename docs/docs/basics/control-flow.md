@@ -115,7 +115,7 @@ end
 
 **Loop variables are immutable** and scoped to the loop body.
 
-#### Array Iteration
+#### List Iteration
 
 ```luma
 for item in [1, 2, 3] do
@@ -142,7 +142,7 @@ end
 #### Indexed Iteration
 
 ```luma
-for [item, index] in array.indexed() do
+for [item, index] in list.indexed() do
   print(index, item)
 end
 ```

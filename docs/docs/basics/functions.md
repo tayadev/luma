@@ -128,9 +128,9 @@ print(counter())                   -- 3
 Functions can accept and return other functions:
 
 ```luma
-fn map(array: Array(Any), f: fn(Any): Any): Array(Any) do
+fn map(list: List(Any), f: fn(Any): Any): List(Any) do
   let result = []
-  for item in array do
+  for item in list do
     result.push(f(item))
   end
   return result

@@ -167,7 +167,7 @@ These operators **cannot** be overloaded:
 - `&&` — Logical AND
 - `||` — Logical OR  
 - `!` — Logical NOT
-- `[]` — Array/table indexing
+- `[]` — List/table indexing
 - `in` — Membership test
 - `.` — Field access
 

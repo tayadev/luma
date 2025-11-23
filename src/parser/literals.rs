@@ -70,8 +70,8 @@ where
     just("null").to(Expr::Null).padded_by(ws).boxed()
 }
 
-/// Creates a parser for array literals [expr, expr, ...]
-pub fn array<'a, WS, E>(ws: WS, expr: E) -> Boxed<'a, 'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
+/// Creates a parser for list literals [expr, expr, ...]
+pub fn list<'a, WS, E>(ws: WS, expr: E) -> Boxed<'a, 'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
     E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
@@ -80,7 +80,7 @@ where
         .allow_trailing()
         .collect::<Vec<Expr>>()
         .delimited_by(just('[').padded_by(ws.clone()), just(']').padded_by(ws.clone()))
-        .map(Expr::Array)
+        .map(Expr::List)
         .boxed()
 }
 

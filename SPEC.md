@@ -174,14 +174,14 @@ let name = "World"
 | `\t` | Tab |
 | `\${` | Literal `${` (disable interpolation) |
 
-#### 2.5.5 Array Literals
+#### 2.5.5 List Literals
 
 Arrays are ordered, heterogeneous collections:
 ```luma
 [1, 2, 3]
 ["apple", "banana", "cherry"]
 [1, "mixed", true, null]
-[]                          -- empty array
+[]                          -- empty list
 ```
 
 #### 2.5.6 Table Literals
@@ -223,7 +223,7 @@ See [§6 Functions](#6-functions) for complete syntax.
 Luma has the following type categories:
 
 - **Primitive types**: `Number`, `Boolean`, `String`, `Null`
-- **Composite types**: `Array(T)`, `Table`
+- **Composite types**: `List(T)`, `Table`
 - **Function types**: `fn(T1, T2): R`
 - **Generic types**: `Result(T, E)`, `Option(T)`, `Promise(T)`
 - **User-defined types**: Custom types and traits
@@ -257,18 +257,18 @@ The `null` type has a single value: `null`, representing the absence of a value.
 
 ### 3.3 Composite Types
 
-#### 3.3.1 Array(T)
+#### 3.3.1 List(T)
 
 Generic, ordered collection of elements of type `T`.
 
 **Operations:**
-- Indexing: `array[index]`
-- Length: `array.length()`
-- Iteration: `for item in array`
+- Indexing: `list[index]`
+- Length: `list.length()`
+- Iteration: `for item in list`
 
 **Example:**
 ```luma
-let numbers: Array(Number) = [1, 2, 3, 4, 5]
+let numbers: List(Number) = [1, 2, 3, 4, 5]
 let first = numbers[0]              -- 1
 let length = numbers.length()       -- 5
 ```
@@ -357,7 +357,7 @@ Expressions are syntactic constructs that evaluate to a value:
 - **Binary expressions**: `a + b`, `x * y`
 - **Unary expressions**: `-x`, `not condition`
 - **Call expressions**: `func(arg1, arg2)`
-- **Member access**: `object.field`, `array[index]`
+- **Member access**: `object.field`, `list[index]`
 - **Block expressions**: `do ... end`
 - **Conditional expressions**: `if ... then ... else ...`
 
@@ -444,7 +444,7 @@ person.name
 ```luma
 object["field"]
 table["key with spaces"]
-array[0]
+list[0]
 ```
 
 ### 4.8 Function Calls
@@ -512,7 +512,7 @@ let z: Any = "flexible"            -- explicit Any
 
 ### 5.2 Destructuring
 
-#### 5.2.1 Array Destructuring
+#### 5.2.1 List Destructuring
 
 ```luma
 let [first, second, third] = [1, 2, 3]
@@ -526,7 +526,7 @@ let [a, b, ...] = [10, 20, 30, 40]
 
 **Behavior:**
 - Missing elements assign `null`
-- `...name` captures remaining elements as array
+- `...name` captures remaining elements as list
 - `...` without name discards remaining elements
 
 #### 5.2.2 Table Destructuring
@@ -635,7 +635,7 @@ end
 
 **Loop variables are immutable** and scoped to the loop body.
 
-**Array iteration:**
+**List iteration:**
 ```luma
 for item in [1, 2, 3] do
   print(item)
@@ -658,7 +658,7 @@ end
 
 **Indexed iteration:**
 ```luma
-for [item, index] in array.indexed() do
+for [item, index] in list.indexed() do
   print(index, item)
 end
 ```
@@ -790,9 +790,9 @@ print(counter())                   -- 3
 Functions can accept and return other functions:
 
 ```luma
-fn map(array: Array(Any), f: fn(Any): Any): Array(Any) do
+fn map(list: List(Any), f: fn(Any): Any): List(Any) do
   let result = []
-  for item in array do
+  for item in list do
     result.push(f(item))
   end
   return result
@@ -813,7 +813,7 @@ Luma infers types when annotations are omitted:
 ```luma
 let x = 42                         -- Number
 let name = "Alice"                 -- String
-let items = [1, 2, 3]              -- Array(Number)
+let items = [1, 2, 3]              -- List(Number)
 ```
 
 ### 7.2 User-Defined Types
@@ -1343,7 +1343,7 @@ let Resource = {
 
 ```luma
 let a = [1, 2, 3]
-let b = a                          -- b references same array
+let b = a                          -- b references same list
 b[0] = 99
 print(a[0])                        -- 99
 ```
@@ -1455,7 +1455,7 @@ match     null      return    true      var       while
 
 - `math` — Mathematical functions
 - `string` — String manipulation
-- `array` — Array utilities
+- `list` — List utilities
 - `table` — Table utilities
 - `fs` — File system operations
 - `os` — Operating system interaction

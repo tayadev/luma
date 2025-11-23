@@ -3,20 +3,20 @@ Program(
     VarDecl(
       mutable: false,
       name: "arr",
-      value: Array([
-        Array([Number(1.0), Number(2.0)]),
-        Array([Number(3.0), Number(4.0)]),
+      value: List([
+        List([Number(1.0), Number(2.0)]),
+        List([Number(3.0), Number(4.0)]),
       ]),
     ),
     DestructuringVarDecl(
       mutable: false,
-      pattern: ArrayPattern(
+      pattern: ListPattern(
         elements: [
-          ArrayPattern(
+          ListPattern(
             elements: [Ident("a"), Ident("b")],
             rest: None,
           ),
-          ArrayPattern(
+          ListPattern(
             elements: [Ident("c"), Ident("d")],
             rest: None,
           ),

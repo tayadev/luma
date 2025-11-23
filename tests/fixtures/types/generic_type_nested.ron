@@ -4,22 +4,22 @@ Program(
             mutable: false,
             name: "matrix",
             type: Some(GenericType(
-                name: "Array",
+                name: "List",
                 type_args: [
                     GenericType(
-                        name: "Array",
+                        name: "List",
                         type_args: [
                             TypeIdent("Number"),
                         ],
                     ),
                 ],
             )),
-            value: Array([
-                Array([
+            value: List([
+                List([
                     Number(1.0),
                     Number(2.0),
                 ]),
-                Array([
+                List([
                     Number(3.0),
                     Number(4.0),
                 ]),

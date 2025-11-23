@@ -115,11 +115,11 @@ let print = fn(input: Any) do
 end
 
 -- ============================================================================
--- Array Utilities
+-- List Utilities
 -- ============================================================================
 
-let Array = {
-  -- Custom string conversion for arrays (simplified version)
+let List = {
+  -- Custom string conversion for lists (simplified version)
   __into = fn(self: Any, target: Any) do
     -- For now, just return null to indicate no conversion available
     -- Full implementation requires better string building support
@@ -150,7 +150,7 @@ let Array = {
     return result
   end,
   
-  -- Reduce function: fold array into single value
+  -- Reduce function: fold list into single value
   reduce = fn(arr: Any, initial: Any, f: Any) do
     var acc = initial
     for item in arr do
@@ -159,7 +159,7 @@ let Array = {
     return acc
   end,
   
-  -- Length function: count elements in array
+  -- Length function: count elements in list
   length = fn(arr: Any): Number do
     var count = 0
     for item in arr do
@@ -235,7 +235,7 @@ end
   Option = Option,
   File = File,
   print = print,
-  Array = Array,
+  List = List,
   String = String,
   into = into,
   range = range

@@ -40,7 +40,7 @@ where
     choice((number, string_literal, bool_true, bool_false, null)).boxed()
 }
 
-/// Creates a parser for all pattern types (ident, array, table, wildcard, literal)
+/// Creates a parser for all pattern types (ident, list, table, wildcard, literal)
 /// Note: Tag patterns are semantically the same as Ident patterns in parsing, 
 /// but are distinguished during type checking in match contexts
 pub fn pattern<'a, WS, I>(
@@ -54,8 +54,8 @@ where
     recursive(|pattern_ref| {
         let wildcard = just('_').padded_by(ws.clone()).to(Pattern::Wildcard).boxed();
         
-        // Array patterns support nested patterns
-        let array_pattern = pattern_ref.clone()
+        // List patterns support nested patterns
+        let list_pattern = pattern_ref.clone()
             .separated_by(just(',').padded_by(ws.clone()))
             .at_least(1)
             .collect::<Vec<Pattern>>()
@@ -66,7 +66,7 @@ where
                     .or_not()
             )
             .delimited_by(just('[').padded_by(ws.clone()), just(']').padded_by(ws.clone()))
-            .map(|(elements, rest)| Pattern::ArrayPattern { elements, rest })
+            .map(|(elements, rest)| Pattern::ListPattern { elements, rest })
             .boxed();
         
         // Table patterns with field renames: {key}, {key: binding}
@@ -99,7 +99,7 @@ where
         
         // Try structural patterns first (they have delimiters), then literal, wildcard, then ident
         choice((
-            array_pattern,
+            list_pattern,
             table_pattern,
             literal,
             wildcard,

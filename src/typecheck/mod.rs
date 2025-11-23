@@ -16,7 +16,7 @@ pub enum TcType {
     String,
     Boolean,
     Null,
-    Array(Box<TcType>),
+    List(Box<TcType>),
     Table,
     Function {
         params: Vec<TcType>,
@@ -33,7 +33,7 @@ impl TcType {
             (TcType::String, TcType::String) => true,
             (TcType::Boolean, TcType::Boolean) => true,
             (TcType::Null, TcType::Null) => true,
-            (TcType::Array(a), TcType::Array(b)) => a.is_compatible(b),
+            (TcType::List(a), TcType::List(b)) => a.is_compatible(b),
             (TcType::Table, TcType::Table) => true,
             (TcType::Function { params: p1, ret: r1 }, TcType::Function { params: p2, ret: r2 }) => {
                 p1.len() == p2.len()
@@ -189,7 +189,7 @@ impl TypeEnv {
             annotated: true,
         });
         
-        env.declare("Array".to_string(), VarInfo {
+        env.declare("List".to_string(), VarInfo {
             ty: TcType::Table,
             mutable: false,
             annotated: true,
@@ -258,21 +258,21 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Array(elements) => {
+            Expr::List(elements) => {
                 if elements.is_empty() {
-                    TcType::Array(Box::new(TcType::Unknown))
+                    TcType::List(Box::new(TcType::Unknown))
                 } else {
                     let first_ty = self.check_expr(&elements[0]);
                     for elem in &elements[1..] {
                         let ty = self.check_expr(elem);
                         if !ty.is_compatible(&first_ty) {
                             self.error(format!(
-                                "Array elements have inconsistent types: {:?} vs {:?}",
+                                "List elements have inconsistent types: {:?} vs {:?}",
                                 first_ty, ty
                             ));
                         }
                     }
-                    TcType::Array(Box::new(first_ty))
+                    TcType::List(Box::new(first_ty))
                 }
             }
 
@@ -425,10 +425,10 @@ impl TypeEnv {
                 let idx_ty = self.check_expr(index);
 
                 match obj_ty {
-                    TcType::Array(elem_ty) => {
+                    TcType::List(elem_ty) => {
                         if !idx_ty.is_compatible(&TcType::Number) {
                             self.error(format!(
-                                "Array index requires Number, got {:?}",
+                                "List index requires Number, got {:?}",
                                 idx_ty
                             ));
                         }
@@ -446,7 +446,7 @@ impl TypeEnv {
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
                         self.error(format!(
-                            "Index operation requires Array or Table, got {:?}",
+                            "Index operation requires List or Table, got {:?}",
                             obj_ty
                         ));
                         TcType::Unknown
@@ -748,7 +748,7 @@ impl TypeEnv {
                 
                 self.push_scope();
                 match &iter_ty {
-                    TcType::Array(elem_ty) => {
+                    TcType::List(elem_ty) => {
                         self.check_pattern(pattern, elem_ty, true);
                     }
                     TcType::Unknown | TcType::Any => {
@@ -756,7 +756,7 @@ impl TypeEnv {
                     }
                     _ => {
                         self.error(format!(
-                            "For loop requires Array iterator, got {:?}",
+                            "For loop requires List iterator, got {:?}",
                             iter_ty
                         ));
                         self.check_pattern(pattern, &TcType::Unknown, true);
@@ -820,10 +820,10 @@ impl TypeEnv {
                 let idx_ty = self.check_expr(index);
 
                 match obj_ty {
-                    TcType::Array(elem_ty) => {
+                    TcType::List(elem_ty) => {
                         if !idx_ty.is_compatible(&TcType::Number) {
                             self.error(format!(
-                                "Array index requires Number, got {:?}",
+                                "List index requires Number, got {:?}",
                                 idx_ty
                             ));
                         }
@@ -841,7 +841,7 @@ impl TypeEnv {
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
                         self.error(format!(
-                            "Index assignment requires Array or Table, got {:?}",
+                            "Index assignment requires List or Table, got {:?}",
                             obj_ty
                         ));
                         TcType::Unknown
@@ -867,9 +867,9 @@ impl TypeEnv {
                     },
                 );
             }
-            Pattern::ArrayPattern { elements, rest } => {
+            Pattern::ListPattern { elements, rest } => {
                 match ty {
-                    TcType::Array(elem_ty) => {
+                    TcType::List(elem_ty) => {
                         for elem in elements {
                             self.check_pattern(elem, elem_ty, mutable);
                         }
@@ -877,7 +877,7 @@ impl TypeEnv {
                             self.declare(
                                 rest_name.clone(),
                                 VarInfo {
-                                    ty: TcType::Array(elem_ty.clone()),
+                                    ty: TcType::List(elem_ty.clone()),
                                     mutable,
                                     annotated: false,
                                 },
@@ -901,7 +901,7 @@ impl TypeEnv {
                     }
                     _ => {
                         self.error(format!(
-                            "Array pattern requires Array type, got {:?}",
+                            "List pattern requires List type, got {:?}",
                             ty
                         ));
                     }
@@ -1003,7 +1003,7 @@ impl TypeEnv {
                 Pattern::Literal(_) => {
                     has_literal = true;
                 }
-                Pattern::ArrayPattern { .. } | Pattern::TablePattern { .. } => {
+                Pattern::ListPattern { .. } | Pattern::TablePattern { .. } => {
                     // Structural patterns are specific, not catch-all
                 }
             }
