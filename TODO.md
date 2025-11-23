@@ -4,10 +4,6 @@ Ordered by near-term impact on correctness, developer ergonomics, and spec compl
 When you complete an item, check it off. If an item is too big, break it down into smaller tasks first.
 If you realize the priority of an item has changed, feel free to reorder the list.
 
-
-- [ ] Rich diagnostics across pipeline
-	- Propagate stable node IDs and precise spans AST → bytecode → runtime errors.
-	- Improve error messages and locations in REPL and test outputs.
 - [ ] Enhanced parser/typechecker error recovery strategies
 	- Recover past first error where possible; improve chumsky recovery and reporting.
 - [ ] Documentation sync pass (SPEC + README)
