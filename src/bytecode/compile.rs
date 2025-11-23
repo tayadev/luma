@@ -104,7 +104,7 @@ impl Compiler {
             Stmt::Return(expr) => {
                 self.emit_expr(expr);
             }
-            Stmt::If { condition, then_block, elif_blocks, else_block } => {
+            Stmt::If { condition, then_block, elif_blocks, else_block, .. } => {
                 // if cond then ... elif ... else ... end
                 // Always leave exactly one value on stack as the if-expression result.
                 // Start with a default Null (used when no branch produces a value).
@@ -179,7 +179,7 @@ impl Compiler {
                 let end_ip = self.current_ip();
                 for j in end_jumps { self.patch_jump(j, end_ip); }
             }
-            Stmt::While { condition, body } => {
+            Stmt::While { condition, body, .. } => {
                 let loop_start = self.current_ip();
                 
                 // Register this loop for break/continue tracking
@@ -209,7 +209,7 @@ impl Compiler {
                     self.patch_jump(break_ip, end_ip);
                 }
             }
-            Stmt::DoWhile { body, condition } => {
+            Stmt::DoWhile { body, condition, .. } => {
                 let loop_start = self.current_ip();
                 
                 // Register this loop for break/continue tracking
@@ -239,7 +239,7 @@ impl Compiler {
                     self.patch_jump(break_ip, end_ip);
                 }
             }
-            Stmt::Match { expr, arms } => {
+            Stmt::Match { expr, arms, .. } => {
                 // Evaluate the match expression once and store in a hidden local
                 self.enter_scope();
                 self.emit_expr(expr);
@@ -418,7 +418,7 @@ impl Compiler {
                     }
                 }
             }
-            Stmt::DestructuringVarDecl { mutable: _, pattern, value } => {
+            Stmt::DestructuringVarDecl { mutable: _, pattern, value, .. } => {
                 // Emit the value expression once
                 self.emit_expr(value);
                 
@@ -565,7 +565,7 @@ impl Compiler {
                     }
                 }
             }
-            Stmt::Assignment { target, op: _, value } => {
+            Stmt::Assignment { target, op: _, value, .. } => {
                 match target {
                     Expr::Identifier(name) => {
                         self.emit_expr(value);
@@ -598,7 +598,7 @@ impl Compiler {
                 }
             }
             // TODO: other statements in MVP
-            Stmt::For { pattern, iterator, body } => {
+            Stmt::For { pattern, iterator, body, .. } => {
                 // Lower: for pattern in iterator do body end
                 // To:
                 //   let __iter = iterator

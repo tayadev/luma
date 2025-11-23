@@ -696,7 +696,7 @@ impl TypeEnv {
         // Predeclare local function variables in this block to support mutual recursion
         // and allow references within the same scope before their textual definition.
         for stmt in stmts {
-            if let Stmt::VarDecl { mutable, name, r#type, value } = stmt {
+            if let Stmt::VarDecl { mutable, name, r#type, value, .. } = stmt {
                 if let Expr::Function { arguments, return_type, .. } = value {
                     // Determine function type from signature
                     let mut param_types = Vec::new();
@@ -737,7 +737,7 @@ impl TypeEnv {
 
     fn check_stmt(&mut self, stmt: &Stmt) {
         match stmt {
-            Stmt::Match { expr, arms } => {
+            Stmt::Match { expr, arms, .. } => {
                 // Check the match expression
                 let expr_ty = self.check_expr(expr);
                 
@@ -762,7 +762,7 @@ impl TypeEnv {
                     self.pop_scope();
                 }
             }
-            Stmt::VarDecl { mutable, name, r#type, value } => {
+            Stmt::VarDecl { mutable, name, r#type, value, .. } => {
                 // For function values, we already pre-declared them in typecheck_program
                 // Just check the function body here
                 let value_ty = match value {
@@ -814,12 +814,12 @@ impl TypeEnv {
                 }
             }
 
-            Stmt::DestructuringVarDecl { mutable, pattern, value } => {
+            Stmt::DestructuringVarDecl { mutable, pattern, value, .. } => {
                 let value_ty = self.check_expr(value);
                 self.check_pattern(pattern, &value_ty, *mutable, false);
             }
 
-            Stmt::Assignment { target, op: _, value } => {
+            Stmt::Assignment { target, op: _, value, .. } => {
                 let target_ty = self.check_assignment_target(target);
                 let value_ty = self.check_expr(value);
 
@@ -831,7 +831,7 @@ impl TypeEnv {
                 }
             }
 
-            Stmt::If { condition, then_block, elif_blocks, else_block } => {
+            Stmt::If { condition, then_block, elif_blocks, else_block, .. } => {
                 self.expect_type(condition, &TcType::Boolean, "If condition");
 
                 self.push_scope();
@@ -858,7 +858,7 @@ impl TypeEnv {
                 }
             }
 
-            Stmt::While { condition, body } => {
+            Stmt::While { condition, body, .. } => {
                 self.expect_type(condition, &TcType::Boolean, "While condition");
                 self.push_scope();
                 for stmt in body {
@@ -867,7 +867,7 @@ impl TypeEnv {
                 self.pop_scope();
             }
 
-            Stmt::DoWhile { body, condition } => {
+            Stmt::DoWhile { body, condition, .. } => {
                 self.push_scope();
                 for stmt in body {
                     self.check_stmt(stmt);
@@ -876,7 +876,7 @@ impl TypeEnv {
                 self.expect_type(condition, &TcType::Boolean, "Do-while condition");
             }
 
-            Stmt::For { pattern, iterator, body } => {
+            Stmt::For { pattern, iterator, body, .. } => {
                 let iter_ty = self.check_expr(iterator);
                 
                 self.push_scope();
@@ -1277,7 +1277,7 @@ pub fn typecheck_program(program: &Program) -> TypecheckResult<()> {
     // First pass: Pre-declare all top-level let/var with function values
     // This enables mutual recursion between functions
     for stmt in &program.statements {
-        if let Stmt::VarDecl { mutable, name, r#type, value } = stmt {
+        if let Stmt::VarDecl { mutable, name, r#type, value, .. } = stmt {
             if let Expr::Function { arguments, return_type, .. } = value {
                 // Compute function type from signature
                 let mut param_types = Vec::new();
