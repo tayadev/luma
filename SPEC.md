@@ -162,8 +162,8 @@ string."
 let name = "World"
 "Hello, ${name}!"                           -- "Hello, World!"
 "1 + 1 = ${1 + 1}"                         -- "1 + 1 = 2"
-"Result: ${calculate(5, 3)}"               -- Calls function
-"Nested: ${if x > 0 do "positive" else do "negative" end}"
+"Result: ${calculate(5, 3)}"               -- "Result: 8" (assuming calculate returns 8)
+"Nested: ${if x > 0 do "positive" else do "negative" end}"  -- Depends on x
 ```
 
 **Escape sequences:**
@@ -1416,6 +1416,8 @@ WhileStmt       ::= "while" Expr "do" Block "end"
 DoWhileStmt     ::= "do" Block "while" Expr "end"
 ForStmt         ::= "for" Pattern "in" Expr "do" Block "end"
 ```
+
+**Note:** `match` is defined as an expression (`MatchExpr`) rather than a statement. See Expression Grammar below.
 
 ### 14.2 Expression Grammar
 
