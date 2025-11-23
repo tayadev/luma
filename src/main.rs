@@ -3,8 +3,13 @@ use std::fs;
 use std::io::{self, Read};
 use std::process;
 
+/// Get the version string including git revision
+fn version() -> &'static str {
+    concat!(env!("CARGO_PKG_VERSION"), " (git:", env!("GIT_HASH"), ")")
+}
+
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version = version(), about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
