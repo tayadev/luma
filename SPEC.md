@@ -160,8 +160,10 @@ string."
 **String interpolation** uses `${expression}`:
 ```luma
 let name = "World"
-"Hello, ${name}!"        -- "Hello, World!"
-"1 + 1 = ${1 + 1}"      -- "1 + 1 = 2"
+"Hello, ${name}!"                           -- "Hello, World!"
+"1 + 1 = ${1 + 1}"                         -- "1 + 1 = 2"
+"Result: ${calculate(5, 3)}"               -- "Result: 8" (assuming calculate returns 8)
+"Nested: ${if x > 0 do "positive" else do "negative" end}"  -- Depends on x
 ```
 
 **Escape sequences:**
@@ -522,12 +524,16 @@ let [head, ...tail] = [1, 2, 3, 4]
 
 let [a, b, ...] = [10, 20, 30, 40]
 -- a = 10, b = 20, rest ignored
+
+let [x, _, z] = [1, 2, 3]
+-- x = 1, z = 3, second element ignored via wildcard
 ```
 
 **Behavior:**
 - Missing elements assign `null`
 - `...name` captures remaining elements as list
 - `...` without name discards remaining elements
+- `_` wildcard ignores a single element
 
 #### 5.2.2 Table Destructuring
 
@@ -993,6 +999,19 @@ The `print()` function internally uses `into(String)`.
 
 ### 8.1 Match Expression
 
+The `match` construct is an expression that evaluates to the value of the selected branch:
+
+```luma
+let status = match response.code do
+  200 do "success" end
+  404 do "not found" end
+  500 do "server error" end
+  _ do "unknown" end
+end
+```
+
+Match can also be used as a statement when the result is not needed:
+
 ```luma
 match value do
   pattern1 do
@@ -1383,7 +1402,7 @@ Program         ::= Statement*
 
 Statement       ::= LetStmt | VarStmt | ExprStmt | ReturnStmt 
                   | IfStmt | WhileStmt | DoWhileStmt | ForStmt
-                  | BreakStmt | ContinueStmt | MatchStmt
+                  | BreakStmt | ContinueStmt
 
 LetStmt         ::= "let" Pattern [":" Type] "=" Expr
 VarStmt         ::= "var" Identifier [":" Type] "=" Expr
@@ -1396,10 +1415,9 @@ IfStmt          ::= "if" Expr "do" Block ("else" "if" Expr "do" Block)* ["else" 
 WhileStmt       ::= "while" Expr "do" Block "end"
 DoWhileStmt     ::= "do" Block "while" Expr "end"
 ForStmt         ::= "for" Pattern "in" Expr "do" Block "end"
-
-MatchStmt       ::= "match" Expr "do" MatchArm+ "end"
-MatchArm        ::= Pattern "do" Block "end"
 ```
+
+**Note:** `match` is defined as an expression (`MatchExpr`) rather than a statement. See Expression Grammar below.
 
 ### 14.2 Expression Grammar
 
@@ -1416,13 +1434,16 @@ UnaryExpr       ::= ("-" | "!") UnaryExpr | PostfixExpr
 PostfixExpr     ::= PrimaryExpr ("(" [ArgList] ")" | "[" Expr "]" | "." Identifier)*
 
 PrimaryExpr     ::= Literal | Identifier | "(" Expr ")" | BlockExpr 
-                  | FunctionExpr | IfExpr | ArrayExpr | TableExpr
+                  | FunctionExpr | IfExpr | MatchExpr | ArrayExpr | TableExpr
 
 BlockExpr       ::= "do" Statement* "end"
 FunctionExpr    ::= "fn" "(" [ParamList] ")" [":" Type] "do" Block "end"
 IfExpr          ::= "if" Expr "do" Block ["else" "do" Block] "end"
+MatchExpr       ::= "match" Expr "do" MatchArm+ "end"
 ArrayExpr       ::= "[" [ExprList] "]"
 TableExpr       ::= "{" [FieldList] "}"
+
+MatchArm        ::= Pattern "do" Block "end"
 ```
 
 ### 14.3 Pattern Grammar

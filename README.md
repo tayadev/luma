@@ -2,8 +2,11 @@
 
 Reference implementation of the Luma programming language.
 
-## Download Nightly Builds
+## Quick Links
 
+- **[Language Specification (SPEC.md)](SPEC.md)** - Complete language reference with syntax, semantics, and examples
+
+## Download Nightly Builds
 
 - [Linux x86_64](https://nightly.link/tayadev/luma/workflows/build/main/luma-linux-x86_64)
 - [MacOS aarch64](https://nightly.link/tayadev/luma/workflows/build/main/luma-macos-aarch64)
