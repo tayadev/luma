@@ -77,6 +77,11 @@ pub enum Expr {
     Import {
         path: Box<Expr>,
     },
+    /// Match as an expression: evaluates to the value of the selected arm
+    Match {
+        expr: Box<Expr>,
+        arms: Vec<(Pattern, Vec<Stmt>)>,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

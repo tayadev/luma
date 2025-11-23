@@ -1,5 +1,13 @@
 Program(
   statements: [
-    Return(String("Value ${x} and quote \" and backslash \\")),
+    Return(Binary(
+      left: Binary(
+        left: String("Value \\"),
+        op: Add,
+        right: Identifier("x"),
+      ),
+      op: Add,
+      right: String(" and quote \" and backslash \\"),
+    )),
   ],
 )

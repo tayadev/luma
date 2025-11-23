@@ -879,6 +879,59 @@ impl Compiler {
                 // Emit the Import instruction
                 self.chunk.instructions.push(Instruction::Import);
             }
+            Expr::Match { expr, arms } => {
+                // Expression form of match; largely mirrors Stmt::Match but leaves value
+                self.enter_scope();
+                self.emit_expr(expr);
+                let match_val_slot = self.local_count;
+                self.scopes.last_mut().unwrap().insert("__match_val".to_string(), match_val_slot);
+                self.local_count += 1;
+                // Default null value
+                let null_idx = push_const(&mut self.chunk, Constant::Null);
+                self.chunk.instructions.push(Instruction::Const(null_idx));
+                let mut end_jumps = Vec::new();
+                for (i, (pattern, body)) in arms.iter().enumerate() {
+                    let is_wildcard = matches!(pattern, Pattern::Wildcard);
+                    if !is_wildcard {
+                        match pattern {
+                            Pattern::Ident(name) => {
+                                self.chunk.instructions.push(Instruction::GetLocal(match_val_slot));
+                                let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
+                                self.chunk.instructions.push(Instruction::GetProp(name_idx));
+                                let null_idx2 = push_const(&mut self.chunk, Constant::Null);
+                                self.chunk.instructions.push(Instruction::Const(null_idx2));
+                                self.chunk.instructions.push(Instruction::Ne);
+                                let jf_next = self.emit_jump_if_false();
+                                self.chunk.instructions.push(Instruction::Pop); // remove default null
+                                let mut arm_body = body.to_vec();
+                                if let Some(last) = arm_body.pop() { if let Stmt::ExprStmt(e) = last { arm_body.push(Stmt::Return(e)); } else { arm_body.push(last); } }
+                                for st in &arm_body { self.emit_stmt(st); }
+                                if !block_leaves_value(&arm_body) {
+                                    let null_idx3 = push_const(&mut self.chunk, Constant::Null);
+                                    self.chunk.instructions.push(Instruction::Const(null_idx3));
+                                }
+                                end_jumps.push(self.emit_jump());
+                                let next_ip = self.current_ip();
+                                self.patch_jump(jf_next, next_ip);
+                            }
+                            _ => panic!("Compiler error: complex patterns for match expr not supported"),
+                        }
+                    } else {
+                        self.chunk.instructions.push(Instruction::Pop);
+                        let mut arm_body = body.to_vec();
+                        if let Some(last) = arm_body.pop() { if let Stmt::ExprStmt(e) = last { arm_body.push(Stmt::Return(e)); } else { arm_body.push(last); } }
+                        for st in &arm_body { self.emit_stmt(st); }
+                        if !block_leaves_value(&arm_body) {
+                            let null_idx4 = push_const(&mut self.chunk, Constant::Null);
+                            self.chunk.instructions.push(Instruction::Const(null_idx4));
+                        }
+                        if i < arms.len() - 1 { end_jumps.push(self.emit_jump()); }
+                    }
+                }
+                let end_ip = self.current_ip();
+                for j in end_jumps { self.patch_jump(j, end_ip); }
+                self.exit_scope_with_preserve(true);
+            }
             // Other expressions not yet supported
         }
     }

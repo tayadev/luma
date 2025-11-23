@@ -1,0 +1,26 @@
+Program(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "v",
+            value: Table([
+                ("a", Number(1.0)),
+            ]),
+        ),
+        VarDecl(
+            mutable: false,
+            name: "result",
+            value: Match(
+                expr: Identifier("v"),
+                arms: [
+                    (Ident("a"), [
+                        ExprStmt(Identifier("a")),
+                    ]),
+                    (Wildcard, [
+                        ExprStmt(Number(0.0)),
+                    ]),
+                ],
+            ),
+        ),
+    ],
+)

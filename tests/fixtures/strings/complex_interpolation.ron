@@ -1,0 +1,52 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: false,
+      name: "x",
+      value: Number(10.0),
+    ),
+    VarDecl(
+      mutable: false,
+      name: "y",
+      value: Number(32.0),
+    ),
+    Return(Binary(
+      left: Binary(
+        left: Binary(
+          left: Binary(
+            left: String("sum="),
+            op: Add,
+            right: Binary(
+              left: Identifier("x"),
+              op: Add,
+              right: Identifier("y"),
+            ),
+          ),
+          op: Add,
+          right: String(" nested="),
+        ),
+        op: Add,
+        right: Call(
+          callee: Function(
+            arguments: [
+              Argument(
+                name: "a",
+                type: TypeIdent("Number"),
+                default: None,
+              ),
+            ],
+            return_type: Some(TypeIdent("Number")),
+            body: [Return(Binary(
+              left: Identifier("a"),
+              op: Mul,
+              right: Number(2.0),
+            ))],
+          ),
+          arguments: [Positional(Number(3.0))],
+        ),
+      ),
+      op: Add,
+      right: String(" tail"),
+    )),
+  ],
+)

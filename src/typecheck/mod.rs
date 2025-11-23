@@ -553,6 +553,32 @@ impl TypeEnv {
                 // For now, we type it as Unknown (proper typing would require module analysis)
                 TcType::Unknown
             }
+            Expr::Match { expr, arms } => {
+                // Type of the matched expression
+                let matched_ty = self.check_expr(expr);
+                let mut unified_ret: Option<TcType> = None;
+                for (pattern, body) in arms {
+                    self.push_scope();
+                    // Bind pattern variables assuming matched expression type
+                    self.check_pattern(pattern, &matched_ty, false);
+                    // Determine arm return type similar to check_block
+                    let arm_ret = self.check_block(body, &TcType::Unknown);
+                    self.pop_scope();
+                    if let Some(current) = &unified_ret {
+                        if current.is_compatible(&arm_ret) {
+                            // keep current
+                        } else if arm_ret.is_compatible(current) {
+                            unified_ret = Some(arm_ret);
+                        } else {
+                            self.error(format!("Match arms have incompatible types: {:?} vs {:?}", current, arm_ret));
+                            unified_ret = Some(TcType::Unknown);
+                        }
+                    } else {
+                        unified_ret = Some(arm_ret);
+                    }
+                }
+                unified_ret.unwrap_or(TcType::Null)
+            }
         }
     }
 

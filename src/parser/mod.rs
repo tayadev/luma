@@ -122,6 +122,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     let function = expressions::function(ws.clone(), ident.clone(), type_parser.clone(), stmt_ref.clone(), expr_ref.clone());
     let if_expr = expressions::if_expr(ws.clone(), stmt_ref.clone(), expr_ref.clone());
     let import_expr = expressions::import(ws.clone(), expr_ref.clone());
+    let match_expression = expressions::match_expr(ws.clone(), expr_ref.clone(), stmt_ref.clone(), pattern.clone());
 
     // Parenthesized expressions - allows precedence override
     let paren_expr = expr_ref.clone()
@@ -134,13 +135,14 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     // Primary expressions (atoms)
     let primary = choice((
         number.boxed(),
-        string_parser(ws.clone()).boxed(),
+        string_parser(ws.clone(), expr_ref.clone()).boxed(),
         boolean,
         null,
         array,
         table,
         if_expr,
         block_expr,
+        match_expression,
         function,
         import_expr,
         paren_expr,

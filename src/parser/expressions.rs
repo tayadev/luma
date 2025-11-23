@@ -1,5 +1,5 @@
 use chumsky::prelude::*;
-use crate::ast::{Expr, Stmt, Argument, Type};
+use crate::ast::{Expr, Stmt, Argument, Type, Pattern};
 
 /// Creates a parser for block expressions (do...end)
 pub fn block<'a, WS, S, E>(
@@ -140,6 +140,39 @@ where
         .map(|((arguments, return_type), body): ((Vec<Argument>, Option<Type>), Vec<Stmt>)| {
             Expr::Function { arguments, return_type, body }
         })
+        .boxed()
+}
+
+/// Creates a parser for match expressions (match expr do pattern do ... end ... end)
+pub fn match_expr<'a, WS, E, S, P>(
+    ws: WS,
+    expr: E,
+    stmt: S,
+    pattern: P,
+) -> Boxed<'a, 'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
+where
+    WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
+    E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    S: Parser<'a, &'a str, Stmt, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    P: Parser<'a, &'a str, Pattern, extra::Err<Rich<'a, char>>> + Clone + 'a,
+{
+    just("match")
+        .padded_by(ws.clone())
+        .ignore_then(expr)
+        .then_ignore(just("do").padded_by(ws.clone()))
+        .then(
+            (
+                pattern
+                    .then_ignore(ws.clone())
+                    .then_ignore(just("do").padded_by(ws.clone()))
+                    .then(stmt.repeated().collect::<Vec<Stmt>>())
+                    .then_ignore(just("end").padded_by(ws.clone()))
+            )
+            .repeated()
+            .collect::<Vec<(Pattern, Vec<Stmt>)>>()
+        )
+        .then_ignore(just("end").padded_by(ws))
+        .map(|(expr, arms)| Expr::Match { expr: Box::new(expr), arms })
         .boxed()
 }
 

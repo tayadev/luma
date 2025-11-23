@@ -3,10 +3,10 @@
 
 Ordered by near-term impact on correctness, developer ergonomics, and spec compliance. Completed items retained at end.
 
-1. [ ] Full string interpolation `${expr}` (use general expression parser; remove manual scan); multiline preservation tests.
+1. [x] Full string interpolation `${expr}` (use general expression parser; remove manual scan); multiline preservation tests. (Implemented)
 2. [ ] Table literal enhancements: quoted keys and computed keys `[expr] = value`.
 3. [ ] Keyword audit & removal of `import` as keyword (treat as normal call); align reserved list with spec.
-4. [ ] Introduce `Expr::Match` (currently statement-only); allow match in expression contexts.
+4. [x] Introduce `Expr::Match` (currently statement-only); allow match in expression contexts. (Implemented)
 5. [ ] Exhaustiveness enforcement for match (wildcard `_` or all variant tags like `ok/err`, `some/none`).
 6. [ ] Pattern system upgrade: nested array/table patterns, field renames `name: userName`, literal patterns, tag patterns.
 7. [ ] Update compiler lowering for match to produce single value without temporary Null hacks.
