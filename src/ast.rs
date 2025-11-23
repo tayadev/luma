@@ -27,11 +27,11 @@ impl Span {
         let mut line = 1;
         let mut col = 1;
         
-        for (i, c) in source.chars().enumerate() {
-            if i >= self.start {
+        for (byte_idx, ch) in source.char_indices() {
+            if byte_idx >= self.start {
                 break;
             }
-            if c == '\n' {
+            if ch == '\n' {
                 line += 1;
                 col = 1;
             } else {

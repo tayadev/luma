@@ -88,7 +88,7 @@ impl Chunk {
             local_count: 0,
             name,
             upvalue_descriptors: vec![],
-            spans: vec![None],
+            spans: vec![None],  // One span for the Halt instruction
         }
     }
 
