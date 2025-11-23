@@ -4,6 +4,18 @@ use std::collections::HashMap;
 
 pub fn compile_program(program: &Program) -> Chunk {
     let mut c = Compiler::new("<program>");
+
+    // Pre-scan: record top-level function parameter names for named-arg reordering
+    let mut global_fn_params: HashMap<String, Vec<String>> = HashMap::new();
+    for stmt in &program.statements {
+        if let Stmt::VarDecl { name, value, .. } = stmt {
+            if let Expr::Function { arguments, .. } = value {
+                let params = arguments.iter().map(|a| a.name.clone()).collect::<Vec<_>>();
+                global_fn_params.insert(name.clone(), params);
+            }
+        }
+    }
+    c.global_fn_params = global_fn_params;
     
     // First pass: Pre-register all top-level let/var declarations with null placeholders
     // This allows recursive functions to reference themselves
@@ -54,6 +66,10 @@ struct Compiler {
     loop_stack: Vec<LoopContext>, // Track nested loops for break/continue
     upvalues: Vec<UpvalueInfo>, // Upvalues captured by this function
     parent: Option<Box<Compiler>>, // Parent compiler (for nested functions)
+    // Track function parameter names per scope for named arguments
+    param_scopes: Vec<HashMap<String, Vec<String>>>,
+    // Top-level function parameter names
+    global_fn_params: HashMap<String, Vec<String>>,
 }
 
 impl Compiler {
@@ -65,6 +81,8 @@ impl Compiler {
             loop_stack: Vec::new(),
             upvalues: Vec::new(),
             parent: None,
+            param_scopes: Vec::new(),
+            global_fn_params: HashMap::new(),
         }
     }
 
@@ -76,6 +94,8 @@ impl Compiler {
             loop_stack: Vec::new(),
             upvalues: Vec::new(),
             parent: Some(Box::new(parent)),
+            param_scopes: Vec::new(),
+            global_fn_params: HashMap::new(),
         }
     }
 
@@ -95,6 +115,8 @@ impl Compiler {
 
                 // then block
                 self.enter_scope();
+                // Predeclare local function names for mutual recursion in then-block
+                self.predeclare_function_locals(then_block);
                 // Remove default Null and compute real value for this branch
                 self.chunk.instructions.push(Instruction::Pop);
                 for st in then_block { self.emit_stmt(st); }
@@ -116,6 +138,8 @@ impl Compiler {
                     self.emit_expr(elif_cond);
                     let jf_elif = self.emit_jump_if_false();
                     self.enter_scope();
+                    // Predeclare local function names for mutual recursion in elif-body
+                    self.predeclare_function_locals(elif_body);
                     // Remove default Null and compute real value for this branch
                     self.chunk.instructions.push(Instruction::Pop);
                     for st in elif_body { self.emit_stmt(st); }
@@ -135,6 +159,8 @@ impl Compiler {
                 // else block
                 if let Some(else_body) = else_block {
                     self.enter_scope();
+                    // Predeclare local function names for mutual recursion in else-body
+                    self.predeclare_function_locals(else_body);
                     // Remove default Null and compute real value for this branch
                     self.chunk.instructions.push(Instruction::Pop);
                     for st in else_body { self.emit_stmt(st); }
@@ -169,6 +195,8 @@ impl Compiler {
                 self.emit_expr(condition);
                 let jf_end = self.emit_jump_if_false();
                 self.enter_scope();
+                // Predeclare local function names for mutual recursion in while-body
+                self.predeclare_function_locals(body);
                 for st in body { self.emit_stmt(st); }
                 self.exit_scope_with_preserve(false);
                 // jump back to loop start
@@ -195,6 +223,8 @@ impl Compiler {
                 });
                 
                 self.enter_scope();
+                // Predeclare local function names for mutual recursion in do-while body
+                self.predeclare_function_locals(body);
                 for st in body { self.emit_stmt(st); }
                 self.exit_scope_with_preserve(false);
                 // evaluate condition
@@ -363,12 +393,31 @@ impl Compiler {
                     self.emit_expr(value);
                     let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
                     self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+                    // Record global function parameter names if value is function
+                    if let Expr::Function { arguments, .. } = value {
+                        let params = arguments.iter().map(|a| a.name.clone()).collect::<Vec<_>>();
+                        self.global_fn_params.insert(name.clone(), params);
+                    }
                 } else {
-                    // local: initializer value stays on stack as slot
-                    self.emit_expr(value);
-                    let slot = self.local_count;
-                    self.scopes.last_mut().unwrap().insert(name.clone(), slot);
-                    self.local_count += 1;
+                    // local
+                    if let Some(&slot) = self.scopes.last().and_then(|m| m.get(name)) {
+                        // Predeclared local exists: just initialize it
+                        self.emit_expr(value);
+                        self.chunk.instructions.push(Instruction::SetLocal(slot));
+                    } else {
+                        // Not predeclared: allocate new local slot; initializer stays on stack
+                        self.emit_expr(value);
+                        let slot = self.local_count;
+                        self.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                        self.local_count += 1;
+                    }
+                    // Record local function parameter names if value is function
+                    if let Expr::Function { arguments, .. } = value {
+                        let params = arguments.iter().map(|a| a.name.clone()).collect::<Vec<_>>();
+                        if let Some(scope) = self.param_scopes.last_mut() {
+                            scope.insert(name.clone(), params);
+                        }
+                    }
                 }
             }
             Stmt::DestructuringVarDecl { mutable: _, pattern, value } => {
@@ -556,47 +605,84 @@ impl Compiler {
                 // To:
                 //   let __iter = iterator
                 //   let __i = 0
-                //   let loop_var = null
+                //   [declare pattern locals]
                 //   while __i < len(__iter) do
-                //     loop_var = __iter[__i]
+                //     [bind pattern from __iter[__i]]
                 //     body
                 //     __i = __i + 1
                 //   end
-                
-                // For MVP, only support simple identifier patterns
-                let Pattern::Ident(var_name) = pattern else {
-                    // Complex patterns not supported in for loops yet
-                    panic!("Compiler error: Complex patterns in for loops are not yet supported. Use a simple identifier instead.");
-                };
-                
-                // Create a new scope for the entire loop (including iterator and index)
+
+                // Create a new scope for the entire loop (including iterator, index, and pattern locals)
                 self.enter_scope();
-                
+
                 // Evaluate iterator and store in a hidden local __iter
                 self.emit_expr(iterator);
                 let iter_slot = self.local_count;
                 self.scopes.last_mut().unwrap().insert("__iter".to_string(), iter_slot);
                 self.local_count += 1;
-                
+
                 // Initialize __i = 0
                 let zero_idx = push_const(&mut self.chunk, Constant::Number(0.0));
                 self.chunk.instructions.push(Instruction::Const(zero_idx));
                 let i_slot = self.local_count;
                 self.scopes.last_mut().unwrap().insert("__i".to_string(), i_slot);
                 self.local_count += 1;
-                
-                // Allocate slot for loop variable (initialized to null)
-                let null_idx = push_const(&mut self.chunk, Constant::Null);
-                self.chunk.instructions.push(Instruction::Const(null_idx));
-                let loop_var_slot = self.local_count;
-                self.scopes.last_mut().unwrap().insert(var_name.clone(), loop_var_slot);
-                self.local_count += 1;
-                
+
+                // Predeclare pattern locals if needed
+                enum LoopPat {
+                    Ident { slot: usize },
+                    List { elem_slots: Vec<Option<usize>>, rest_slot: Option<usize> },
+                }
+                let loop_pat = match pattern {
+                    Pattern::Ident(var_name) => {
+                        // Allocate slot for loop variable (initialized to null)
+                        let null_idx = push_const(&mut self.chunk, Constant::Null);
+                        self.chunk.instructions.push(Instruction::Const(null_idx));
+                        let slot = self.local_count;
+                        self.scopes.last_mut().unwrap().insert(var_name.clone(), slot);
+                        self.local_count += 1;
+                        LoopPat::Ident { slot }
+                    }
+                    Pattern::ListPattern { elements, rest } => {
+                        // Predeclare locals for each identifier element and optional rest
+                        let mut elem_slots: Vec<Option<usize>> = Vec::with_capacity(elements.len());
+                        for elem in elements {
+                            match elem {
+                                Pattern::Ident(name) => {
+                                    let null_idx = push_const(&mut self.chunk, Constant::Null);
+                                    self.chunk.instructions.push(Instruction::Const(null_idx));
+                                    let slot = self.local_count;
+                                    self.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                                    self.local_count += 1;
+                                    elem_slots.push(Some(slot));
+                                }
+                                Pattern::Wildcard => {
+                                    elem_slots.push(None);
+                                }
+                                _ => {
+                                    panic!("Compiler error: Nested patterns not yet supported in for destructuring");
+                                }
+                            }
+                        }
+                        let rest_slot = if let Some(rest_name) = rest {
+                            let null_idx = push_const(&mut self.chunk, Constant::Null);
+                            self.chunk.instructions.push(Instruction::Const(null_idx));
+                            let slot = self.local_count;
+                            self.scopes.last_mut().unwrap().insert(rest_name.clone(), slot);
+                            self.local_count += 1;
+                            Some(slot)
+                        } else { None };
+                        LoopPat::List { elem_slots, rest_slot }
+                    }
+                    _ => {
+                        panic!("Compiler error: Unsupported pattern in for loop");
+                    }
+                };
+
                 // while __i < len(__iter) do
                 let loop_start = self.current_ip();
-                
+
                 // Register this loop for break/continue tracking
-                // Note: continue_target will be set later and continue_patches will be patched
                 let loop_ctx_idx = self.loop_stack.len();
                 self.loop_stack.push(LoopContext {
                     break_patches: Vec::new(),
@@ -604,62 +690,93 @@ impl Compiler {
                     local_count: self.local_count,
                     continue_target: None, // Will be set after body
                 });
-                
+
                 // Load __i
                 self.chunk.instructions.push(Instruction::GetLocal(i_slot));
-                
+
                 // Load __iter and get its length
                 self.chunk.instructions.push(Instruction::GetLocal(iter_slot));
                 self.chunk.instructions.push(Instruction::GetLen);
-                
+
                 // Compare __i < len(__iter)
                 self.chunk.instructions.push(Instruction::Lt);
-                
+
                 // If false, jump to end
                 let jf_end = self.emit_jump_if_false();
-                
-                // Update loop variable: loop_var = __iter[__i]
-                self.chunk.instructions.push(Instruction::GetLocal(iter_slot));
-                self.chunk.instructions.push(Instruction::GetLocal(i_slot));
-                self.chunk.instructions.push(Instruction::GetIndex);
-                self.chunk.instructions.push(Instruction::SetLocal(loop_var_slot));
-                
+
+                // Bind current element according to pattern
+                match &loop_pat {
+                    LoopPat::Ident { slot } => {
+                        self.chunk.instructions.push(Instruction::GetLocal(iter_slot));
+                        self.chunk.instructions.push(Instruction::GetLocal(i_slot));
+                        self.chunk.instructions.push(Instruction::GetIndex);
+                        self.chunk.instructions.push(Instruction::SetLocal(*slot));
+                    }
+                    LoopPat::List { elem_slots, rest_slot } => {
+                        // Load current element once
+                        self.chunk.instructions.push(Instruction::GetLocal(iter_slot));
+                        self.chunk.instructions.push(Instruction::GetLocal(i_slot));
+                        self.chunk.instructions.push(Instruction::GetIndex); // stack: elem
+
+                        // For each element binding, extract by index
+                        for (idx, slot_opt) in elem_slots.iter().enumerate() {
+                            if let Some(slot) = slot_opt {
+                                self.chunk.instructions.push(Instruction::Dup); // dup elem
+                                let i_idx = push_const(&mut self.chunk, Constant::Number(idx as f64));
+                                self.chunk.instructions.push(Instruction::Const(i_idx));
+                                self.chunk.instructions.push(Instruction::GetIndex);
+                                self.chunk.instructions.push(Instruction::SetLocal(*slot));
+                            }
+                        }
+                        if let Some(rest_slot) = rest_slot {
+                            let start_index = elem_slots.len();
+                            self.chunk.instructions.push(Instruction::SliceList(start_index));
+                            self.chunk.instructions.push(Instruction::SetLocal(*rest_slot));
+                        } else {
+                            // No rest: pop the elem value
+                            self.chunk.instructions.push(Instruction::Pop);
+                        }
+                    }
+                }
+
                 // Execute body
+                // Predeclare local function names for mutual recursion in for-body
+                self.predeclare_function_locals(body);
                 for stmt in body {
                     self.emit_stmt(stmt);
                 }
-                
+
                 // Increment section - this is where continue should jump to
                 let continue_target = self.current_ip();
-                
+
                 // Patch all continue statements in this loop to jump here
                 let loop_ctx = &self.loop_stack[loop_ctx_idx];
                 let continue_ips = loop_ctx.continue_patches.clone();
                 for continue_ip in continue_ips {
                     self.patch_jump(continue_ip, continue_target);
                 }
-                
+
                 // __i = __i + 1
                 self.chunk.instructions.push(Instruction::GetLocal(i_slot));
                 let one_idx = push_const(&mut self.chunk, Constant::Number(1.0));
                 self.chunk.instructions.push(Instruction::Const(one_idx));
                 self.chunk.instructions.push(Instruction::Add);
                 self.chunk.instructions.push(Instruction::SetLocal(i_slot));
-                
+
                 // Jump back to loop start
                 self.chunk.instructions.push(Instruction::Jump(loop_start));
-                
+
                 // Patch the exit jump
                 let exit_ip = self.current_ip();
                 self.patch_jump(jf_end, exit_ip);
-                
+
                 // Patch all break statements to jump to exit_ip
                 let loop_ctx = self.loop_stack.pop().unwrap();
                 for break_ip in loop_ctx.break_patches {
                     self.patch_jump(break_ip, exit_ip);
                 }
-                
-                // Exit the entire loop scope (pop __iter, __i, and loop_var)
+
+                // Exit the entire loop scope (pop all loop locals)
                 self.exit_scope_with_preserve(false);
             }
             Stmt::Break(level_opt) => {
@@ -868,20 +985,82 @@ impl Compiler {
                 }
             }
             Expr::Call { callee, arguments } => {
-                // Push callee
-                self.emit_expr(callee);
-                // Push arguments (extract expressions from CallArgument enum)
-                for arg in arguments {
-                    match arg {
-                        CallArgument::Positional(expr) => self.emit_expr(expr),
-                        CallArgument::Named { value, .. } => self.emit_expr(value),
+                // Determine if we need named-arg reordering
+                let has_named = arguments.iter().any(|a| matches!(a, CallArgument::Named { .. }));
+                if !has_named {
+                    // Simple fast path
+                    self.emit_expr(callee);
+                    for arg in arguments {
+                        match arg {
+                            CallArgument::Positional(expr) => self.emit_expr(expr),
+                            CallArgument::Named { value, .. } => self.emit_expr(value),
+                        }
                     }
+                    self.chunk.instructions.push(Instruction::Call(arguments.len()));
+                } else {
+                    // Enforce: positional cannot follow named
+                    let mut seen_named = false;
+                    for arg in arguments {
+                        match arg {
+                            CallArgument::Named { .. } => seen_named = true,
+                            CallArgument::Positional(_) if seen_named => {
+                                panic!("Compiler error: Positional arguments cannot follow named arguments");
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    // Resolve parameter names from callee
+                    let param_names: Vec<String> = match &**callee {
+                        Expr::Function { arguments: fn_args, .. } => fn_args.iter().map(|a| a.name.clone()).collect(),
+                        Expr::Identifier(n) => self.lookup_fn_params(n).unwrap_or_else(|| {
+                            panic!("Compiler error: Named arguments require statically-known callee '{}" , n)
+                        }),
+                        _ => panic!("Compiler error: Named arguments require statically-known callee"),
+                    };
+
+                    // Split provided args into positional and named map
+                    let mut positional: Vec<&Expr> = Vec::new();
+                    let mut named_map: HashMap<&str, &Expr> = HashMap::new();
+                    for arg in arguments {
+                        match arg {
+                            CallArgument::Positional(expr) => positional.push(expr),
+                            CallArgument::Named { name, value } => {
+                                if named_map.contains_key(name.as_str()) {
+                                    panic!("Compiler error: Duplicate named argument '{}'", name);
+                                }
+                                named_map.insert(name.as_str(), value);
+                            }
+                        }
+                    }
+
+                    if param_names.len() < positional.len() {
+                        panic!("Compiler error: Too many positional arguments: expected {} got {}", param_names.len(), positional.len());
+                    }
+
+                    // Build final ordered arg list
+                    let mut final_args: Vec<&Expr> = Vec::with_capacity(param_names.len());
+                    for (i, pname) in param_names.iter().enumerate() {
+                        if i < positional.len() {
+                            final_args.push(positional[i]);
+                        } else if let Some(v) = named_map.get::<str>(pname.as_str()) {
+                            final_args.push(*v);
+                        } else {
+                            panic!("Compiler error: Missing required argument '{}'", pname);
+                        }
+                    }
+
+                    // Emit callee and ordered args
+                    self.emit_expr(callee);
+                    for e in final_args { self.emit_expr(e); }
+                    self.chunk.instructions.push(Instruction::Call(param_names.len()));
                 }
-                self.chunk.instructions.push(Instruction::Call(arguments.len()));
             }
             Expr::Block(stmts) => {
                 // Block is an expression that evaluates to its last statement's value
                 self.enter_scope();
+                // Predeclare local function names for mutual recursion in block
+                self.predeclare_function_locals(stmts);
                 for stmt in stmts {
                     self.emit_stmt(stmt);
                 }
@@ -894,6 +1073,8 @@ impl Compiler {
                 
                 // Then block
                 self.enter_scope();
+                // Predeclare local function names for mutual recursion in then-block
+                self.predeclare_function_locals(then_block);
                 for stmt in then_block {
                     self.emit_stmt(stmt);
                 }
@@ -906,6 +1087,8 @@ impl Compiler {
                     
                     // Else block
                     self.enter_scope();
+                    // Predeclare local function names for mutual recursion in else-block
+                    self.predeclare_function_locals(else_stmts);
                     for stmt in else_stmts {
                         self.emit_stmt(stmt);
                     }
@@ -1077,6 +1260,7 @@ impl Compiler {
 
     fn enter_scope(&mut self) {
         self.scopes.push(HashMap::new());
+        self.param_scopes.push(HashMap::new());
     }
 
     fn exit_scope_with_preserve(&mut self, preserve_top: bool) {
@@ -1091,11 +1275,25 @@ impl Compiler {
             }
             self.local_count = self.local_count.saturating_sub(to_pop);
         }
+        self.param_scopes.pop();
     }
 
     fn lookup_local(&self, name: &str) -> Option<usize> {
         for scope in self.scopes.iter().rev() {
             if let Some(&slot) = scope.get(name) { return Some(slot); }
+        }
+        None
+    }
+
+    /// Lookup parameter names for a function variable by identifier name.
+    /// Searches current and outer param scopes, then global map, then parent's chain.
+    fn lookup_fn_params(&self, name: &str) -> Option<Vec<String>> {
+        for scope in self.param_scopes.iter().rev() {
+            if let Some(v) = scope.get(name) { return Some(v.clone()); }
+        }
+        if let Some(v) = self.global_fn_params.get(name) { return Some(v.clone()); }
+        if let Some(parent) = self.parent.as_ref() {
+            return parent.lookup_fn_params(name);
         }
         None
     }
@@ -1161,6 +1359,8 @@ impl Compiler {
             nested.scopes.last_mut().unwrap().insert(arg.name.clone(), slot);
             nested.local_count += 1;
         }
+        // Predeclare local function names within function body for mutual recursion
+        nested.predeclare_function_locals(body);
         
         // Compile body
         for stmt in body {
@@ -1184,6 +1384,34 @@ impl Compiler {
         *self = *parent;
         
         (chunk, upvalue_descriptors)
+    }
+
+    /// Predeclare local function names in the current scope so mutually-recursive
+    /// functions can reference each other as locals (not fall back to globals).
+    /// Also records parameter name lists for named-arg reordering.
+    fn predeclare_function_locals(&mut self, stmts: &[Stmt]) {
+        if self.scopes.is_empty() { return; }
+        for stmt in stmts {
+            if let Stmt::VarDecl { name, value, .. } = stmt {
+                if let Expr::Function { arguments, .. } = value {
+                    // Skip if already declared in this scope (avoid duplicates)
+                    let already = self.scopes.last().and_then(|m| m.get(name)).is_some();
+                    if !already {
+                        // Initialize slot with Null to occupy stack/local
+                        let null_idx = push_const(&mut self.chunk, Constant::Null);
+                        self.chunk.instructions.push(Instruction::Const(null_idx));
+                        let slot = self.local_count;
+                        self.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                        self.local_count += 1;
+                    }
+                    // Record param names for named-arg reordering in this scope
+                    if let Some(scope) = self.param_scopes.last_mut() {
+                        let params = arguments.iter().map(|a| a.name.clone()).collect::<Vec<_>>();
+                        scope.insert(name.clone(), params);
+                    }
+                }
+            }
+        }
     }
 }
 

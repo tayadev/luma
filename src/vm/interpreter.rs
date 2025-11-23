@@ -14,6 +14,8 @@ struct CallFrame {
     ip: usize,
     base: usize,
     upvalues: Vec<Upvalue>,  // Captured upvalues for this function
+    // Captured locals for this frame: absolute stack index -> shared cell
+    captured_locals: HashMap<usize, Upvalue>,
 }
 
 pub struct VM {
@@ -24,6 +26,8 @@ pub struct VM {
     base: usize,
     frames: Vec<CallFrame>,
     upvalues: Vec<Upvalue>,  // Current function's upvalues
+    // Captured locals for the current frame: absolute stack index -> shared cell
+    captured_locals: HashMap<usize, Upvalue>,
     native_functions: HashMap<String, fn(&[Value]) -> Result<Value, String>>,
     // Module system fields
     module_cache: Rc<RefCell<HashMap<String, Value>>>,  // Shared cache of loaded modules
@@ -45,6 +49,7 @@ impl VM {
             base: 0, 
             frames: Vec::new(),
             upvalues: Vec::new(),  // Initialize empty upvalues for top-level
+            captured_locals: HashMap::new(),
             native_functions: HashMap::new(),
             module_cache: Rc::new(RefCell::new(HashMap::new())),
             loading_modules: Rc::new(RefCell::new(Vec::new())),
@@ -196,6 +201,7 @@ impl VM {
                     ip: self.ip,
                     base: self.base,
                     upvalues: self.upvalues.clone(),
+                    captured_locals: std::mem::take(&mut self.captured_locals),
                 };
                 self.frames.push(frame);
                 
@@ -210,6 +216,9 @@ impl VM {
                 // Switch to method chunk
                 self.chunk = chunk.clone();
                 self.ip = 0;
+                // Methods are plain functions: reset upvalues and captured locals
+                self.upvalues = Vec::new();
+                self.captured_locals = HashMap::new();
                 Ok(())
             }
             _ => Err(VmError::Runtime(format!("{} must be a function", method_name))),
@@ -529,14 +538,23 @@ impl VM {
                 }
                 Instruction::GetLocal(slot) => {
                     let idx = self.base + slot;
-                    let v = self.stack.get(idx).cloned().ok_or_else(|| VmError::Runtime("GET_LOCAL out of range".into()))?;
-                    self.stack.push(v);
+                    if let Some(cell) = self.captured_locals.get(&idx) {
+                        let v = cell.value.borrow().clone();
+                        self.stack.push(v);
+                    } else {
+                        let v = self.stack.get(idx).cloned().ok_or_else(|| VmError::Runtime("GET_LOCAL out of range".into()))?;
+                        self.stack.push(v);
+                    }
                 }
                 Instruction::SetLocal(slot) => {
                     let v = self.stack.pop().ok_or_else(|| VmError::Runtime("SET_LOCAL pop underflow".into()))?;
                     let idx = self.base + slot;
-                    if idx >= self.stack.len() { return Err(VmError::Runtime("SET_LOCAL out of range".into())); }
-                    self.stack[idx] = v;
+                    if let Some(cell) = self.captured_locals.get(&idx) {
+                        *cell.value.borrow_mut() = v;
+                    } else {
+                        if idx >= self.stack.len() { return Err(VmError::Runtime("SET_LOCAL out of range".into())); }
+                        self.stack[idx] = v;
+                    }
                 }
                 Instruction::SliceList(start_index) => {
                     let arr = self.stack.pop().ok_or_else(|| VmError::Runtime("SLICE_LIST pop underflow".into()))?;
@@ -620,11 +638,18 @@ impl VM {
                     for descriptor in &chunk.upvalue_descriptors {
                         let upvalue = match descriptor {
                             UpvalueDescriptor::Local(slot) => {
-                                // Capture a local variable from the current stack frame
-                                let value = self.stack.get(self.base + slot)
-                                    .ok_or_else(|| VmError::Runtime(format!("Upvalue capture: local slot {} out of bounds", slot)))?
-                                    .clone();
-                                Upvalue::new(value)
+                                // Capture a local variable from the current stack frame using a shared cell
+                                let abs = self.base + slot;
+                                if let Some(cell) = self.captured_locals.get(&abs) {
+                                    cell.clone()
+                                } else {
+                                    let value = self.stack.get(abs)
+                                        .ok_or_else(|| VmError::Runtime(format!("Upvalue capture: local slot {} out of bounds", slot)))?
+                                        .clone();
+                                    let cell = Upvalue::new(value);
+                                    self.captured_locals.insert(abs, cell.clone());
+                                    cell
+                                }
                             }
                             UpvalueDescriptor::Upvalue(upvalue_idx) => {
                                 // Capture an upvalue from the current function's upvalues
@@ -676,6 +701,7 @@ impl VM {
                                 ip: self.ip,
                                 base: self.base,
                                 upvalues: self.upvalues.clone(),
+                                captured_locals: std::mem::take(&mut self.captured_locals),
                             };
                             self.frames.push(frame);
                             
@@ -684,8 +710,9 @@ impl VM {
                             // Switch to function chunk
                             self.chunk = fn_chunk;
                             self.ip = 0;
-                            // Functions don't have upvalues
+                            // Functions don't have upvalues and start with no captured locals
                             self.upvalues = Vec::new();
+                            self.captured_locals = HashMap::new();
                         }
                         Value::Closure { chunk: fn_chunk, arity: fn_arity, upvalues: fn_upvalues } => {
                             if arity != fn_arity {
@@ -697,6 +724,7 @@ impl VM {
                                 ip: self.ip,
                                 base: self.base,
                                 upvalues: self.upvalues.clone(),
+                                captured_locals: std::mem::take(&mut self.captured_locals),
                             };
                             self.frames.push(frame);
                             
@@ -705,8 +733,9 @@ impl VM {
                             // Switch to function chunk
                             self.chunk = fn_chunk;
                             self.ip = 0;
-                            // Set upvalues for the closure
+                            // Set upvalues for the closure and clear captured locals for new frame
                             self.upvalues = fn_upvalues;
+                            self.captured_locals = HashMap::new();
                         }
                         Value::NativeFunction { name, arity: fn_arity } => {
                             // Skip arity check for variadic functions (print)
@@ -741,6 +770,7 @@ impl VM {
                         self.ip = frame.ip;
                         self.base = frame.base;
                         self.upvalues = frame.upvalues;
+                        self.captured_locals = frame.captured_locals;
                         
                         // Push return value
                         self.stack.push(ret_val);

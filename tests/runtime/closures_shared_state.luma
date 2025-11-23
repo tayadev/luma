@@ -1,0 +1,17 @@
+var makePair = fn() do
+  var x = 0
+  let inc = fn() do
+    x = x + 1
+    x
+  end
+  let add = fn(n: Number) do
+    x = x + n
+    x
+  end
+  { inc = inc, add = add }
+end
+
+let pair = makePair()
+pair.inc()
+pair.add(5)
+pair.inc()

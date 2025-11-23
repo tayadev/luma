@@ -601,6 +601,30 @@ impl TypeEnv {
     fn check_block(&mut self, stmts: &[Stmt], expected_ret: &TcType) -> TcType {
         let mut ret_ty = TcType::Null;
 
+        // Predeclare local function variables in this block to support mutual recursion
+        // and allow references within the same scope before their textual definition.
+        for stmt in stmts {
+            if let Stmt::VarDecl { mutable, name, r#type, value } = stmt {
+                if let Expr::Function { arguments, return_type, .. } = value {
+                    // Determine function type from signature
+                    let mut param_types = Vec::new();
+                    for arg in arguments {
+                        param_types.push(self.type_from_ast(&arg.r#type));
+                    }
+                    let ret_ty_annot = if let Some(rt) = return_type {
+                        self.type_from_ast(rt)
+                    } else {
+                        TcType::Unknown
+                    };
+                    let func_ty = TcType::Function { params: param_types, ret: Box::new(ret_ty_annot) };
+                    self.declare(
+                        name.clone(),
+                        VarInfo { ty: func_ty, mutable: *mutable, annotated: r#type.is_some() },
+                    );
+                }
+            }
+        }
+
         for stmt in stmts {
             match stmt {
                 Stmt::Return(expr) => {

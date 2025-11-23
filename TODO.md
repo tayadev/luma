@@ -5,16 +5,26 @@ When you complete an item, check it off. If a item is too big, break it down int
 If you realize the priority of an item has changed, feel free to reorder the list.
 If not specified otherwise, work on the tasks in the order they appear.
 
-- [ ] Mutual recursion across separate function declarations (improve pre-declare mechanism beyond functions in same pass).
-- [ ] Closures & upvalues completeness review (capture semantics, lifetime tests).
+- [x] Mutual recursion across separate function declarations (improve pre-declare mechanism beyond functions in same pass).
+	- Implemented local-scope predeclaration for function `let/var` bindings: allocate null-initialized locals before compiling the block, so mutually-recursive local functions resolve to locals instead of falling back to globals.
+	- During predeclaration, record parameter name lists in the scope for correct named-argument reordering against local functions.
+	- Applied to function bodies, blocks, and if/else/loop bodies. Global two-pass predeclare remains for top-level names.
+- [x] Closures & upvalues completeness review (capture semantics, lifetime tests).
+	- Implemented shared captured-local cells in VM so multiple closures share the same variable by reference; updates reflect across closures and after parent returns.
+	- Updated VM call frames to preserve/restore captured locals; adjusted GetLocal/SetLocal to read/write via captured cells when present.
+	- Added runtime test `closures_shared_state` verifying shared state across two closures.
 - [ ] Typechecker: concrete generics (`GenericType { name, args }`) and function type validation (params & return). 
 - [ ] Structural typing improvements: table field presence + simple trait/tag matching.
 - [ ] Refine equality/comparison diagnostics (value vs reference semantics, lists/tables). 
 - [ ] Pattern typing inference (bind variable types from pattern shape).
-- [ ] Add a way to set table values in a simpler way when the key is the same as the variable name (e.g. `{ a, b }` instead of `{ a = a, b = b }`).
-- [ ] Enforce named argument semantics (reordering + mixing positional/named, detect duplicates).
+- [x] Add a way to set table values in a simpler way when the key is the same as the variable name (e.g. `{ a, b }` instead of `{ a = a, b = b }`).
+	- Parser accepts identifier-only table entries as shorthand; expands to key=name and value=Identifier(name).
+	- Added parser fixtures `collections/table_shorthand.{luma,ron}`.
+- [x] Enforce named argument semantics (reordering + mixing positional/named, detect duplicates).
+	- Compiler reorders named calls at compile time for statically-known callees; errors on positional-after-named and duplicate names. Defaults are not applied yet (all params required).
 - [ ] Iterator protocol formalization (table iteration, custom iterables). 
-- [ ] Loop pattern destructuring (`for [k,v] in table`, `for [item,index] in list.indexed()`). Also make sure `for` loops only accept iterable expressions, aka objects that implement the iterable trait.
+- [x] Loop pattern destructuring (`for [k,v] in table`, `for [item,index] in list.indexed()`). Also make sure `for` loops only accept iterable expressions, aka objects that implement the iterable trait.
+	- Implemented list-pattern destructuring for `for` over lists (e.g., `for [item, i] in indexed(arr)`), handling identifiers and wildcards plus optional rest. Table iteration and an iterator trait remain future work.
 - [x] Range iteration helper `range(start,end)` & indexed iteration support (implement in prelude).
 	- Implemented `range(start, stop)` (half-open, ascending) and `indexed(arr)` in `prelude.luma`.
 	- Added runtime tests: `range_sum` and `indexed_sum`.

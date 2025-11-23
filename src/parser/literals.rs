@@ -121,10 +121,19 @@ where
         .map(|e| TableKey::Computed(Box::new(e)));
     
     // Any of the three key types followed by = and value
-    let table_entry = choice((computed_key, string_key, identifier_key))
+    let kv_entry = choice((computed_key.clone(), string_key.clone(), identifier_key.clone()))
         .then_ignore(just('=').padded_by(ws.clone()))
-        .then(expr)
+        .then(expr.clone())
         .map(|(k, v)| (k, v));
+
+    // Shorthand entry: identifier alone expands to key=name, value=Identifier(name)
+    let shorthand_entry = ident
+        .map(|s: &str| {
+            let name = s.to_string();
+            (TableKey::Identifier(name.clone()), Expr::Identifier(name))
+        });
+
+    let table_entry = choice((kv_entry, shorthand_entry));
     
     table_entry
         .separated_by(just(',').padded_by(ws.clone()))
