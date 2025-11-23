@@ -79,18 +79,18 @@ pub fn merge_parent_fields(type_def: &HashMap<String, Value>) -> HashMap<String,
     let mut merged = type_def.clone();
 
     // Check if there's a __parent field
-    if let Some(parent_val) = type_def.get("__parent") {
-        if let Some(parent_map) = get_type_map(parent_val) {
-            let parent_borrowed = parent_map.borrow();
+    if let Some(parent_val) = type_def.get("__parent")
+        && let Some(parent_map) = get_type_map(parent_val)
+    {
+        let parent_borrowed = parent_map.borrow();
 
-            // Recursively merge parent's fields
-            let parent_merged = merge_parent_fields(&parent_borrowed);
+        // Recursively merge parent's fields
+        let parent_merged = merge_parent_fields(&parent_borrowed);
 
-            // Add parent fields that don't exist in child
-            for (key, value) in parent_merged.iter() {
-                if !merged.contains_key(key) {
-                    merged.insert(key.clone(), value.clone());
-                }
+        // Add parent fields that don't exist in child
+        for (key, value) in parent_merged.iter() {
+            if !merged.contains_key(key) {
+                merged.insert(key.clone(), value.clone());
             }
         }
     }

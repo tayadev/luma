@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+echo '+cargo test'
+cargo test
+
+echo '+cargo clippy'
+cargo clippy --all-targets --all-features
+
+echo '+cargo fmt --check'
+cargo fmt --check
