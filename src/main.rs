@@ -62,8 +62,8 @@ fn main() {
             let ast = match luma::parser::parse(&source) {
                 Ok(ast) => ast,
                 Err(errors) => {
-                    for error in errors {
-                        eprintln!("Parse error: {}", error);
+                    for error in &errors {
+                        eprintln!("{}", luma::parser::format_parse_error(error, &source, Some(file)));
                     }
                     process::exit(1);
                 }
@@ -81,8 +81,8 @@ fn main() {
             let ast = match luma::parser::parse(&source) {
                 Ok(ast) => ast,
                 Err(errors) => {
-                    for error in errors {
-                        eprintln!("Parse error: {}", error);
+                    for error in &errors {
+                        eprintln!("{}", luma::parser::format_parse_error(error, &source, Some(file)));
                     }
                     process::exit(1);
                 }
@@ -107,8 +107,8 @@ fn main() {
             let ast = match luma::parser::parse(&source) {
                 Ok(ast) => ast,
                 Err(errors) => {
-                    for error in errors {
-                        eprintln!("Parse error: {}", error);
+                    for error in &errors {
+                        eprintln!("{}", luma::parser::format_parse_error(error, &source, Some(file)));
                     }
                     process::exit(1);
                 }
@@ -145,8 +145,8 @@ fn run_file(file: &str) {
     let ast = match luma::parser::parse(&source) {
         Ok(ast) => ast,
         Err(errors) => {
-            for error in errors {
-                eprintln!("Parse error: {}", error);
+            for error in &errors {
+                eprintln!("{}", luma::parser::format_parse_error(error, &source, Some(file)));
             }
             process::exit(1);
         }
@@ -231,8 +231,8 @@ fn run_repl() {
             Ok(ast) => ast,
             Err(errors) => {
                 // Report parse errors
-                for error in errors {
-                    eprintln!("Parse error: {}", error);
+                for error in &errors {
+                    eprintln!("{}", luma::parser::format_parse_error(error, &input, Some("<repl>")));
                 }
                 continue;
             }
