@@ -625,6 +625,9 @@ impl TypeEnv {
                 // Type of the matched expression
                 let matched_ty = self.check_expr(expr);
                 
+                // Check for unreachable patterns
+                self.check_unreachable_patterns(arms);
+                
                 // Check exhaustiveness
                 self.check_match_exhaustiveness(arms, Some(&matched_ty));
                 
@@ -706,6 +709,9 @@ impl TypeEnv {
             Stmt::Match { expr, arms } => {
                 // Check the match expression
                 let expr_ty = self.check_expr(expr);
+                
+                // Check for unreachable patterns
+                self.check_unreachable_patterns(arms);
                 
                 // Check exhaustiveness
                 self.check_match_exhaustiveness(arms, Some(&expr_ty));
@@ -1111,6 +1117,37 @@ impl TypeEnv {
                 let params = param_types.iter().map(|t| self.type_from_ast(t)).collect::<Vec<_>>();
                 let ret = Box::new(self.type_from_ast(return_type));
                 TcType::Function { params, ret }
+            }
+        }
+    }
+
+    /// Check for unreachable patterns in a match expression
+    /// A pattern is unreachable if a previous pattern already catches all cases
+    fn check_unreachable_patterns(&mut self, arms: &[(Pattern, Vec<Stmt>)]) {
+        let mut seen_catch_all = false;
+        
+        for (i, (pattern, _)) in arms.iter().enumerate() {
+            if seen_catch_all {
+                self.error(format!(
+                    "Unreachable pattern: pattern #{} is unreachable because a previous pattern already covers all cases",
+                    i + 1
+                ));
+            }
+            
+            // Check if this pattern is a catch-all
+            match pattern {
+                Pattern::Wildcard => {
+                    seen_catch_all = true;
+                }
+                Pattern::Ident(name) => {
+                    // Identifier patterns that are not known tags are catch-all bindings
+                    if !matches!(name.as_str(), "ok" | "err" | "some" | "none") {
+                        seen_catch_all = true;
+                    }
+                }
+                _ => {
+                    // Other patterns are not catch-all
+                }
             }
         }
     }
