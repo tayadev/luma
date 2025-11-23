@@ -4,12 +4,6 @@ Ordered by near-term impact on correctness, developer ergonomics, and spec compl
 When you complete an item, check it off. If an item is too big, break it down into smaller tasks first.
 If you realize the priority of an item has changed, feel free to reorder the list.
 
-- [ ] Align typechecker with operator method fallback semantics
-	- Unary `-x`: allow via `__neg` (avoid requiring numeric RHS from desugaring to `0 - x`).
-	- Ensure `%`, comparisons, and other overloadables match runtime fallback behavior.
-- [ ] Negative test suite build-out (`tests/should_fail`)
-	- Add: unreachable pattern, invalid interpolation, duplicate named args, illegal table key forms.
-	- Already present: non-exhaustive match, missing tag, unary negation without overload, arity/type errors.
 - [ ] Documentation sync pass (SPEC + README)
 	- Verify coverage and examples for: match as expression, string interpolation, pattern forms, import semantics.
 	- Clarify and finalize reserved keywords list to match lexer.
