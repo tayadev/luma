@@ -1,19 +1,80 @@
-Program(
-  statements: [
-    Return(
-      value: Table([
-      (Computed(Binary(
-        left: String("key"),
-        op: Add,
-        right: String("1"),
-      )), String("value1")),
-      (Computed(Binary(
-        left: Number(2.0),
-        op: Add,
-        right: Number(3.0),
-      )), String("value2")),
-      (Identifier("regular"), String("value3")),
-    ])
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        Return(
+            value: Table(
+                fields: [
+                    (Computed(Binary(
+                        left: String(
+                            value: "key",
+                            span: (
+                                start: 3,
+                                end: 8,
+                            ),
+                        ),
+                        op: Add,
+                        right: String(
+                            value: "1",
+                            span: (
+                                start: 11,
+                                end: 14,
+                            ),
+                        ),
+                        span: (
+                            start: 3,
+                            end: 14,
+                        ),
+                    )), String(
+                        value: "value1",
+                        span: (
+                            start: 18,
+                            end: 26,
+                        ),
+                    )),
+                    (Computed(Binary(
+                        left: Number(
+                            value: 2.0,
+                            span: (
+                                start: 29,
+                                end: 30,
+                            ),
+                        ),
+                        op: Add,
+                        right: Number(
+                            value: 3.0,
+                            span: (
+                                start: 33,
+                                end: 34,
+                            ),
+                        ),
+                        span: (
+                            start: 29,
+                            end: 34,
+                        ),
+                    )), String(
+                        value: "value2",
+                        span: (
+                            start: 38,
+                            end: 46,
+                        ),
+                    )),
+                    (Identifier("regular"), String(
+                        value: "value3",
+                        span: (
+                            start: 58,
+                            end: 66,
+                        ),
+                    )),
+                ],
+                span: (
+                    start: 0,
+                    end: 69,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 69,
+            ),
+        ),
+    ],
 )

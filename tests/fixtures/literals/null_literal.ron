@@ -1,7 +1,17 @@
-Program(
-  statements: [
-    Return(
-      value: Null
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        Return(
+            value: Null(
+                span: (
+                    start: 0,
+                    end: 4,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 4,
+            ),
+        ),
+    ],
 )

@@ -1,19 +1,58 @@
-Program(
+#![enable(implicit_some)]
+(
     statements: [
         VarDecl(
             mutable: false,
             name: "numbers",
-            type: Some(GenericType(
+            type: GenericType(
                 name: "List",
                 type_args: [
-                    TypeIdent("Number"),
+                    TypeIdent(
+                        name: "Number",
+                        span: (
+                            start: 18,
+                            end: 24,
+                        ),
+                    ),
                 ],
-            )),
-            value: List([
-                Number(1.0),
-                Number(2.0),
-                Number(3.0),
-            ]),
+                span: (
+                    start: 13,
+                    end: 26,
+                ),
+            ),
+            value: List(
+                elements: [
+                    Number(
+                        value: 1.0,
+                        span: (
+                            start: 29,
+                            end: 30,
+                        ),
+                    ),
+                    Number(
+                        value: 2.0,
+                        span: (
+                            start: 32,
+                            end: 33,
+                        ),
+                    ),
+                    Number(
+                        value: 3.0,
+                        span: (
+                            start: 35,
+                            end: 36,
+                        ),
+                    ),
+                ],
+                span: (
+                    start: 28,
+                    end: 38,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 38,
+            ),
         ),
     ],
 )

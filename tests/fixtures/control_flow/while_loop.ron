@@ -1,22 +1,69 @@
-Program(
+#![enable(implicit_some)]
+(
     statements: [
         While(
             condition: Binary(
-                left: Identifier("count"),
+                left: Identifier(
+                    name: "count",
+                    span: (
+                        start: 6,
+                        end: 12,
+                    ),
+                ),
                 op: Lt,
-                right: Number(10.0),
+                right: Number(
+                    value: 10.0,
+                    span: (
+                        start: 14,
+                        end: 16,
+                    ),
+                ),
+                span: (
+                    start: 6,
+                    end: 17,
+                ),
             ),
             body: [
                 Assignment(
-                    target: Identifier("count"),
+                    target: Identifier(
+                        name: "count",
+                        span: (
+                            start: 22,
+                            end: 28,
+                        ),
+                    ),
                     op: Assign,
                     value: Binary(
-                        left: Identifier("count"),
+                        left: Identifier(
+                            name: "count",
+                            span: (
+                                start: 30,
+                                end: 36,
+                            ),
+                        ),
                         op: Add,
-                        right: Number(1.0),
+                        right: Number(
+                            value: 1.0,
+                            span: (
+                                start: 38,
+                                end: 39,
+                            ),
+                        ),
+                        span: (
+                            start: 30,
+                            end: 40,
+                        ),
+                    ),
+                    span: (
+                        start: 22,
+                        end: 40,
                     ),
                 ),
             ],
+            span: (
+                start: 0,
+                end: 44,
+            ),
         ),
     ],
 )

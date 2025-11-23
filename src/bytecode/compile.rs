@@ -300,16 +300,16 @@ impl Compiler {
                 let mut end_jumps = Vec::new();
 
                 for (i, (pattern, body)) in arms.iter().enumerate() {
-                    let is_wildcard = matches!(pattern, Pattern::Wildcard);
+                    let is_wildcard = matches!(pattern, Pattern::Wildcard { .. });
                     // Ident patterns can be catch-all or tag patterns depending on the name
-                    let is_tag_pattern = matches!(pattern, Pattern::Ident(name) if matches!(name.as_str(), "ok" | "err" | "some" | "none"));
+                    let is_tag_pattern = matches!(pattern, Pattern::Ident { name, .. } if matches!(name.as_str(), "ok" | "err" | "some" | "none"));
                     let is_catch_all =
-                        is_wildcard || (matches!(pattern, Pattern::Ident(_)) && !is_tag_pattern);
+                        is_wildcard || (matches!(pattern, Pattern::Ident { name: _, .. }) && !is_tag_pattern);
 
                     if !is_catch_all {
                         // Check if pattern matches
                         match pattern {
-                            Pattern::Ident(tag) => {
+                            Pattern::Ident { name: tag, .. } => {
                                 // Tag pattern: Check if the match value has this tag/property
                                 self.chunk
                                     .instructions
@@ -342,7 +342,7 @@ impl Compiler {
                                 let next_arm_ip = self.current_ip();
                                 self.patch_jump(jf_next_arm, next_arm_ip);
                             }
-                            Pattern::Literal(lit) => {
+                            Pattern::Literal { value: lit, .. } => {
                                 // Check if the match value equals this literal
                                 self.chunk
                                     .instructions
@@ -484,7 +484,7 @@ impl Compiler {
                             // Dup the list for each element access
                             for (i, elem_pattern) in elements.iter().enumerate() {
                                 match elem_pattern {
-                                    Pattern::Ident(name) => {
+                                    Pattern::Ident { name, .. } => {
                                         self.chunk.instructions.push(Instruction::Dup); // dup list
                                         let idx =
                                             push_const(&mut self.chunk, Constant::Number(i as f64));
@@ -498,7 +498,7 @@ impl Compiler {
                                             .instructions
                                             .push(Instruction::SetGlobal(name_idx));
                                     }
-                                    Pattern::Wildcard => {
+                                    Pattern::Wildcard { .. } => {
                                         // Wildcard element: don't extract, don't bind
                                     }
                                     _ => {
@@ -547,7 +547,7 @@ impl Compiler {
                             }
                             self.chunk.instructions.push(Instruction::Pop); // pop table
                         }
-                        Pattern::Ident(name) => {
+                        Pattern::Ident { name, .. } => {
                             // Simple binding, just assign
                             let name_idx =
                                 push_const(&mut self.chunk, Constant::String(name.clone()));
@@ -555,11 +555,11 @@ impl Compiler {
                                 .instructions
                                 .push(Instruction::SetGlobal(name_idx));
                         }
-                        Pattern::Wildcard => {
+                        Pattern::Wildcard { .. } => {
                             // Wildcard doesn't bind, just pop the value
                             self.chunk.instructions.push(Instruction::Pop);
                         }
-                        Pattern::Literal(_) => {
+                        Pattern::Literal { value: _, .. } => {
                             // Literal patterns don't bind variables in destructuring context
                             self.chunk.instructions.push(Instruction::Pop);
                         }
@@ -579,7 +579,7 @@ impl Compiler {
                             // Extract each element into its own local
                             for (i, elem_pattern) in elements.iter().enumerate() {
                                 match elem_pattern {
-                                    Pattern::Ident(name) => {
+                                    Pattern::Ident { name, .. } => {
                                         self.chunk
                                             .instructions
                                             .push(Instruction::GetLocal(value_slot));
@@ -595,7 +595,7 @@ impl Compiler {
                                             .insert(name.clone(), elem_slot);
                                         self.local_count += 1;
                                     }
-                                    Pattern::Wildcard => {
+                                    Pattern::Wildcard { .. } => {
                                         // Wildcard element: don't extract, don't bind
                                         // No need to emit any instructions
                                     }
@@ -650,17 +650,17 @@ impl Compiler {
                                 self.local_count += 1;
                             }
                         }
-                        Pattern::Ident(name) => {
+                        Pattern::Ident { name, .. } => {
                             let slot = self.local_count;
                             self.scopes.last_mut().unwrap().insert(name.clone(), slot);
                             self.local_count += 1;
                         }
-                        Pattern::Wildcard => {
+                        Pattern::Wildcard { .. } => {
                             // Wildcard doesn't bind, the value stays on stack as an unused local
                             // We still need to account for it in local_count
                             self.local_count += 1;
                         }
-                        Pattern::Literal(_) => {
+                        Pattern::Literal { value: _, .. } => {
                             // Literal patterns don't bind in destructuring context
                             self.local_count += 1;
                         }
@@ -674,7 +674,7 @@ impl Compiler {
                 ..
             } => {
                 match target {
-                    Expr::Identifier(name) => {
+                    Expr::Identifier { name, .. } => {
                         self.emit_expr(value);
                         if let Some(slot) = self.lookup_local(name) {
                             self.chunk.instructions.push(Instruction::SetLocal(slot));
@@ -767,7 +767,7 @@ impl Compiler {
                     },
                 }
                 let loop_pat = match pattern {
-                    Pattern::Ident(var_name) => {
+                    Pattern::Ident { name: var_name, .. } => {
                         // Allocate slot for loop variable (initialized to null)
                         let null_idx = push_const(&mut self.chunk, Constant::Null);
                         self.chunk.instructions.push(Instruction::Const(null_idx));
@@ -784,7 +784,7 @@ impl Compiler {
                         let mut elem_slots: Vec<Option<usize>> = Vec::with_capacity(elements.len());
                         for elem in elements {
                             match elem {
-                                Pattern::Ident(name) => {
+                                Pattern::Ident { name, .. } => {
                                     let null_idx = push_const(&mut self.chunk, Constant::Null);
                                     self.chunk.instructions.push(Instruction::Const(null_idx));
                                     let slot = self.local_count;
@@ -792,7 +792,7 @@ impl Compiler {
                                     self.local_count += 1;
                                     elem_slots.push(Some(slot));
                                 }
-                                Pattern::Wildcard => {
+                                Pattern::Wildcard { .. } => {
                                     elem_slots.push(None);
                                 }
                                 _ => {
@@ -939,7 +939,7 @@ impl Compiler {
                 // Exit the entire loop scope (pop all loop locals)
                 self.exit_scope_with_preserve(false);
             }
-            Stmt::Break(level_opt) => {
+            Stmt::Break { level: level_opt, .. } => {
                 let level = level_opt.unwrap_or(1) as usize;
 
                 // Validate that we're inside enough nested loops
@@ -972,7 +972,7 @@ impl Compiler {
                 // Register this jump in the appropriate loop context (counting from innermost)
                 self.loop_stack[target_loop_idx].break_patches.push(jump_ip);
             }
-            Stmt::Continue(level_opt) => {
+            Stmt::Continue { level: level_opt, .. } => {
                 let level = level_opt.unwrap_or(1) as usize;
 
                 // Validate that we're inside enough nested loops
@@ -1012,7 +1012,7 @@ impl Compiler {
                         .push(jump_ip);
                 }
             }
-            Stmt::ExprStmt(expr) => {
+            Stmt::ExprStmt { expr, .. } => {
                 // Evaluate the expression and pop the result (since it's not used)
                 self.emit_expr(expr);
                 self.chunk.instructions.push(Instruction::Pop);
@@ -1022,23 +1022,23 @@ impl Compiler {
 
     fn emit_expr(&mut self, e: &Expr) {
         match e {
-            Expr::Number(n) => {
+            Expr::Number { value: n, .. } => {
                 let idx = push_const(&mut self.chunk, Constant::Number(*n));
                 self.chunk.instructions.push(Instruction::Const(idx));
             }
-            Expr::String(s) => {
+            Expr::String { value: s, .. } => {
                 let idx = push_const(&mut self.chunk, Constant::String(s.clone()));
                 self.chunk.instructions.push(Instruction::Const(idx));
             }
-            Expr::Boolean(b) => {
+            Expr::Boolean { value: b, .. } => {
                 let idx = push_const(&mut self.chunk, Constant::Boolean(*b));
                 self.chunk.instructions.push(Instruction::Const(idx));
             }
-            Expr::Null => {
+            Expr::Null { .. } => {
                 let idx = push_const(&mut self.chunk, Constant::Null);
                 self.chunk.instructions.push(Instruction::Const(idx));
             }
-            Expr::List(items) => {
+            Expr::List { elements: items, .. } => {
                 for item in items {
                     self.emit_expr(item);
                 }
@@ -1046,7 +1046,7 @@ impl Compiler {
                     .instructions
                     .push(Instruction::BuildList(items.len()));
             }
-            Expr::Table(fields) => {
+            Expr::Table { fields, .. } => {
                 for (key, value) in fields {
                     // Emit the key based on its type
                     match key {
@@ -1077,7 +1077,7 @@ impl Compiler {
                 self.emit_expr(index);
                 self.chunk.instructions.push(Instruction::GetIndex);
             }
-            Expr::Identifier(name) => {
+            Expr::Identifier { name, .. } => {
                 if let Some(slot) = self.lookup_local(name) {
                     self.chunk.instructions.push(Instruction::GetLocal(slot));
                 } else if let Some(upvalue_idx) = self.resolve_upvalue(name) {
@@ -1203,7 +1203,7 @@ impl Compiler {
                     // Resolve parameter names from callee
                     let param_names: Vec<String> = match &**callee {
                         Expr::Function { arguments: fn_args, .. } => fn_args.iter().map(|a| a.name.clone()).collect(),
-                        Expr::Identifier(n) => self.lookup_fn_params(n).unwrap_or_else(|| {
+                        Expr::Identifier { name: n, .. } => self.lookup_fn_params(n).unwrap_or_else(|| {
                             panic!("Compiler error: Named arguments require statically-known callee '{}" , n)
                         }),
                         _ => panic!("Compiler error: Named arguments require statically-known callee"),
@@ -1254,7 +1254,7 @@ impl Compiler {
                         .push(Instruction::Call(param_names.len()));
                 }
             }
-            Expr::Block(stmts) => {
+            Expr::Block { statements: stmts, .. } => {
                 // Block is an expression that evaluates to its last statement's value
                 self.enter_scope();
                 // Predeclare local function names for mutual recursion in block
@@ -1311,7 +1311,7 @@ impl Compiler {
                 }
             }
 
-            Expr::Import { path } => {
+            Expr::Import { path, .. } => {
                 // Emit the path expression (should be a string)
                 self.emit_expr(path);
                 // Emit the Import instruction
@@ -1330,15 +1330,15 @@ impl Compiler {
 
                 let mut end_jumps = Vec::new();
                 for (i, (pattern, body)) in arms.iter().enumerate() {
-                    let is_wildcard = matches!(pattern, Pattern::Wildcard);
+                    let is_wildcard = matches!(pattern, Pattern::Wildcard { .. });
                     // Check for tag patterns
-                    let is_tag_pattern = matches!(pattern, Pattern::Ident(name) if matches!(name.as_str(), "ok" | "err" | "some" | "none"));
+                    let is_tag_pattern = matches!(pattern, Pattern::Ident { name, .. } if matches!(name.as_str(), "ok" | "err" | "some" | "none"));
                     let is_catch_all =
-                        is_wildcard || (matches!(pattern, Pattern::Ident(_)) && !is_tag_pattern);
+                        is_wildcard || (matches!(pattern, Pattern::Ident { name: _, .. }) && !is_tag_pattern);
 
                     if !is_catch_all {
                         match pattern {
-                            Pattern::Ident(name) => {
+                            Pattern::Ident { name, .. } => {
                                 // Tag pattern matching
                                 self.chunk
                                     .instructions
@@ -1364,7 +1364,7 @@ impl Compiler {
                                 let next_ip = self.current_ip();
                                 self.patch_jump(jf_next, next_ip);
                             }
-                            Pattern::Literal(lit) => {
+                            Pattern::Literal { value: lit, .. } => {
                                 // Literal pattern matching
                                 self.chunk
                                     .instructions
@@ -1647,7 +1647,7 @@ fn apply_implicit_return_to_arm(body: &[Stmt]) -> Vec<Stmt> {
     let mut arm_body = body.to_vec();
     if let Some(last) = arm_body.pop() {
         match last {
-            Stmt::ExprStmt(e) => arm_body.push(Stmt::Return {
+            Stmt::ExprStmt { expr: e, .. } => arm_body.push(Stmt::Return {
                 value: e,
                 span: None,
             }),

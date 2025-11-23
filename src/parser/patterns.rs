@@ -1,4 +1,5 @@
-use crate::ast::{Literal, Pattern, TablePatternField};
+use crate::ast::{Literal, Pattern, Span};
+use crate::ast::TablePatternField;
 use chumsky::prelude::*;
 
 /// Creates a parser for literal patterns
@@ -12,27 +13,52 @@ where
     let number = text::int(10)
         .then(just('.').then(text::digits(10)).or_not())
         .to_slice()
-        .map(|s: &str| Pattern::Literal(Literal::Number(s.parse::<f64>().unwrap())))
+        .try_map(|s: &str, span| {
+            Ok(Pattern::Literal {
+                value: Literal::Number(s.parse::<f64>().unwrap()),
+                span: Some(Span::from_chumsky(span)),
+            })
+        })
         .padded_by(ws.clone());
 
     // String literal (simple, no interpolation needed for patterns)
     let string_literal = just('"')
         .ignore_then(none_of('"').repeated().collect::<String>())
         .then_ignore(just('"'))
-        .map(|s| Pattern::Literal(Literal::String(s)))
+        .try_map(|s, span| {
+            Ok(Pattern::Literal {
+                value: Literal::String(s),
+                span: Some(Span::from_chumsky(span)),
+            })
+        })
         .padded_by(ws.clone());
 
     // Boolean literals
     let bool_true = text::keyword("true")
-        .to(Pattern::Literal(Literal::Boolean(true)))
+        .try_map(|_, span| {
+            Ok(Pattern::Literal {
+                value: Literal::Boolean(true),
+                span: Some(Span::from_chumsky(span)),
+            })
+        })
         .padded_by(ws.clone());
     let bool_false = text::keyword("false")
-        .to(Pattern::Literal(Literal::Boolean(false)))
+        .try_map(|_, span| {
+            Ok(Pattern::Literal {
+                value: Literal::Boolean(false),
+                span: Some(Span::from_chumsky(span)),
+            })
+        })
         .padded_by(ws.clone());
 
     // Null literal
     let null = text::keyword("null")
-        .to(Pattern::Literal(Literal::Null))
+        .try_map(|_, span| {
+            Ok(Pattern::Literal {
+                value: Literal::Null,
+                span: Some(Span::from_chumsky(span)),
+            })
+        })
         .padded_by(ws.clone());
 
     choice((number, string_literal, bool_true, bool_false, null)).boxed()
@@ -52,7 +78,11 @@ where
     recursive(|pattern_ref| {
         let wildcard = just('_')
             .padded_by(ws.clone())
-            .to(Pattern::Wildcard)
+            .try_map(|_, span| {
+                Ok(Pattern::Wildcard {
+                    span: Some(Span::from_chumsky(span)),
+                })
+            })
             .boxed();
 
         // List patterns support nested patterns
@@ -72,10 +102,12 @@ where
                 just('[').padded_by(ws.clone()),
                 just(']').padded_by(ws.clone()),
             )
-            .map(|(elements, rest)| Pattern::ListPattern {
-                elements,
-                rest,
-                span: None,
+            .try_map(|(elements, rest), span| {
+                Ok(Pattern::ListPattern {
+                    elements,
+                    rest,
+                    span: Some(Span::from_chumsky(span)),
+                })
             })
             .boxed();
 
@@ -101,13 +133,23 @@ where
                 just('{').padded_by(ws.clone()),
                 just('}').padded_by(ws.clone()),
             )
-            .map(|fields| Pattern::TablePattern { fields, span: None })
+            .try_map(|fields, span| {
+                Ok(Pattern::TablePattern {
+                    fields,
+                    span: Some(Span::from_chumsky(span)),
+                })
+            })
             .boxed();
 
         // Identifier pattern (default)
         let ident_pattern = ident
             .clone()
-            .map(|s: &str| Pattern::Ident(s.to_string()))
+            .try_map(|s: &str, span| {
+                Ok(Pattern::Ident {
+                    name: s.to_string(),
+                    span: Some(Span::from_chumsky(span)),
+                })
+            })
             .boxed();
 
         let literal = literal_pattern(ws.clone());

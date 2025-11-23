@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOp, Expr};
+use crate::ast::{BinaryOp, Expr, Span};
 use chumsky::prelude::*;
 
 // Parser-based string interpolation with full expression support inside ${}
@@ -47,7 +47,7 @@ where
     just('"')
         .ignore_then(body)
         .then_ignore(just('"'))
-        .map(|segments| {
+        .try_map(|segments, span| {
             let mut parts: Vec<Expr> = Vec::new();
             let mut buf = String::new();
             for seg in segments {
@@ -55,7 +55,10 @@ where
                     Segment::Text(c) => buf.push(c),
                     Segment::Expr(e) => {
                         if !buf.is_empty() {
-                            parts.push(Expr::String(buf.clone()));
+                            parts.push(Expr::String {
+                                value: buf.clone(),
+                                span: None, // Inner string fragments don't need spans
+                            });
                             buf.clear();
                         }
                         parts.push(e);
@@ -63,11 +66,24 @@ where
                 }
             }
             if !buf.is_empty() {
-                parts.push(Expr::String(buf));
+                parts.push(Expr::String {
+                    value: buf,
+                    span: None,
+                });
             }
-            match parts.len() {
-                0 => Expr::String(String::new()),
-                1 => parts.remove(0),
+            Ok(match parts.len() {
+                0 => Expr::String {
+                    value: String::new(),
+                    span: Some(Span::from_chumsky(span)),
+                },
+                1 => {
+                    // Single part - return it but update span
+                    let mut expr = parts.remove(0);
+                    if let Expr::String { span: ref mut s, .. } = expr {
+                        *s = Some(Span::from_chumsky(span));
+                    }
+                    expr
+                }
                 _ => parts
                     .into_iter()
                     .reduce(|left, right| Expr::Binary {
@@ -77,7 +93,7 @@ where
                         span: None,
                     })
                     .unwrap(),
-            }
+            })
         })
         .padded_by(ws)
 }

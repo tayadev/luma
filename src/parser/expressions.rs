@@ -18,7 +18,12 @@ where
         .ignore_then(stmt.repeated().collect::<Vec<Stmt>>())
         .then(expr.or_not())
         .then_ignore(just("end").padded_by(ws))
-        .try_map(|(stmts, ret), _span| Ok(Expr::Block(apply_implicit_return(stmts, ret))))
+        .try_map(|(stmts, ret), span| {
+            Ok(Expr::Block {
+                statements: apply_implicit_return(stmts, ret),
+                span: Some(Span::from_chumsky(span)),
+            })
+        })
         .boxed()
 }
 
@@ -182,9 +187,10 @@ where
     just("import")
         .padded_by(ws.clone())
         .ignore_then(expr.delimited_by(just('(').padded_by(ws.clone()), just(')').padded_by(ws)))
-        .try_map(|path, _span| {
+        .try_map(|path, span| {
             Ok(Expr::Import {
                 path: Box::new(path),
+                span: Some(Span::from_chumsky(span)),
             })
         })
         .boxed()

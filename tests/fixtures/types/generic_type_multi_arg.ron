@@ -1,16 +1,42 @@
-Program(
+#![enable(implicit_some)]
+(
     statements: [
         VarDecl(
             mutable: false,
             name: "result",
-            type: Some(GenericType(
+            type: GenericType(
                 name: "Result",
                 type_args: [
-                    TypeIdent("String"),
-                    TypeIdent("Number"),
+                    TypeIdent(
+                        name: "String",
+                        span: (
+                            start: 19,
+                            end: 25,
+                        ),
+                    ),
+                    TypeIdent(
+                        name: "Number",
+                        span: (
+                            start: 27,
+                            end: 33,
+                        ),
+                    ),
                 ],
-            )),
-            value: Null,
+                span: (
+                    start: 12,
+                    end: 35,
+                ),
+            ),
+            value: Null(
+                span: (
+                    start: 37,
+                    end: 41,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 42,
+            ),
         ),
     ],
 )

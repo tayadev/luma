@@ -395,12 +395,12 @@ impl TypeEnv {
 
     fn check_expr(&mut self, expr: &Expr) -> TcType {
         match expr {
-            Expr::Number(_) => TcType::Number,
-            Expr::String(_) => TcType::String,
-            Expr::Boolean(_) => TcType::Boolean,
-            Expr::Null => TcType::Null,
+            Expr::Number { value: _, .. } => TcType::Number,
+            Expr::String { value: _, .. } => TcType::String,
+            Expr::Boolean { value: _, .. } => TcType::Boolean,
+            Expr::Null { .. } => TcType::Null,
 
-            Expr::Identifier(name) => {
+            Expr::Identifier { name, .. } => {
                 if let Some(info) = self.lookup(name) {
                     info.ty.clone()
                 } else {
@@ -409,7 +409,7 @@ impl TypeEnv {
                 }
             }
 
-            Expr::List(elements) => {
+            Expr::List { elements, .. } => {
                 if elements.is_empty() {
                     TcType::List(Box::new(TcType::Unknown))
                 } else {
@@ -427,7 +427,7 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Table(entries) => {
+            Expr::Table { fields: entries, .. } => {
                 for (_, value) in entries {
                     self.check_expr(value);
                 }
@@ -719,7 +719,7 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Block(stmts) => {
+            Expr::Block { statements: stmts, .. } => {
                 self.push_scope();
                 let ret_ty = self.check_block(stmts, &TcType::Unknown);
                 self.pop_scope();
@@ -767,7 +767,7 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Import { path } => {
+            Expr::Import { path, .. } => {
                 // Check that path is a string expression
                 let path_ty = self.check_expr(path);
                 if !path_ty.is_compatible(&TcType::String) && path_ty != TcType::Unknown {
@@ -1083,7 +1083,7 @@ impl TypeEnv {
                 self.pop_scope();
             }
 
-            Stmt::Break(_) | Stmt::Continue(_) => {
+            Stmt::Break { level: _, .. } | Stmt::Continue { level: _, .. } => {
                 // TODO: Could check if we're inside a loop
             }
 
@@ -1091,7 +1091,7 @@ impl TypeEnv {
                 self.check_expr(expr);
             }
 
-            Stmt::ExprStmt(expr) => {
+            Stmt::ExprStmt { expr, .. } => {
                 self.check_expr(expr);
             }
         }
@@ -1099,7 +1099,7 @@ impl TypeEnv {
 
     fn check_assignment_target(&mut self, target: &Expr) -> TcType {
         match target {
-            Expr::Identifier(name) => {
+            Expr::Identifier { name, .. } => {
                 if let Some(info) = self.lookup(name) {
                     let ty = info.ty.clone();
                     let mutable = info.mutable;
@@ -1164,7 +1164,7 @@ impl TypeEnv {
 
     fn check_pattern(&mut self, pattern: &Pattern, ty: &TcType, mutable: bool, in_match: bool) {
         match pattern {
-            Pattern::Ident(name) => {
+            Pattern::Ident { name, .. } => {
                 if in_match && KNOWN_TAG_PATTERNS.contains(&name.as_str()) {
                     // Tag pattern in match: don't bind a variable
                 } else {
@@ -1269,10 +1269,10 @@ impl TypeEnv {
                     }
                 }
             }
-            Pattern::Wildcard => {
+            Pattern::Wildcard { .. } => {
                 // Wildcard pattern doesn't bind any variables, just accepts any type
             }
-            Pattern::Literal(_) => {
+            Pattern::Literal { value: _, .. } => {
                 // Literal patterns don't bind variables, just match values
             }
         }
@@ -1280,7 +1280,7 @@ impl TypeEnv {
 
     fn type_from_ast(ty: &Type) -> TcType {
         match ty {
-            Type::TypeIdent(name) => match name.as_str() {
+            Type::TypeIdent { name, .. } => match name.as_str() {
                 "Number" => TcType::Number,
                 "String" => TcType::String,
                 "Boolean" => TcType::Boolean,
@@ -1289,8 +1289,8 @@ impl TypeEnv {
                 "Any" => TcType::Any,
                 _ => TcType::Unknown, // Unknown type name
             },
-            Type::Any => TcType::Any,
-            Type::GenericType { name, type_args } => {
+            Type::Any { .. } => TcType::Any,
+            Type::GenericType { name, type_args, .. } => {
                 match name.as_str() {
                     // Concrete generics support (MVP): List<T>
                     "List" => {
@@ -1308,6 +1308,7 @@ impl TypeEnv {
             Type::FunctionType {
                 param_types,
                 return_type,
+                ..
             } => {
                 let params = param_types
                     .iter()
@@ -1334,10 +1335,10 @@ impl TypeEnv {
 
             // Check if this pattern is a catch-all
             match pattern {
-                Pattern::Wildcard => {
+                Pattern::Wildcard { .. } => {
                     seen_catch_all = true;
                 }
-                Pattern::Ident(name) => {
+                Pattern::Ident { name, .. } => {
                     // Identifier patterns that are not known tags are catch-all bindings
                     if !KNOWN_TAG_PATTERNS.contains(&name.as_str()) {
                         seen_catch_all = true;
@@ -1368,10 +1369,10 @@ impl TypeEnv {
 
         for (pattern, _) in arms {
             match pattern {
-                Pattern::Wildcard => {
+                Pattern::Wildcard { .. } => {
                     has_wildcard = true;
                 }
-                Pattern::Ident(name) => {
+                Pattern::Ident { name, .. } => {
                     // Identifier pattern in match can be:
                     // 1. A catch-all binding (acts like wildcard)
                     // 2. A tag pattern for Result/Option (ok/err/some/none)
@@ -1383,7 +1384,7 @@ impl TypeEnv {
                         has_wildcard = true;
                     }
                 }
-                Pattern::Literal(_) => {
+                Pattern::Literal { value: _, .. } => {
                     has_literal = true;
                 }
                 Pattern::ListPattern { .. } | Pattern::TablePattern { .. } => {

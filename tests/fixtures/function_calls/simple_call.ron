@@ -1,14 +1,47 @@
-Program(
+#![enable(implicit_some)]
+(
     statements: [
         Return(
-          value: Call(
-            callee: Identifier("foo"),
-            arguments: [
-                Positional(Number(1.0)),
-                Positional(Number(2.0)),
-                Positional(Number(3.0)),
-            ],
-        )
+            value: Call(
+                callee: Identifier(
+                    name: "foo",
+                    span: (
+                        start: 0,
+                        end: 3,
+                    ),
+                ),
+                arguments: [
+                    Positional(Number(
+                        value: 1.0,
+                        span: (
+                            start: 4,
+                            end: 5,
+                        ),
+                    )),
+                    Positional(Number(
+                        value: 2.0,
+                        span: (
+                            start: 7,
+                            end: 8,
+                        ),
+                    )),
+                    Positional(Number(
+                        value: 3.0,
+                        span: (
+                            start: 10,
+                            end: 11,
+                        ),
+                    )),
+                ],
+                span: (
+                    start: 0,
+                    end: 13,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 13,
+            ),
         ),
     ],
 )

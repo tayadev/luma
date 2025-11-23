@@ -1,15 +1,46 @@
-Program(
+#![enable(implicit_some)]
+(
     statements: [
         Return(
-          value: Logical(
-            left: Logical(
-                left: Identifier("x"),
+            value: Logical(
+                left: Logical(
+                    left: Identifier(
+                        name: "x",
+                        span: (
+                            start: 0,
+                            end: 2,
+                        ),
+                    ),
+                    op: Or,
+                    right: Identifier(
+                        name: "y",
+                        span: (
+                            start: 5,
+                            end: 7,
+                        ),
+                    ),
+                    span: (
+                        start: 0,
+                        end: 12,
+                    ),
+                ),
                 op: Or,
-                right: Identifier("y"),
+                right: Identifier(
+                    name: "z",
+                    span: (
+                        start: 10,
+                        end: 12,
+                    ),
+                ),
+                span: (
+                    start: 0,
+                    end: 12,
+                ),
             ),
-            op: Or,
-            right: Identifier("z"),
-        )
+            span: (
+                start: 0,
+                end: 12,
+            ),
         ),
     ],
 )

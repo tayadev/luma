@@ -1,27 +1,78 @@
-Program(
-  statements: [
-    VarDecl(
-      mutable: false,
-      name: "val",
-      value: Block([
+#![enable(implicit_some)]
+(
+    statements: [
         VarDecl(
-          mutable: false,
-          name: "a",
-          value: Number(1.0),
+            mutable: false,
+            name: "val",
+            value: Block(
+                statements: [
+                    VarDecl(
+                        mutable: false,
+                        name: "a",
+                        value: Number(
+                            value: 1.0,
+                            span: (
+                                start: 21,
+                                end: 22,
+                            ),
+                        ),
+                        span: (
+                            start: 13,
+                            end: 23,
+                        ),
+                    ),
+                    VarDecl(
+                        mutable: false,
+                        name: "b",
+                        value: Number(
+                            value: 2.0,
+                            span: (
+                                start: 31,
+                                end: 32,
+                            ),
+                        ),
+                        span: (
+                            start: 23,
+                            end: 33,
+                        ),
+                    ),
+                    Return(
+                        value: Binary(
+                            left: Identifier(
+                                name: "a",
+                                span: (
+                                    start: 33,
+                                    end: 35,
+                                ),
+                            ),
+                            op: Add,
+                            right: Identifier(
+                                name: "b",
+                                span: (
+                                    start: 37,
+                                    end: 39,
+                                ),
+                            ),
+                            span: (
+                                start: 33,
+                                end: 39,
+                            ),
+                        ),
+                        span: (
+                            start: 33,
+                            end: 39,
+                        ),
+                    ),
+                ],
+                span: (
+                    start: 10,
+                    end: 42,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 42,
+            ),
         ),
-        VarDecl(
-          mutable: false,
-          name: "b",
-          value: Number(2.0),
-        ),
-        Return(
-          value: Binary(
-            left: Identifier("a"),
-            op: Add,
-            right: Identifier("b"),
-          ),
-        ),
-      ]),
-    ),
-  ],
+    ],
 )

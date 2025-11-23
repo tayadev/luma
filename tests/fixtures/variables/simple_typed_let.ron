@@ -1,10 +1,27 @@
-Program(
-  statements: [
-    VarDecl(
-      mutable: false,
-      name: "greeting",
-      type: Some(TypeIdent("String")),
-      value: String("Hello"),
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "greeting",
+            type: TypeIdent(
+                name: "String",
+                span: (
+                    start: 14,
+                    end: 20,
+                ),
+            ),
+            value: String(
+                value: "Hello",
+                span: (
+                    start: 23,
+                    end: 30,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 30,
+            ),
+        ),
+    ],
 )

@@ -100,7 +100,12 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         paren_expr,
         ident
             .clone()
-            .map(|s: &str| Expr::Identifier(s.to_string()))
+            .try_map(|s: &str, span| {
+                Ok(Expr::Identifier {
+                    name: s.to_string(),
+                    span: Some(crate::ast::Span::from_chumsky(span)),
+                })
+            })
             .boxed(),
     ))
     .boxed();
@@ -109,10 +114,19 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     let unary_op = operators::unary_op(ws.clone());
     let unary_expr = unary_op
         .repeated()
-        .foldr(primary.clone(), |op, operand| Expr::Unary {
-            op,
-            operand: Box::new(operand),
-            span: None,
+        .collect::<Vec<_>>()
+        .then(primary.clone())
+        .try_map(|(ops, mut operand), span| {
+            // Apply operators right-to-left
+            for op in ops.into_iter().rev() {
+                let operand_span = operand.span().and_then(|s| Some(s.end)).unwrap_or(span.end);
+                operand = Expr::Unary {
+                    op,
+                    operand: Box::new(operand),
+                    span: Some(crate::ast::Span::new(span.start, operand_span)),
+                };
+            }
+            Ok(operand)
         })
         .boxed();
 
@@ -164,22 +178,30 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
 
     let postfix = unary_expr
         .clone()
-        .foldl(postfix_op.repeated(), |expr, op| match op {
-            PostfixOp::Call(arguments) => Expr::Call {
-                callee: Box::new(expr),
-                arguments,
-                span: None,
-            },
-            PostfixOp::Member(member) => Expr::MemberAccess {
-                object: Box::new(expr),
-                member,
-                span: None,
-            },
-            PostfixOp::Index(index) => Expr::Index {
-                object: Box::new(expr),
-                index,
-                span: None,
-            },
+        .then(postfix_op.repeated().collect::<Vec<_>>())
+        .try_map(|(mut expr, ops), span| {
+            let start = span.start;
+            for op in ops {
+                let expr_span = expr.span().and_then(|s| Some(s.start)).unwrap_or(start);
+                expr = match op {
+                    PostfixOp::Call(arguments) => Expr::Call {
+                        callee: Box::new(expr),
+                        arguments,
+                        span: Some(crate::ast::Span::new(expr_span, span.end)),
+                    },
+                    PostfixOp::Member(member) => Expr::MemberAccess {
+                        object: Box::new(expr),
+                        member,
+                        span: Some(crate::ast::Span::new(expr_span, span.end)),
+                    },
+                    PostfixOp::Index(index) => Expr::Index {
+                        object: Box::new(expr),
+                        index,
+                        span: Some(crate::ast::Span::new(expr_span, span.end)),
+                    },
+                };
+            }
+            Ok(expr)
         })
         .boxed();
 
@@ -194,80 +216,104 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     // Build expression with precedence: || > && > == != > < <= > >= > + - > * / % > postfix > unary
     let mul_expr = postfix
         .clone()
-        .foldl(
-            mul_op.then(postfix.clone()).repeated(),
-            |left, (op, right)| Expr::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-                span: None,
-            },
-        )
+        .then(mul_op.then(postfix.clone()).repeated().collect::<Vec<_>>())
+        .try_map(|(mut left, ops), span| {
+            for (op, right) in ops {
+                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                left = Expr::Binary {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                    span: Some(crate::ast::Span::new(left_span, span.end)),
+                };
+            }
+            Ok(left)
+        })
         .boxed();
 
     let add_expr = mul_expr
         .clone()
-        .foldl(
-            add_op.then(mul_expr.clone()).repeated(),
-            |left, (op, right)| Expr::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-                span: None,
-            },
-        )
+        .then(add_op.then(mul_expr.clone()).repeated().collect::<Vec<_>>())
+        .try_map(|(mut left, ops), span| {
+            for (op, right) in ops {
+                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                left = Expr::Binary {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                    span: Some(crate::ast::Span::new(left_span, span.end)),
+                };
+            }
+            Ok(left)
+        })
         .boxed();
 
     let cmp_expr = add_expr
         .clone()
-        .foldl(
-            cmp_op.then(add_expr.clone()).repeated(),
-            |left, (op, right)| Expr::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-                span: None,
-            },
-        )
+        .then(cmp_op.then(add_expr.clone()).repeated().collect::<Vec<_>>())
+        .try_map(|(mut left, ops), span| {
+            for (op, right) in ops {
+                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                left = Expr::Binary {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                    span: Some(crate::ast::Span::new(left_span, span.end)),
+                };
+            }
+            Ok(left)
+        })
         .boxed();
 
     let eq_expr = cmp_expr
         .clone()
-        .foldl(
-            eq_op.then(cmp_expr.clone()).repeated(),
-            |left, (op, right)| Expr::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-                span: None,
-            },
-        )
+        .then(eq_op.then(cmp_expr.clone()).repeated().collect::<Vec<_>>())
+        .try_map(|(mut left, ops), span| {
+            for (op, right) in ops {
+                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                left = Expr::Binary {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                    span: Some(crate::ast::Span::new(left_span, span.end)),
+                };
+            }
+            Ok(left)
+        })
         .boxed();
 
     let and_expr = eq_expr
         .clone()
-        .foldl(
-            and_op.then(eq_expr.clone()).repeated(),
-            |left, (op, right)| Expr::Logical {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-                span: None,
-            },
-        )
+        .then(and_op.then(eq_expr.clone()).repeated().collect::<Vec<_>>())
+        .try_map(|(mut left, ops), span| {
+            for (op, right) in ops {
+                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                left = Expr::Logical {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                    span: Some(crate::ast::Span::new(left_span, span.end)),
+                };
+            }
+            Ok(left)
+        })
         .boxed();
 
     let or_expr = and_expr
         .clone()
-        .foldl(
-            or_op.then(and_expr.clone()).repeated(),
-            |left, (op, right)| Expr::Logical {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-                span: None,
-            },
-        )
+        .then(or_op.then(and_expr.clone()).repeated().collect::<Vec<_>>())
+        .try_map(|(mut left, ops), span| {
+            for (op, right) in ops {
+                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                left = Expr::Logical {
+                    left: Box::new(left),
+                    op,
+                    right: Box::new(right),
+                    span: Some(crate::ast::Span::new(left_span, span.end)),
+                };
+            }
+            Ok(left)
+        })
         .boxed();
 
     expr_ref.define(or_expr);

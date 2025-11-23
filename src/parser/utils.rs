@@ -12,17 +12,15 @@ use crate::ast::{Expr, Stmt};
 pub fn apply_implicit_return(mut stmts: Vec<Stmt>, ret: Option<Expr>) -> Vec<Stmt> {
     if let Some(expr) = ret {
         // Explicit trailing expression captured separately
-        stmts.push(Stmt::Return {
-            value: expr,
-            span: None,
-        });
+        let span = expr.span();
+        stmts.push(Stmt::Return { value: expr, span });
     } else if let Some(last) = stmts.pop() {
         // No separate trailing expression; convert last ExprStmt into implicit return
         match last {
-            Stmt::ExprStmt(e) => stmts.push(Stmt::Return {
-                value: e,
-                span: None,
-            }),
+            Stmt::ExprStmt { expr, .. } => {
+                let span = expr.span();
+                stmts.push(Stmt::Return { value: expr, span });
+            }
             other => stmts.push(other),
         }
     }

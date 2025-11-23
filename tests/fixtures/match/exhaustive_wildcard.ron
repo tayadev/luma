@@ -1,41 +1,142 @@
-Program(
-  statements: [
-    VarDecl(
-      mutable: false,
-      name: "x",
-      value: Number(5.0),
-    ),
-    Match(
-      expr: Identifier("x"),
-      arms: [
-        (
-          Literal(Number(0.0)),
-          [
-            ExprStmt(Call(
-              callee: Identifier("print"),
-              arguments: [Positional(String("zero"))],
-            )),
-          ],
+#![enable(implicit_some)]
+(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "x",
+            value: Number(
+                value: 5.0,
+                span: (
+                    start: 42,
+                    end: 43,
+                ),
+            ),
+            span: (
+                start: 34,
+                end: 44,
+            ),
         ),
-        (
-          Literal(Number(1.0)),
-          [
-            ExprStmt(Call(
-              callee: Identifier("print"),
-              arguments: [Positional(String("one"))],
-            )),
-          ],
+        Match(
+            expr: Identifier(
+                name: "x",
+                span: (
+                    start: 50,
+                    end: 52,
+                ),
+            ),
+            arms: [
+                (Literal(
+                    value: Number(0.0),
+                    span: (
+                        start: 57,
+                        end: 58,
+                    ),
+                ), [
+                    ExprStmt(
+                        expr: Call(
+                            callee: Identifier(
+                                name: "print",
+                                span: (
+                                    start: 62,
+                                    end: 67,
+                                ),
+                            ),
+                            arguments: [
+                                Positional(String(
+                                    value: "zero",
+                                    span: (
+                                        start: 68,
+                                        end: 74,
+                                    ),
+                                )),
+                            ],
+                            span: (
+                                start: 62,
+                                end: 76,
+                            ),
+                        ),
+                        span: (
+                            start: 62,
+                            end: 76,
+                        ),
+                    ),
+                ]),
+                (Literal(
+                    value: Number(1.0),
+                    span: (
+                        start: 82,
+                        end: 83,
+                    ),
+                ), [
+                    ExprStmt(
+                        expr: Call(
+                            callee: Identifier(
+                                name: "print",
+                                span: (
+                                    start: 87,
+                                    end: 92,
+                                ),
+                            ),
+                            arguments: [
+                                Positional(String(
+                                    value: "one",
+                                    span: (
+                                        start: 93,
+                                        end: 98,
+                                    ),
+                                )),
+                            ],
+                            span: (
+                                start: 87,
+                                end: 100,
+                            ),
+                        ),
+                        span: (
+                            start: 87,
+                            end: 100,
+                        ),
+                    ),
+                ]),
+                (Wildcard(
+                    span: (
+                        start: 106,
+                        end: 108,
+                    ),
+                ), [
+                    ExprStmt(
+                        expr: Call(
+                            callee: Identifier(
+                                name: "print",
+                                span: (
+                                    start: 111,
+                                    end: 116,
+                                ),
+                            ),
+                            arguments: [
+                                Positional(String(
+                                    value: "other",
+                                    span: (
+                                        start: 117,
+                                        end: 124,
+                                    ),
+                                )),
+                            ],
+                            span: (
+                                start: 111,
+                                end: 126,
+                            ),
+                        ),
+                        span: (
+                            start: 111,
+                            end: 126,
+                        ),
+                    ),
+                ]),
+            ],
+            span: (
+                start: 44,
+                end: 134,
+            ),
         ),
-        (
-          Wildcard,
-          [
-            ExprStmt(Call(
-              callee: Identifier("print"),
-              arguments: [Positional(String("other"))],
-            )),
-          ],
-        ),
-      ],
-    ),
-  ],
+    ],
 )

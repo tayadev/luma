@@ -25,10 +25,12 @@ where
             .collect::<Vec<(Pattern, Vec<Stmt>)>>(),
         )
         .then_ignore(just("end").padded_by(ws))
-        .map(|(expr, arms)| Stmt::Match {
-            expr,
-            arms,
-            span: None,
+        .try_map(|(expr, arms), span| {
+            Ok(Stmt::Match {
+                expr,
+                arms,
+                span: Some(Span::from_chumsky(span)),
+            })
         })
         .boxed()
 }
@@ -74,7 +76,7 @@ where
     let var_decl_token = choice((just("let").to(false), just("var").to(true)))
         .padded_by(ws.clone())
         .then(choice((pattern.map(|p| match p {
-            Pattern::Ident(name) => (None, Some(name)),
+            Pattern::Ident { name, .. } => (None, Some(name)),
             _ => (Some(p), None),
         }),)))
         .then(
@@ -282,7 +284,12 @@ where
                 })
                 .or_not(),
         )
-        .map(|(_, level)| Stmt::Break(level))
+        .try_map(|(_, level), span| {
+            Ok(Stmt::Break {
+                level,
+                span: Some(Span::from_chumsky(span)),
+            })
+        })
         .boxed()
 }
 
@@ -302,7 +309,12 @@ where
                 })
                 .or_not(),
         )
-        .map(|(_, level)| Stmt::Continue(level))
+        .try_map(|(_, level), span| {
+            Ok(Stmt::Continue {
+                level,
+                span: Some(Span::from_chumsky(span)),
+            })
+        })
         .boxed()
 }
 
@@ -311,5 +323,11 @@ pub fn expr_stmt<'a, E>(expr: E) -> Boxed<'a, 'a, &'a str, Stmt, extra::Err<Rich
 where
     E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
-    expr.map(Stmt::ExprStmt).boxed()
+    expr.try_map(|expr, span| {
+        Ok(Stmt::ExprStmt {
+            expr,
+            span: Some(Span::from_chumsky(span)),
+        })
+    })
+    .boxed()
 }

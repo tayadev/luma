@@ -1,34 +1,93 @@
-Program(
+#![enable(implicit_some)]
+(
     statements: [
         VarDecl(
             mutable: false,
             name: "handler",
-            type: Some(FunctionType(
+            type: FunctionType(
                 param_types: [
-                    TypeIdent("Number"),
-                    TypeIdent("String"),
+                    TypeIdent(
+                        name: "Number",
+                        span: (
+                            start: 16,
+                            end: 22,
+                        ),
+                    ),
+                    TypeIdent(
+                        name: "String",
+                        span: (
+                            start: 24,
+                            end: 30,
+                        ),
+                    ),
                 ],
-                return_type: TypeIdent("Boolean"),
-            )),
+                return_type: TypeIdent(
+                    name: "Boolean",
+                    span: (
+                        start: 33,
+                        end: 40,
+                    ),
+                ),
+                span: (
+                    start: 13,
+                    end: 41,
+                ),
+            ),
             value: Function(
                 arguments: [
-                    Argument(
+                    (
                         name: "x",
-                        type: TypeIdent("Number"),
+                        type: TypeIdent(
+                            name: "Number",
+                            span: (
+                                start: 49,
+                                end: 55,
+                            ),
+                        ),
                         default: None,
                     ),
-                    Argument(
+                    (
                         name: "y",
-                        type: TypeIdent("String"),
+                        type: TypeIdent(
+                            name: "String",
+                            span: (
+                                start: 60,
+                                end: 66,
+                            ),
+                        ),
                         default: None,
                     ),
                 ],
-                return_type: Some(TypeIdent("Boolean")),
+                return_type: TypeIdent(
+                    name: "Boolean",
+                    span: (
+                        start: 69,
+                        end: 76,
+                    ),
+                ),
                 body: [
                     Return(
-                      value: Boolean(true)
+                        value: Boolean(
+                            value: true,
+                            span: (
+                                start: 82,
+                                end: 86,
+                            ),
+                        ),
+                        span: (
+                            start: 82,
+                            end: 86,
+                        ),
                     ),
                 ],
+                span: (
+                    start: 43,
+                    end: 91,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 91,
             ),
         ),
     ],

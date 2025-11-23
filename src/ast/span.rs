@@ -52,6 +52,34 @@ impl Span {
     pub fn text<'a>(&self, source: &'a str) -> &'a str {
         &source[self.start..self.end.min(source.len())]
     }
+
+    /// Check if this span contains a given byte offset
+    pub fn contains_offset(&self, offset: usize) -> bool {
+        offset >= self.start && offset < self.end
+    }
+
+    /// Check if this span overlaps with another span
+    pub fn overlaps(&self, other: &Span) -> bool {
+        self.start < other.end && other.start < self.end
+    }
+
+    /// Merge this span with another, creating a span that covers both
+    pub fn merge(&self, other: &Span) -> Span {
+        Span {
+            start: self.start.min(other.start),
+            end: self.end.max(other.end),
+        }
+    }
+
+    /// Get the length of this span in bytes
+    pub fn len(&self) -> usize {
+        self.end.saturating_sub(self.start)
+    }
+
+    /// Check if this span is empty
+    pub fn is_empty(&self) -> bool {
+        self.start >= self.end
+    }
 }
 
 /// Represents a specific location in source code

@@ -1,10 +1,33 @@
-Program(
-  statements: [
-    Return(
-      value: Table([
-      (Identifier("a"), Identifier("a")),
-      (Identifier("b"), Identifier("b")),
-    ])
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        Return(
+            value: Table(
+                fields: [
+                    (Identifier("a"), Identifier(
+                        name: "a",
+                        span: (
+                            start: 2,
+                            end: 3,
+                        ),
+                    )),
+                    (Identifier("b"), Identifier(
+                        name: "b",
+                        span: (
+                            start: 5,
+                            end: 7,
+                        ),
+                    )),
+                ],
+                span: (
+                    start: 0,
+                    end: 8,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 8,
+            ),
+        ),
+    ],
 )

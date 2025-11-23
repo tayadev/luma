@@ -30,9 +30,24 @@ pub enum TableKey {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Expr {
-    Number(f64),
-    Identifier(String),
-    String(String),
+    Number {
+        value: f64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
+    Identifier {
+        name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
+    String {
+        value: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
     Function {
         arguments: Vec<Argument>,
         return_type: Option<Type>,
@@ -41,10 +56,29 @@ pub enum Expr {
         #[serde(default)]
         span: Option<Span>,
     },
-    Boolean(bool),
-    Null,
-    List(Vec<Expr>),
-    Table(Vec<(TableKey, Expr)>),
+    Boolean {
+        value: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
+    Null {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
+    List {
+        elements: Vec<Expr>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
+    Table {
+        fields: Vec<(TableKey, Expr)>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
     Binary {
         left: Box<Expr>,
         op: BinaryOp,
@@ -97,9 +131,17 @@ pub enum Expr {
         #[serde(default)]
         span: Option<Span>,
     },
-    Block(Vec<Stmt>),
+    Block {
+        statements: Vec<Stmt>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
     Import {
         path: Box<Expr>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     /// Match as an expression: evaluates to the value of the selected arm
     Match {
@@ -115,7 +157,14 @@ impl Expr {
     /// Get the span of this expression, if available
     pub fn span(&self) -> Option<Span> {
         match self {
+            Expr::Number { span, .. } => *span,
+            Expr::Identifier { span, .. } => *span,
+            Expr::String { span, .. } => *span,
             Expr::Function { span, .. } => *span,
+            Expr::Boolean { span, .. } => *span,
+            Expr::Null { span, .. } => *span,
+            Expr::List { span, .. } => *span,
+            Expr::Table { span, .. } => *span,
             Expr::Binary { span, .. } => *span,
             Expr::Unary { span, .. } => *span,
             Expr::Logical { span, .. } => *span,
@@ -123,8 +172,9 @@ impl Expr {
             Expr::MemberAccess { span, .. } => *span,
             Expr::Index { span, .. } => *span,
             Expr::If { span, .. } => *span,
+            Expr::Block { span, .. } => *span,
+            Expr::Import { span, .. } => *span,
             Expr::Match { span, .. } => *span,
-            _ => None,
         }
     }
 }
@@ -230,9 +280,24 @@ pub enum Stmt {
         #[serde(default)]
         span: Option<Span>,
     },
-    Break(Option<u32>),    // Optional level (default: 1)
-    Continue(Option<u32>), // Optional level (default: 1)
-    ExprStmt(Expr),        // Expression statement (e.g., function calls)
+    Break {
+        level: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
+    Continue {
+        level: Option<u32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
+    ExprStmt {
+        expr: Expr,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
 
     /// Pattern matching: match expr do ... end
     Match {
@@ -256,9 +321,9 @@ impl Stmt {
             Stmt::While { span, .. } => *span,
             Stmt::DoWhile { span, .. } => *span,
             Stmt::For { span, .. } => *span,
-            Stmt::Break(_) => None,
-            Stmt::Continue(_) => None,
-            Stmt::ExprStmt(_) => None,
+            Stmt::Break { span, .. } => *span,
+            Stmt::Continue { span, .. } => *span,
+            Stmt::ExprStmt { span, .. } => *span,
             Stmt::Match { span, .. } => *span,
         }
     }

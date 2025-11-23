@@ -1,15 +1,26 @@
-Program(
-  statements: [
-    Return(
-      value: Binary(
-      left: Binary(
-        left: String("Value \\"),
-        op: Add,
-        right: Identifier("x"),
-      ),
-      op: Add,
-      right: String(" and quote \" and backslash \\"),
-    )
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        Return(
+            value: Binary(
+                left: Binary(
+                    left: String(
+                        value: "Value \\",
+                    ),
+                    op: Add,
+                    right: Identifier(
+                        name: "x",
+                        span: (
+                            start: 11,
+                            end: 12,
+                        ),
+                    ),
+                ),
+                op: Add,
+                right: String(
+                    value: " and quote \" and backslash \\",
+                ),
+            ),
+        ),
+    ],
 )

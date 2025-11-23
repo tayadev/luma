@@ -1,39 +1,190 @@
-Program(
-  statements: [
-    VarDecl(
-      mutable: false,
-      name: "arr",
-      value: List([
-        List([Number(1.0), Number(2.0)]),
-        List([Number(3.0), Number(4.0)]),
-      ]),
-    ),
-    DestructuringVarDecl(
-      mutable: false,
-      pattern: ListPattern(
-        elements: [
-          ListPattern(
-            elements: [Ident("a"), Ident("b")],
-            rest: None,
-          ),
-          ListPattern(
-            elements: [Ident("c"), Ident("d")],
-            rest: None,
-          ),
-        ],
-        rest: None,
-      ),
-      value: Identifier("arr"),
-    ),
-    ExprStmt(Call(
-      callee: Identifier("print"),
-      arguments: [Positional(Identifier("a"))],
-    )),
-    Return(
-      value: Call(
-      callee: Identifier("print"),
-      arguments: [Positional(Identifier("d"))],
-    )
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "arr",
+            value: List(
+                elements: [
+                    List(
+                        elements: [
+                            Number(
+                                value: 1.0,
+                                span: (
+                                    start: 36,
+                                    end: 37,
+                                ),
+                            ),
+                            Number(
+                                value: 2.0,
+                                span: (
+                                    start: 39,
+                                    end: 40,
+                                ),
+                            ),
+                        ],
+                        span: (
+                            start: 35,
+                            end: 41,
+                        ),
+                    ),
+                    List(
+                        elements: [
+                            Number(
+                                value: 3.0,
+                                span: (
+                                    start: 44,
+                                    end: 45,
+                                ),
+                            ),
+                            Number(
+                                value: 4.0,
+                                span: (
+                                    start: 47,
+                                    end: 48,
+                                ),
+                            ),
+                        ],
+                        span: (
+                            start: 43,
+                            end: 49,
+                        ),
+                    ),
+                ],
+                span: (
+                    start: 34,
+                    end: 51,
+                ),
+            ),
+            span: (
+                start: 24,
+                end: 51,
+            ),
+        ),
+        DestructuringVarDecl(
+            mutable: false,
+            pattern: ListPattern(
+                elements: [
+                    ListPattern(
+                        elements: [
+                            Ident(
+                                name: "a",
+                                span: (
+                                    start: 57,
+                                    end: 58,
+                                ),
+                            ),
+                            Ident(
+                                name: "b",
+                                span: (
+                                    start: 60,
+                                    end: 61,
+                                ),
+                            ),
+                        ],
+                        rest: None,
+                        span: (
+                            start: 56,
+                            end: 62,
+                        ),
+                    ),
+                    ListPattern(
+                        elements: [
+                            Ident(
+                                name: "c",
+                                span: (
+                                    start: 65,
+                                    end: 66,
+                                ),
+                            ),
+                            Ident(
+                                name: "d",
+                                span: (
+                                    start: 68,
+                                    end: 69,
+                                ),
+                            ),
+                        ],
+                        rest: None,
+                        span: (
+                            start: 64,
+                            end: 70,
+                        ),
+                    ),
+                ],
+                rest: None,
+                span: (
+                    start: 55,
+                    end: 72,
+                ),
+            ),
+            value: Identifier(
+                name: "arr",
+                span: (
+                    start: 74,
+                    end: 78,
+                ),
+            ),
+            span: (
+                start: 51,
+                end: 78,
+            ),
+        ),
+        ExprStmt(
+            expr: Call(
+                callee: Identifier(
+                    name: "print",
+                    span: (
+                        start: 78,
+                        end: 83,
+                    ),
+                ),
+                arguments: [
+                    Positional(Identifier(
+                        name: "a",
+                        span: (
+                            start: 84,
+                            end: 85,
+                        ),
+                    )),
+                ],
+                span: (
+                    start: 78,
+                    end: 87,
+                ),
+            ),
+            span: (
+                start: 78,
+                end: 87,
+            ),
+        ),
+        Return(
+            value: Call(
+                callee: Identifier(
+                    name: "print",
+                    span: (
+                        start: 87,
+                        end: 92,
+                    ),
+                ),
+                arguments: [
+                    Positional(Identifier(
+                        name: "d",
+                        span: (
+                            start: 93,
+                            end: 94,
+                        ),
+                    )),
+                ],
+                span: (
+                    start: 87,
+                    end: 96,
+                ),
+            ),
+            span: (
+                start: 87,
+                end: 96,
+            ),
+        ),
+    ],
 )

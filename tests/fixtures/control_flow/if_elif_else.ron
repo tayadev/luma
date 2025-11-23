@@ -1,41 +1,105 @@
-Program(
+#![enable(implicit_some)]
+(
     statements: [
         If(
             condition: Binary(
-                left: Identifier("x"),
+                left: Identifier(
+                    name: "x",
+                    span: (
+                        start: 3,
+                        end: 5,
+                    ),
+                ),
                 op: Gt,
-                right: Number(10.0),
+                right: Number(
+                    value: 10.0,
+                    span: (
+                        start: 7,
+                        end: 9,
+                    ),
+                ),
+                span: (
+                    start: 3,
+                    end: 10,
+                ),
             ),
             then_block: [
                 VarDecl(
                     mutable: false,
                     name: "a",
-                    value: Number(1.0),
+                    value: Number(
+                        value: 1.0,
+                        span: (
+                            start: 23,
+                            end: 24,
+                        ),
+                    ),
+                    span: (
+                        start: 15,
+                        end: 25,
+                    ),
                 ),
             ],
             elif_blocks: [
-                (
-                    Binary(
-                        left: Identifier("x"),
-                        op: Gt,
-                        right: Number(5.0),
-                    ),
-                    [
-                        VarDecl(
-                            mutable: false,
-                            name: "b",
-                            value: Number(2.0),
+                (Binary(
+                    left: Identifier(
+                        name: "x",
+                        span: (
+                            start: 33,
+                            end: 35,
                         ),
-                    ],
-                ),
+                    ),
+                    op: Gt,
+                    right: Number(
+                        value: 5.0,
+                        span: (
+                            start: 37,
+                            end: 38,
+                        ),
+                    ),
+                    span: (
+                        start: 33,
+                        end: 39,
+                    ),
+                ), [
+                    VarDecl(
+                        mutable: false,
+                        name: "b",
+                        value: Number(
+                            value: 2.0,
+                            span: (
+                                start: 52,
+                                end: 53,
+                            ),
+                        ),
+                        span: (
+                            start: 44,
+                            end: 54,
+                        ),
+                    ),
+                ]),
             ],
-            else_block: Some([
+            else_block: [
                 VarDecl(
                     mutable: false,
                     name: "c",
-                    value: Number(3.0),
+                    value: Number(
+                        value: 3.0,
+                        span: (
+                            start: 72,
+                            end: 73,
+                        ),
+                    ),
+                    span: (
+                        start: 64,
+                        end: 74,
+                    ),
                 ),
-            ]),
+            ],
+            span: (
+                start: 0,
+                end: 78,
+            ),
         ),
     ],
 )

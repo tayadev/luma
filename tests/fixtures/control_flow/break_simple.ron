@@ -1,10 +1,27 @@
-Program(
-  statements: [
-    While(
-      condition: Boolean(true),
-      body: [
-        Break(None),
-      ],
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        While(
+            condition: Boolean(
+                value: true,
+                span: (
+                    start: 6,
+                    end: 10,
+                ),
+            ),
+            body: [
+                Break(
+                    level: None,
+                    span: (
+                        start: 16,
+                        end: 22,
+                    ),
+                ),
+            ],
+            span: (
+                start: 0,
+                end: 26,
+            ),
+        ),
+    ],
 )

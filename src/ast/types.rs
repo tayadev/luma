@@ -8,22 +8,45 @@ use super::Span;
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Type {
     /// Simple type identifier (Number, String, Boolean, etc.)
-    TypeIdent(String),
+    TypeIdent {
+        name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
     /// Generic type with type arguments (List(String), Result(Number, String))
-    GenericType { name: String, type_args: Vec<Type> },
+    GenericType {
+        name: String,
+        type_args: Vec<Type>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
     /// Function type (fn(Number, String): Boolean)
     FunctionType {
         param_types: Vec<Type>,
         return_type: Box<Type>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     /// Dynamic type - no static type checking
-    Any,
+    Any {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
 }
 
 impl Type {
     /// Get the span of this type, if available
     pub fn span(&self) -> Option<Span> {
-        None // Types don't have spans yet, can be added later if needed
+        match self {
+            Type::TypeIdent { span, .. } => *span,
+            Type::GenericType { span, .. } => *span,
+            Type::FunctionType { span, .. } => *span,
+            Type::Any { span, .. } => *span,
+        }
     }
 }
 

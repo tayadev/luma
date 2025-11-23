@@ -8,9 +8,18 @@ use super::Span;
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Pattern {
     /// Identifier pattern - binds to a variable
-    Ident(String),
+    Ident {
+        name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
     /// Wildcard pattern - matches anything, doesn't bind
-    Wildcard,
+    Wildcard {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
     /// List destructuring pattern
     ListPattern {
         elements: Vec<Pattern>,
@@ -27,16 +36,23 @@ pub enum Pattern {
         span: Option<Span>,
     },
     /// Literal pattern - matches a specific value
-    Literal(Literal),
+    Literal {
+        value: Literal,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
 }
 
 impl Pattern {
     /// Get the span of this pattern, if available
     pub fn span(&self) -> Option<Span> {
         match self {
+            Pattern::Ident { span, .. } => *span,
+            Pattern::Wildcard { span, .. } => *span,
             Pattern::ListPattern { span, .. } => *span,
             Pattern::TablePattern { span, .. } => *span,
-            _ => None,
+            Pattern::Literal { span, .. } => *span,
         }
     }
 }

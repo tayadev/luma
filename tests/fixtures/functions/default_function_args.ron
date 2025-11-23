@@ -1,27 +1,62 @@
-Program(
-  statements: [
-    VarDecl(
-      mutable: false,
-      name: "greet",
-      value: Function(
-        arguments: [
-          Argument(
-            name: "name",
-            type: TypeIdent("String"),
-            default: Some(String("World")),
-          ),
-        ],
-        return_type: Some(TypeIdent("String")),
-        body: [
-          Return(
-            value: Binary(
-            left: String("Hello "),
-            op: Add,
-            right: Identifier("name"),
-          )
-          ),
-        ],
-      ),
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "greet",
+            value: Function(
+                arguments: [
+                    (
+                        name: "name",
+                        type: TypeIdent(
+                            name: "String",
+                            span: (
+                                start: 21,
+                                end: 27,
+                            ),
+                        ),
+                        default: String(
+                            value: "World",
+                            span: (
+                                start: 30,
+                                end: 37,
+                            ),
+                        ),
+                    ),
+                ],
+                return_type: TypeIdent(
+                    name: "String",
+                    span: (
+                        start: 40,
+                        end: 46,
+                    ),
+                ),
+                body: [
+                    Return(
+                        value: Binary(
+                            left: String(
+                                value: "Hello ",
+                            ),
+                            op: Add,
+                            right: Identifier(
+                                name: "name",
+                                span: (
+                                    start: 59,
+                                    end: 63,
+                                ),
+                            ),
+                        ),
+                    ),
+                ],
+                span: (
+                    start: 12,
+                    end: 69,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 69,
+            ),
+        ),
+    ],
 )

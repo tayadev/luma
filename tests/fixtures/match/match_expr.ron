@@ -1,25 +1,91 @@
-Program(
+#![enable(implicit_some)]
+(
     statements: [
         VarDecl(
             mutable: false,
             name: "v",
-            value: Table([
-                (Identifier("a"), Number(1.0)),
-            ]),
+            value: Table(
+                fields: [
+                    (Identifier("a"), Number(
+                        value: 1.0,
+                        span: (
+                            start: 13,
+                            end: 14,
+                        ),
+                    )),
+                ],
+                span: (
+                    start: 8,
+                    end: 16,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 16,
+            ),
         ),
         VarDecl(
             mutable: false,
             name: "result",
             value: Match(
-                expr: Identifier("v"),
+                expr: Identifier(
+                    name: "v",
+                    span: (
+                        start: 35,
+                        end: 37,
+                    ),
+                ),
                 arms: [
-                    (Ident("a"), [
-                        ExprStmt(Identifier("a")),
+                    (Ident(
+                        name: "a",
+                        span: (
+                            start: 42,
+                            end: 44,
+                        ),
+                    ), [
+                        ExprStmt(
+                            expr: Identifier(
+                                name: "a",
+                                span: (
+                                    start: 47,
+                                    end: 49,
+                                ),
+                            ),
+                            span: (
+                                start: 47,
+                                end: 49,
+                            ),
+                        ),
                     ]),
-                    (Wildcard, [
-                        ExprStmt(Number(0.0)),
+                    (Wildcard(
+                        span: (
+                            start: 55,
+                            end: 57,
+                        ),
+                    ), [
+                        ExprStmt(
+                            expr: Number(
+                                value: 0.0,
+                                span: (
+                                    start: 60,
+                                    end: 61,
+                                ),
+                            ),
+                            span: (
+                                start: 60,
+                                end: 62,
+                            ),
+                        ),
                     ]),
                 ],
+                span: (
+                    start: 29,
+                    end: 70,
+                ),
+            ),
+            span: (
+                start: 16,
+                end: 70,
             ),
         ),
     ],

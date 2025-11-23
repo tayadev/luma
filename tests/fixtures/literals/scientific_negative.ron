@@ -1,7 +1,18 @@
-Program(
-  statements: [
-    Return(
-      value: Number(0.00025)
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        Return(
+            value: Number(
+                value: 0.00025,
+                span: (
+                    start: 0,
+                    end: 6,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 6,
+            ),
+        ),
+    ],
 )

@@ -1,9 +1,20 @@
-Program(
-  statements: [
-    VarDecl(
-      mutable: false,
-      name: "a",
-      value: Number(42.0),
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "a",
+            value: Number(
+                value: 42.0,
+                span: (
+                    start: 8,
+                    end: 10,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 10,
+            ),
+        ),
+    ],
 )

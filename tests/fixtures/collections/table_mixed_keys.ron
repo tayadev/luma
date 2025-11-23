@@ -1,18 +1,75 @@
-Program(
-  statements: [
-    Return(
-      value: Table([
-      (Identifier("simple"), Number(1.0)),
-      (StringLiteral("with spaces"), Number(2.0)),
-      (Computed(Binary(
-        left: String("computed"),
-        op: Add,
-        right: String("Key"),
-      )), Number(3.0)),
-      (Identifier("another"), Table([
-        (Identifier("nested"), Boolean(true)),
-      ])),
-    ])
-    ),
-  ],
+#![enable(implicit_some)]
+(
+    statements: [
+        Return(
+            value: Table(
+                fields: [
+                    (Identifier("simple"), Number(
+                        value: 1.0,
+                        span: (
+                            start: 14,
+                            end: 15,
+                        ),
+                    )),
+                    (StringLiteral("with spaces"), Number(
+                        value: 2.0,
+                        span: (
+                            start: 36,
+                            end: 37,
+                        ),
+                    )),
+                    (Computed(Binary(
+                        left: String(
+                            value: "computed",
+                            span: (
+                                start: 43,
+                                end: 53,
+                            ),
+                        ),
+                        op: Add,
+                        right: String(
+                            value: "Key",
+                            span: (
+                                start: 56,
+                                end: 61,
+                            ),
+                        ),
+                        span: (
+                            start: 43,
+                            end: 61,
+                        ),
+                    )), Number(
+                        value: 3.0,
+                        span: (
+                            start: 65,
+                            end: 66,
+                        ),
+                    )),
+                    (Identifier("another"), Table(
+                        fields: [
+                            (Identifier("nested"), Boolean(
+                                value: true,
+                                span: (
+                                    start: 91,
+                                    end: 95,
+                                ),
+                            )),
+                        ],
+                        span: (
+                            start: 80,
+                            end: 98,
+                        ),
+                    )),
+                ],
+                span: (
+                    start: 0,
+                    end: 100,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 100,
+            ),
+        ),
+    ],
 )

@@ -1,24 +1,69 @@
-Program(
+#![enable(implicit_some)]
+(
     statements: [
         VarDecl(
             mutable: false,
             name: "max",
             value: If(
                 condition: Binary(
-                    left: Identifier("a"),
+                    left: Identifier(
+                        name: "a",
+                        span: (
+                            start: 13,
+                            end: 15,
+                        ),
+                    ),
                     op: Gt,
-                    right: Identifier("b"),
+                    right: Identifier(
+                        name: "b",
+                        span: (
+                            start: 17,
+                            end: 19,
+                        ),
+                    ),
+                    span: (
+                        start: 13,
+                        end: 19,
+                    ),
                 ),
                 then_block: [
                     Return(
-                      value: Identifier("a")
+                        value: Identifier(
+                            name: "a",
+                            span: (
+                                start: 22,
+                                end: 24,
+                            ),
+                        ),
+                        span: (
+                            start: 22,
+                            end: 24,
+                        ),
                     ),
                 ],
-                else_block: Some([
+                else_block: [
                     Return(
-                      value: Identifier("b")
+                        value: Identifier(
+                            name: "b",
+                            span: (
+                                start: 32,
+                                end: 34,
+                            ),
+                        ),
+                        span: (
+                            start: 32,
+                            end: 34,
+                        ),
                     ),
-                ]),
+                ],
+                span: (
+                    start: 10,
+                    end: 38,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 38,
             ),
         ),
     ],

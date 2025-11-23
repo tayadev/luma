@@ -6,7 +6,7 @@
 //! - Function types (fn(Number, String): Boolean)
 //! - The Any type for dynamic typing
 
-use crate::ast::Type;
+use crate::ast::{Span, Type};
 use crate::parser::lexer;
 use chumsky::prelude::*;
 
@@ -22,7 +22,13 @@ pub fn type_parser<'a>(
 ) -> impl Parser<'a, &'a str, Type, extra::Err<Rich<'a, char>>> + Clone {
     recursive(|type_ref| {
         // Parse "Any" keyword as a type
-        let any_type = just("Any").padded_by(ws.clone()).to(Type::Any);
+        let any_type = just("Any")
+            .padded_by(ws.clone())
+            .try_map(|_, span| {
+                Ok(Type::Any {
+                    span: Some(Span::from_chumsky(span)),
+                })
+            });
 
         // Parse simple type identifier (not "Any")
         let type_ident = text::ident()
@@ -36,7 +42,10 @@ pub fn type_parser<'a>(
                         format!("'{}' is a keyword and cannot be used as a type", s),
                     ))
                 } else {
-                    Ok(Type::TypeIdent(s.to_string()))
+                    Ok(Type::TypeIdent {
+                        name: s.to_string(),
+                        span: Some(Span::from_chumsky(span)),
+                    })
                 }
             })
             .padded_by(ws.clone());
@@ -57,9 +66,12 @@ pub fn type_parser<'a>(
             )
             .then_ignore(just(':').padded_by(ws.clone()))
             .then(type_ref.clone())
-            .map(|(param_types, return_type)| Type::FunctionType {
-                param_types,
-                return_type: Box::new(return_type),
+            .try_map(|(param_types, return_type), span| {
+                Ok(Type::FunctionType {
+                    param_types,
+                    return_type: Box::new(return_type),
+                    span: Some(Span::from_chumsky(span)),
+                })
             });
 
         // Parse generic type: TypeIdent(Type, Type, ...)
@@ -87,7 +99,13 @@ pub fn type_parser<'a>(
                         just(')').padded_by(ws.clone()),
                     ),
             )
-            .map(|(name, type_args)| Type::GenericType { name, type_args });
+            .try_map(|(name, type_args), span| {
+                Ok(Type::GenericType {
+                    name,
+                    type_args,
+                    span: Some(Span::from_chumsky(span)),
+                })
+            });
 
         // Combine all type parsers, with priority: function > generic > any > ident
         choice((
