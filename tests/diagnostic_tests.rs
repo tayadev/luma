@@ -4,8 +4,10 @@ use luma::bytecode::ir::{Chunk, Constant, Instruction};
 #[test]
 fn test_diagnostic_with_span() {
     // Create a simple chunk with span information
-    let mut chunk = Chunk::default();
-    chunk.name = "test".to_string();
+    let mut chunk = Chunk {
+        name: "test".to_string(),
+        ..Default::default()
+    };
 
     // Add a constant and instruction with a span
     chunk.constants.push(Constant::Number(1.0));

@@ -10,10 +10,7 @@ pub enum Type {
     /// Simple type identifier (Number, String, Boolean, etc.)
     TypeIdent(String),
     /// Generic type with type arguments (List(String), Result(Number, String))
-    GenericType {
-        name: String,
-        type_args: Vec<Type>,
-    },
+    GenericType { name: String, type_args: Vec<Type> },
     /// Function type (fn(Number, String): Boolean)
     FunctionType {
         param_types: Vec<Type>,

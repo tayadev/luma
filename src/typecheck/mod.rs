@@ -374,10 +374,7 @@ impl TypeEnv {
     fn expect_type(&mut self, expr: &Expr, expected: &TcType, context: &str) -> TcType {
         let ty = self.check_expr(expr);
         if !ty.is_compatible(expected) {
-            self.error(format!(
-                "{}: expected {}, got {}",
-                context, expected, ty
-            ));
+            self.error(format!("{}: expected {}, got {}", context, expected, ty));
         }
         ty
     }

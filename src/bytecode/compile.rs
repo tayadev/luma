@@ -1669,7 +1669,9 @@ fn does_block_leave_value(block: &[Stmt]) -> bool {
             // An if-statement leaves a value if all branches leave a value
             let then_leaves = does_block_leave_value(then_block);
             let elif_leave = elif_blocks.iter().all(|(_, b)| does_block_leave_value(b));
-            let else_leaves = else_block.as_ref().is_some_and(|b| does_block_leave_value(b));
+            let else_leaves = else_block
+                .as_ref()
+                .is_some_and(|b| does_block_leave_value(b));
             then_leaves && elif_leave && else_leaves
         }
         _ => false,

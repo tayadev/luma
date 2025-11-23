@@ -124,7 +124,7 @@ fn strip_spans_expr(expr: Expr) -> Expr {
             span: None,
         },
         Expr::Unary { op, operand, .. } => Expr::Unary {
-            op: op,
+            op,
             operand: Box::new(strip_spans_expr(*operand)),
             span: None,
         },

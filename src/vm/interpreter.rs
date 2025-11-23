@@ -255,12 +255,7 @@ impl VM {
         }
     }
 
-    fn register_native_function(
-        &mut self,
-        name: &str,
-        arity: usize,
-        _func: NativeFunction,
-    ) {
+    fn register_native_function(&mut self, name: &str, arity: usize, _func: NativeFunction) {
         let native_val = Value::NativeFunction {
             name: name.to_string(),
             arity,
@@ -407,9 +402,9 @@ impl VM {
                             if let Some(method) = operators::has_method(&a, "__neg") {
                                 operators::call_overload_method(self, method, vec![a], 1, "__neg")?;
                             } else {
-                                return Err(self._error(
-                                    "NEG requires Number or __neg method".into(),
-                                ));
+                                return Err(
+                                    self._error("NEG requires Number or __neg method".into())
+                                );
                             }
                         }
                     }
@@ -418,9 +413,7 @@ impl VM {
                     let name = match self.chunk.constants.get(idx) {
                         Some(Constant::String(s)) => s.clone(),
                         _ => {
-                            return Err(self._error(
-                                "GET_GLOBAL expects string constant".into(),
-                            ));
+                            return Err(self._error("GET_GLOBAL expects string constant".into()));
                         }
                     };
                     if let Some(v) = self.globals.get(&name).cloned() {
@@ -433,9 +426,7 @@ impl VM {
                     let name = match self.chunk.constants.get(idx) {
                         Some(Constant::String(s)) => s.clone(),
                         _ => {
-                            return Err(self._error(
-                                "SET_GLOBAL expects string constant".into(),
-                            ));
+                            return Err(self._error("SET_GLOBAL expects string constant".into()));
                         }
                     };
                     let v = self
@@ -491,9 +482,7 @@ impl VM {
                             match borrowed.get(i) {
                                 Some(v) => self.stack.push(v.clone()),
                                 None => {
-                                    return Err(self._error(
-                                        "List index out of bounds".into(),
-                                    ));
+                                    return Err(self._error("List index out of bounds".into()));
                                 }
                             }
                         }
@@ -545,9 +534,9 @@ impl VM {
                             self.stack.push(Value::Number(s.len() as f64));
                         }
                         _ => {
-                            return Err(self._error(
-                                "GET_LEN requires list, table, or string".into(),
-                            ));
+                            return Err(
+                                self._error("GET_LEN requires list, table, or string".into())
+                            );
                         }
                     }
                 }
@@ -756,9 +745,9 @@ impl VM {
                             arity: chunk.local_count as usize,
                         },
                         _ => {
-                            return Err(self._error(
-                                "MAKE_FUNCTION expects function constant".into(),
-                            ));
+                            return Err(
+                                self._error("MAKE_FUNCTION expects function constant".into())
+                            );
                         }
                     };
                     self.stack.push(v);
@@ -768,9 +757,7 @@ impl VM {
                     let chunk = match self.chunk.constants.get(idx) {
                         Some(Constant::Function(chunk)) => chunk.clone(),
                         _ => {
-                            return Err(self._error(
-                                "CLOSURE expects function constant".into(),
-                            ));
+                            return Err(self._error("CLOSURE expects function constant".into()));
                         }
                     };
 
@@ -986,10 +973,7 @@ impl VM {
                             } else {
                                 // Call native function normally
                                 let func = self.native_functions.get(&name).ok_or_else(|| {
-                                    self._error(format!(
-                                        "Native function '{}' not found",
-                                        name
-                                    ))
+                                    self._error(format!("Native function '{}' not found", name))
                                 })?;
                                 let result = func(&args).map_err(|e| self._error(e))?;
                                 self.stack.push(result);
