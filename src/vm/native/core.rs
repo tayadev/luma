@@ -131,14 +131,14 @@ pub fn native_into(args: &[Value]) -> Result<Value, String> {
                 // We need to call the __into method with (self, target_type)
                 // But we can't easily call it from here without access to the VM
                 // For now, return an error suggesting that __into calls must happen in VM context
-                return Err(
+                Err(
                     "Type conversions via __into are not fully implemented yet. \
                      For now, use explicit conversion methods or wait for v2. \
                      See GC_HOOKS.md for details."
                         .to_string(),
-                );
+                )
             } else {
-                return Err("Type does not support conversion (no __into method)".to_string());
+                Err("Type does not support conversion (no __into method)".to_string())
             }
         }
         _ => {

@@ -28,11 +28,11 @@ pub fn compile_program(program: &Program) -> Chunk {
     // Pre-scan: record top-level function parameter names for named-arg reordering
     let mut global_fn_params: HashMap<String, Vec<String>> = HashMap::new();
     for stmt in &program.statements {
-        if let Stmt::VarDecl { name, value, .. } = stmt {
-            if let Expr::Function { arguments, .. } = value {
-                let params = arguments.iter().map(|a| a.name.clone()).collect::<Vec<_>>();
-                global_fn_params.insert(name.clone(), params);
-            }
+        if let Stmt::VarDecl { name, value, .. } = stmt
+            && let Expr::Function { arguments, .. } = value
+        {
+            let params = arguments.iter().map(|a| a.name.clone()).collect::<Vec<_>>();
+            global_fn_params.insert(name.clone(), params);
         }
     }
     c.global_fn_params = global_fn_params;
@@ -1676,23 +1676,23 @@ impl Compiler {
             return;
         }
         for stmt in stmts {
-            if let Stmt::VarDecl { name, value, .. } = stmt {
-                if let Expr::Function { arguments, .. } = value {
-                    // Skip if already declared in this scope (avoid duplicates)
-                    let already = self.scopes.last().and_then(|m| m.get(name)).is_some();
-                    if !already {
-                        // Initialize slot with Null to occupy stack/local
-                        let null_idx = push_const(&mut self.chunk, Constant::Null);
-                        self.chunk.instructions.push(Instruction::Const(null_idx));
-                        let slot = self.local_count;
-                        self.scopes.last_mut().unwrap().insert(name.clone(), slot);
-                        self.local_count += 1;
-                    }
-                    // Record param names for named-arg reordering in this scope
-                    if let Some(scope) = self.param_scopes.last_mut() {
-                        let params = arguments.iter().map(|a| a.name.clone()).collect::<Vec<_>>();
-                        scope.insert(name.clone(), params);
-                    }
+            if let Stmt::VarDecl { name, value, .. } = stmt
+                && let Expr::Function { arguments, .. } = value
+            {
+                // Skip if already declared in this scope (avoid duplicates)
+                let already = self.scopes.last().and_then(|m| m.get(name)).is_some();
+                if !already {
+                    // Initialize slot with Null to occupy stack/local
+                    let null_idx = push_const(&mut self.chunk, Constant::Null);
+                    self.chunk.instructions.push(Instruction::Const(null_idx));
+                    let slot = self.local_count;
+                    self.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                    self.local_count += 1;
+                }
+                // Record param names for named-arg reordering in this scope
+                if let Some(scope) = self.param_scopes.last_mut() {
+                    let params = arguments.iter().map(|a| a.name.clone()).collect::<Vec<_>>();
+                    scope.insert(name.clone(), params);
                 }
             }
         }

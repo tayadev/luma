@@ -12,6 +12,10 @@ fn test_should_fail_programs() {
             let entry = entry.expect("Failed to read directory entry");
             let path = entry.path();
             if path.is_dir() {
+                // Skip helpers directory
+                if path.file_name().and_then(|s| s.to_str()) == Some("helpers") {
+                    continue;
+                }
                 collect(&path, files);
                 continue;
             }

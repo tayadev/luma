@@ -601,10 +601,8 @@ impl TypeEnv {
                 match obj_ty {
                     TcType::Table => TcType::Unknown, // dynamic tables allowed
                     TcType::TableWithFields(ref fields) => {
-                        if !fields.contains(member) {
-                            if self.in_match_arm_depth == 0 {
-                                self.error(format!("Unknown field '{}' on table", member));
-                            }
+                        if !fields.contains(member) && self.in_match_arm_depth == 0 {
+                            self.error(format!("Unknown field '{}' on table", member));
                         }
                         TcType::Unknown
                     }
@@ -808,36 +806,34 @@ impl TypeEnv {
                 value,
                 ..
             } = stmt
-            {
-                if let Expr::Function {
+                && let Expr::Function {
                     arguments,
                     return_type,
                     ..
                 } = value
-                {
-                    // Determine function type from signature
-                    let mut param_types = Vec::new();
-                    for arg in arguments {
-                        param_types.push(self.type_from_ast(&arg.r#type));
-                    }
-                    let ret_ty_annot = if let Some(rt) = return_type {
-                        self.type_from_ast(rt)
-                    } else {
-                        TcType::Unknown
-                    };
-                    let func_ty = TcType::Function {
-                        params: param_types,
-                        ret: Box::new(ret_ty_annot),
-                    };
-                    self.declare(
-                        name.clone(),
-                        VarInfo {
-                            ty: func_ty,
-                            mutable: *mutable,
-                            annotated: r#type.is_some(),
-                        },
-                    );
+            {
+                // Determine function type from signature
+                let mut param_types = Vec::new();
+                for arg in arguments {
+                    param_types.push(self.type_from_ast(&arg.r#type));
                 }
+                let ret_ty_annot = if let Some(rt) = return_type {
+                    self.type_from_ast(rt)
+                } else {
+                    TcType::Unknown
+                };
+                let func_ty = TcType::Function {
+                    params: param_types,
+                    ret: Box::new(ret_ty_annot),
+                };
+                self.declare(
+                    name.clone(),
+                    VarInfo {
+                        ty: func_ty,
+                        mutable: *mutable,
+                        annotated: r#type.is_some(),
+                    },
+                );
             }
         }
 
@@ -931,15 +927,15 @@ impl TypeEnv {
                 };
 
                 // Verify declared type matches if annotated (for functions)
-                if matches!(value, Expr::Function { .. }) {
-                    if let Some(ty) = r#type {
-                        let declared = self.type_from_ast(ty);
-                        if !value_ty.is_compatible(&declared) {
-                            self.error(format!(
-                                "Variable {}: declared type {:?}, got {:?}",
-                                name, declared, value_ty
-                            ));
-                        }
+                if matches!(value, Expr::Function { .. })
+                    && let Some(ty) = r#type
+                {
+                    let declared = self.type_from_ast(ty);
+                    if !value_ty.is_compatible(&declared) {
+                        self.error(format!(
+                            "Variable {}: declared type {:?}, got {:?}",
+                            name, declared, value_ty
+                        ));
                     }
                 }
             }
@@ -1273,7 +1269,7 @@ impl TypeEnv {
                 match name.as_str() {
                     // Concrete generics support (MVP): List<T>
                     "List" => {
-                        if let Some(first) = type_args.get(0) {
+                        if let Some(first) = type_args.first() {
                             TcType::List(Box::new(self.type_from_ast(first)))
                         } else {
                             // List without argument defaults to Unknown element
@@ -1372,17 +1368,17 @@ impl TypeEnv {
         }
 
         // If we used tag patterns and the matched type has known fields, check presence first
-        if !tags.is_empty() && !has_wildcard {
-            if let Some(ty) = matched_ty {
-                if let TcType::TableWithFields(fields) = ty {
-                    for &tag in &tags {
-                        if !fields.contains(&tag.to_string()) {
-                            self.error(format!(
-                                "Match tag '{}' not present on matched table type",
-                                tag
-                            ));
-                        }
-                    }
+        if !tags.is_empty()
+            && !has_wildcard
+            && let Some(ty) = matched_ty
+            && let TcType::TableWithFields(fields) = ty
+        {
+            for &tag in &tags {
+                if !fields.contains(&tag.to_string()) {
+                    self.error(format!(
+                        "Match tag '{}' not present on matched table type",
+                        tag
+                    ));
                 }
             }
         }
@@ -1437,39 +1433,37 @@ pub fn typecheck_program(program: &Program) -> TypecheckResult<()> {
             value,
             ..
         } = stmt
-        {
-            if let Expr::Function {
+            && let Expr::Function {
                 arguments,
                 return_type,
                 ..
             } = value
-            {
-                // Compute function type from signature
-                let mut param_types = Vec::new();
-                for arg in arguments {
-                    param_types.push(env.type_from_ast(&arg.r#type));
-                }
-                let ret_ty = if let Some(rt) = return_type {
-                    env.type_from_ast(rt)
-                } else {
-                    TcType::Unknown
-                };
-
-                let func_ty = TcType::Function {
-                    params: param_types,
-                    ret: Box::new(ret_ty),
-                };
-
-                // Pre-declare the function variable
-                env.declare(
-                    name.clone(),
-                    VarInfo {
-                        ty: func_ty,
-                        mutable: *mutable,
-                        annotated: r#type.is_some(),
-                    },
-                );
+        {
+            // Compute function type from signature
+            let mut param_types = Vec::new();
+            for arg in arguments {
+                param_types.push(env.type_from_ast(&arg.r#type));
             }
+            let ret_ty = if let Some(rt) = return_type {
+                env.type_from_ast(rt)
+            } else {
+                TcType::Unknown
+            };
+
+            let func_ty = TcType::Function {
+                params: param_types,
+                ret: Box::new(ret_ty),
+            };
+
+            // Pre-declare the function variable
+            env.declare(
+                name.clone(),
+                VarInfo {
+                    ty: func_ty,
+                    mutable: *mutable,
+                    annotated: r#type.is_some(),
+                },
+            );
         }
     }
 

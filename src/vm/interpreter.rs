@@ -488,7 +488,9 @@ impl VM {
                             match borrowed.get(i) {
                                 Some(v) => self.stack.push(v.clone()),
                                 None => {
-                                    return Err(VmError::runtime("List index out of bounds".into()));
+                                    return Err(VmError::runtime(
+                                        "List index out of bounds".into(),
+                                    ));
                                 }
                             }
                         }
@@ -986,7 +988,7 @@ impl VM {
                                         name
                                     ))
                                 })?;
-                                let result = func(&args).map_err(|e| VmError::runtime(e))?;
+                                let result = func(&args).map_err(VmError::runtime)?;
                                 self.stack.push(result);
                             }
                         }
