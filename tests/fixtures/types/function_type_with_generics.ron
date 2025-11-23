@@ -39,7 +39,9 @@ Program(
                     ],
                 )),
                 body: [
-                    Return(List([])),
+                    Return(
+                      value: List([])
+                    ),
                 ],
             ),
         ),

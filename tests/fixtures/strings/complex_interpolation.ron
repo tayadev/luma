@@ -10,7 +10,8 @@ Program(
       name: "y",
       value: Number(32.0),
     ),
-    Return(Binary(
+    Return(
+      value: Binary(
       left: Binary(
         left: Binary(
           left: Binary(
@@ -36,17 +37,20 @@ Program(
               ),
             ],
             return_type: Some(TypeIdent("Number")),
-            body: [Return(Binary(
-              left: Identifier("a"),
-              op: Mul,
-              right: Number(2.0),
-            ))],
+            body: [Return(
+              value: Binary(
+                left: Identifier("a"),
+                op: Mul,
+                right: Number(2.0),
+              )
+            )],
           ),
           arguments: [Positional(Number(3.0))],
         ),
       ),
       op: Add,
       right: String(" tail"),
-    )),
+    )
+    ),
   ],
 )

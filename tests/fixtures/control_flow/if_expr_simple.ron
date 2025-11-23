@@ -10,10 +10,14 @@ Program(
                     right: Identifier("b"),
                 ),
                 then_block: [
-                    Return(Identifier("a")),
+                    Return(
+                      value: Identifier("a")
+                    ),
                 ],
                 else_block: Some([
-                    Return(Identifier("b")),
+                    Return(
+                      value: Identifier("b")
+                    ),
                 ]),
             ),
         ),

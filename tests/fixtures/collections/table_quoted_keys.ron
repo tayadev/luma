@@ -1,9 +1,11 @@
 Program(
   statements: [
-    Return(Table([
+    Return(
+      value: Table([
       (StringLiteral("first name"), String("John")),
       (StringLiteral("last name"), String("Doe")),
       (Identifier("age"), Number(30.0)),
-    ])),
+    ])
+    ),
   ],
 )

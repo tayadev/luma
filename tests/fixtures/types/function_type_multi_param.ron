@@ -25,7 +25,9 @@ Program(
                 ],
                 return_type: Some(TypeIdent("Boolean")),
                 body: [
-                    Return(Boolean(true)),
+                    Return(
+                      value: Boolean(true)
+                    ),
                 ],
             ),
         ),

@@ -1,5 +1,7 @@
 Program(
   statements: [
-    Return(Null),
+    Return(
+      value: Null
+    ),
   ],
 )

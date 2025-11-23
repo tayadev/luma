@@ -1,11 +1,13 @@
 Program(
   statements: [
-    Return(Table([
+    Return(
+      value: Table([
       (Identifier("a"), Number(1.0)),
       (Identifier("b"), Boolean(true)),
       (Identifier("c"), Table([
         (Identifier("nested"), Null),
       ])),
-    ])),
+    ])
+    ),
   ],
 )

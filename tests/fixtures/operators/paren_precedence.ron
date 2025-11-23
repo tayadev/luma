@@ -1,6 +1,7 @@
 Program(
     statements: [
-        Return(Binary(
+        Return(
+          value: Binary(
             left: Binary(
                 left: Number(1.0),
                 op: Add,
@@ -8,6 +9,7 @@ Program(
             ),
             op: Mul,
             right: Number(3.0),
-        )),
+        )
+        ),
     ],
 )

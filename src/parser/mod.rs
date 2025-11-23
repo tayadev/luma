@@ -1,5 +1,6 @@
 use chumsky::prelude::*;
-use crate::ast::{Program, Stmt, Expr, Type, CallArgument};
+use crate::ast::{Program, Stmt, Expr, Type, CallArgument, Span};
+use crate::diagnostics::{Diagnostic, DiagnosticKind};
 
 mod string;
 mod lexer;
@@ -160,7 +161,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     let unary_expr = unary_op
         .repeated()
         .foldr(primary.clone(), |op, operand| {
-            Expr::Unary { op, operand: Box::new(operand) }
+            Expr::Unary { op, operand: Box::new(operand), span: None }
         })
         .boxed();
 
@@ -218,15 +219,18 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         |expr, op| match op {
             PostfixOp::Call(arguments) => Expr::Call { 
                 callee: Box::new(expr), 
-                arguments 
+                arguments,
+                span: None,
             },
             PostfixOp::Member(member) => Expr::MemberAccess { 
                 object: Box::new(expr), 
-                member 
+                member,
+                span: None,
             },
             PostfixOp::Index(index) => Expr::Index { 
                 object: Box::new(expr), 
-                index 
+                index,
+                span: None,
             },
         }
     ).boxed();
@@ -242,37 +246,37 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     // Build expression with precedence: || > && > == != > < <= > >= > + - > * / % > postfix > unary
     let mul_expr = postfix.clone()
         .foldl(mul_op.then(postfix.clone()).repeated(), |left, (op, right)| {
-            Expr::Binary { left: Box::new(left), op, right: Box::new(right) }
+            Expr::Binary { left: Box::new(left), op, right: Box::new(right), span: None }
         })
         .boxed();
     
     let add_expr = mul_expr.clone()
         .foldl(add_op.then(mul_expr.clone()).repeated(), |left, (op, right)| {
-            Expr::Binary { left: Box::new(left), op, right: Box::new(right) }
+            Expr::Binary { left: Box::new(left), op, right: Box::new(right), span: None }
         })
         .boxed();
     
     let cmp_expr = add_expr.clone()
         .foldl(cmp_op.then(add_expr.clone()).repeated(), |left, (op, right)| {
-            Expr::Binary { left: Box::new(left), op, right: Box::new(right) }
+            Expr::Binary { left: Box::new(left), op, right: Box::new(right), span: None }
         })
         .boxed();
 
     let eq_expr = cmp_expr.clone()
         .foldl(eq_op.then(cmp_expr.clone()).repeated(), |left, (op, right)| {
-            Expr::Binary { left: Box::new(left), op, right: Box::new(right) }
+            Expr::Binary { left: Box::new(left), op, right: Box::new(right), span: None }
         })
         .boxed();
 
     let and_expr = eq_expr.clone()
         .foldl(and_op.then(eq_expr.clone()).repeated(), |left, (op, right)| {
-            Expr::Logical { left: Box::new(left), op, right: Box::new(right) }
+            Expr::Logical { left: Box::new(left), op, right: Box::new(right), span: None }
         })
         .boxed();
 
     let or_expr = and_expr.clone()
         .foldl(or_op.then(and_expr.clone()).repeated(), |left, (op, right)| {
-            Expr::Logical { left: Box::new(left), op, right: Box::new(right) }
+            Expr::Logical { left: Box::new(left), op, right: Box::new(right), span: None }
         })
         .boxed();
 
@@ -326,40 +330,55 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     )
 }
 
-pub fn parse(source: &str) -> Result<Program, Vec<Rich<'_, char>>> {
-    parser().parse(source).into_result()
+/// Convert Chumsky error reason to readable message
+fn format_error_reason(reason: &chumsky::error::RichReason<char>) -> String {
+    use chumsky::error::RichReason;
+    
+    match reason {
+        RichReason::ExpectedFound { expected, found } => {
+            let found_msg = match found {
+                Some(c) => format!("'{}'", c.escape_debug()),
+                None => "end of input".to_string(),
+            };
+            
+            if expected.is_empty() {
+                format!("unexpected {}", found_msg)
+            } else {
+                // Just show a simplified message instead of listing all expected tokens
+                if found.is_none() {
+                    "unexpected end of input".to_string()
+                } else {
+                    format!("unexpected {}", found_msg)
+                }
+            }
+        }
+        RichReason::Custom(msg) => msg.to_string(),
+    }
+}
+
+pub fn parse(source: &str, filename: &str) -> Result<Program, Vec<Diagnostic>> {
+    match parser().parse(source).into_result() {
+        Ok(program) => Ok(program),
+        Err(errors) => {
+            let diags = errors.into_iter().map(|e| {
+                let span = Span::new(e.span().start, e.span().end);
+                let message = format_error_reason(e.reason());
+                Diagnostic::error(
+                    DiagnosticKind::Parse,
+                    message,
+                    span,
+                    filename.to_string(),
+                )
+            }).collect();
+            Err(diags)
+        }
+    }
 }
 
 /// Format a parser error with source context
-pub fn format_parse_error(error: &Rich<'_, char>, source: &str, file: Option<&str>) -> String {
-    use crate::ast::Span;
-    
-    let span = Span::new(error.span().start, error.span().end);
-    let loc = span.location(source);
-    
-    let mut result = String::new();
-    
-    // Add file location
-    if let Some(f) = file {
-        result.push_str(&format!("Parse error at {}:{}:{}\n", f, loc.line, loc.col));
-    } else {
-        result.push_str(&format!("Parse error at line {}:{}\n", loc.line, loc.col));
-    }
-    
-    // Show the line with the error
-    let lines: Vec<&str> = source.lines().collect();
-    if loc.line > 0 && loc.line <= lines.len() {
-        result.push_str(&format!("  {} | {}\n", loc.line, lines[loc.line - 1]));
-        result.push_str(&format!("  {} | {}{}\n", 
-            " ".repeat(loc.line.to_string().len()),
-            " ".repeat(loc.col.saturating_sub(1)),
-            "^"
-        ));
-    }
-    
-    // Add error message
-    result.push_str(&format!("{}", error));
-    
-    result
+// Legacy formatting retained (unused after diagnostics integration)
+#[allow(dead_code)]
+pub fn format_parse_error(_error: &Rich<'_, char>, _source: &str, _file: Option<&str>) -> String {
+    "".to_string()
 }
 

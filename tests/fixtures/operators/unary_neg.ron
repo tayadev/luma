@@ -1,8 +1,10 @@
 Program(
     statements: [
-        Return(Unary(
+        Return(
+          value: Unary(
             op: Neg,
             operand: Identifier("x"),
-        )),
+        )
+        ),
     ],
 )

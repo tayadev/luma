@@ -1,5 +1,7 @@
 Program(
   statements: [
-    Return(Number(300.0)),
+    Return(
+      value: Number(300.0)
+    ),
   ],
 )

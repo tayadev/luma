@@ -1,8 +1,10 @@
 Program(
     statements: [
-        Return(MemberAccess(
+        Return(
+          value: MemberAccess(
             object: Identifier("obj"),
             member: "field",
-        )),
+        )
+        ),
     ],
 )

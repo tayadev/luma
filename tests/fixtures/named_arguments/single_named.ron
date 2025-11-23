@@ -1,6 +1,7 @@
 Program(
     statements: [
-        Return(Call(
+        Return(
+          value: Call(
             callee: Identifier("greet"),
             arguments: [
                 Named(
@@ -8,6 +9,7 @@ Program(
                     value: String("World"),
                 ),
             ],
-        )),
+        )
+        ),
     ],
 )

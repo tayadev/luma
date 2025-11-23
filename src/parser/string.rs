@@ -66,6 +66,7 @@ where
                     left: Box::new(left),
                     op: BinaryOp::Add,
                     right: Box::new(right),
+                    span: None,
                 }).unwrap(),
             }
         })

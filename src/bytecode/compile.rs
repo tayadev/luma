@@ -101,8 +101,8 @@ impl Compiler {
 
     fn emit_stmt(&mut self, s: &Stmt) {
         match s {
-            Stmt::Return(expr) => {
-                self.emit_expr(expr);
+            Stmt::Return { value, .. } => {
+                self.emit_expr(value);
             }
             Stmt::If { condition, then_block, elif_blocks, else_block, .. } => {
                 // if cond then ... elif ... else ... end
@@ -274,7 +274,7 @@ impl Compiler {
                                 let mut arm_body = body.to_vec();
                                 if let Some(last) = arm_body.pop() {
                                     match last {
-                                        Stmt::ExprStmt(e) => arm_body.push(Stmt::Return(e)),
+                                        Stmt::ExprStmt(e) => arm_body.push(Stmt::Return { value: e, span: None }),
                                         other => arm_body.push(other),
                                     }
                                 }
@@ -322,7 +322,7 @@ impl Compiler {
                                 let mut arm_body = body.to_vec();
                                 if let Some(last) = arm_body.pop() {
                                     match last {
-                                        Stmt::ExprStmt(e) => arm_body.push(Stmt::Return(e)),
+                                        Stmt::ExprStmt(e) => arm_body.push(Stmt::Return { value: e, span: None }),
                                         other => arm_body.push(other),
                                     }
                                 }
@@ -354,7 +354,7 @@ impl Compiler {
                         let mut arm_body = body.to_vec();
                         if let Some(last) = arm_body.pop() {
                             match last {
-                                Stmt::ExprStmt(e) => arm_body.push(Stmt::Return(e)),
+                                Stmt::ExprStmt(e) => arm_body.push(Stmt::Return { value: e, span: None }),
                                 other => arm_body.push(other),
                             }
                         }
@@ -426,7 +426,7 @@ impl Compiler {
                 if self.scopes.is_empty() {
                     // Global destructuring
                     match pattern {
-                        Pattern::ListPattern { elements, rest } => {
+                        Pattern::ListPattern { elements, rest, .. } => {
                             // List destructuring: [a, b, ...rest] = list
                             // Strategy: Get each element by index and assign to globals
                             
@@ -463,7 +463,7 @@ impl Compiler {
                                 self.chunk.instructions.push(Instruction::Pop);
                             }
                         }
-                        Pattern::TablePattern { fields } => {
+                        Pattern::TablePattern { fields, .. } => {
                             // Table destructuring: {name, age: userAge} = table
                             for field in fields {
                                 self.chunk.instructions.push(Instruction::Dup); // dup table
@@ -492,7 +492,7 @@ impl Compiler {
                 } else {
                     // Local destructuring
                     match pattern {
-                        Pattern::ListPattern { elements, rest } => {
+                        Pattern::ListPattern { elements, rest, .. } => {
                             // For locals, the value is already on stack and will become local slots
                             let value_slot = self.local_count;
                             self.scopes.last_mut().unwrap().insert("__destructure_val".to_string(), value_slot);
@@ -532,7 +532,7 @@ impl Compiler {
                                 self.local_count += 1;
                             }
                         }
-                        Pattern::TablePattern { fields } => {
+                        Pattern::TablePattern { fields, .. } => {
                             let value_slot = self.local_count;
                             self.scopes.last_mut().unwrap().insert("__destructure_val".to_string(), value_slot);
                             self.local_count += 1;
@@ -578,14 +578,14 @@ impl Compiler {
                             self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
                         }
                     }
-                    Expr::MemberAccess { object, member } => {
+                    Expr::MemberAccess { object, member, .. } => {
                         // Stack layout: object, value
                         self.emit_expr(object);
                         self.emit_expr(value);
                         let name_idx = push_const(&mut self.chunk, Constant::String(member.clone()));
                         self.chunk.instructions.push(Instruction::SetProp(name_idx));
                     }
-                    Expr::Index { object, index } => {
+                    Expr::Index { object, index, .. } => {
                         // Stack layout: object, index, value
                         self.emit_expr(object);
                         self.emit_expr(index);
@@ -644,7 +644,7 @@ impl Compiler {
                         self.local_count += 1;
                         LoopPat::Ident { slot }
                     }
-                    Pattern::ListPattern { elements, rest } => {
+                    Pattern::ListPattern { elements, rest, .. } => {
                         // Predeclare locals for each identifier element and optional rest
                         let mut elem_slots: Vec<Option<usize>> = Vec::with_capacity(elements.len());
                         for elem in elements {
@@ -894,12 +894,12 @@ impl Compiler {
                 }
                 self.chunk.instructions.push(Instruction::BuildTable(fields.len()));
             }
-            Expr::MemberAccess { object, member } => {
+            Expr::MemberAccess { object, member, .. } => {
                 self.emit_expr(object);
                 let name_idx = push_const(&mut self.chunk, Constant::String(member.clone()));
                 self.chunk.instructions.push(Instruction::GetProp(name_idx));
             }
-            Expr::Index { object, index } => {
+            Expr::Index { object, index, .. } => {
                 self.emit_expr(object);
                 self.emit_expr(index);
                 self.chunk.instructions.push(Instruction::GetIndex);
@@ -914,7 +914,7 @@ impl Compiler {
                     self.chunk.instructions.push(Instruction::GetGlobal(name_idx));
                 }
             }
-            Expr::Unary { op, operand } => {
+            Expr::Unary { op, operand, .. } => {
                 match op {
                     UnaryOp::Neg => {
                         self.emit_expr(operand);
@@ -926,7 +926,7 @@ impl Compiler {
                     }
                 }
             }
-            Expr::Logical { left, op, right } => {
+            Expr::Logical { left, op, right, .. } => {
                 match op {
                     LogicalOp::And => {
                         // left && right with short-circuit
@@ -955,7 +955,7 @@ impl Compiler {
                     }
                 }
             }
-            Expr::Binary { left, op, right } => {
+            Expr::Binary { left, op, right, .. } => {
                 self.emit_expr(left);
                 self.emit_expr(right);
                 match op {
@@ -985,7 +985,7 @@ impl Compiler {
                     self.chunk.instructions.push(Instruction::Closure(idx));
                 }
             }
-            Expr::Call { callee, arguments } => {
+            Expr::Call { callee, arguments, .. } => {
                 // Determine if we need named-arg reordering
                 let has_named = arguments.iter().any(|a| matches!(a, CallArgument::Named { .. }));
                 if !has_named {
@@ -1067,7 +1067,7 @@ impl Compiler {
                 }
                 self.exit_scope_with_preserve(true);
             }
-            Expr::If { condition, then_block, else_block } => {
+            Expr::If { condition, then_block, else_block, .. } => {
                 // Emit condition
                 self.emit_expr(condition);
                 let jf = self.emit_jump_if_false();
@@ -1115,7 +1115,7 @@ impl Compiler {
                 // Emit the Import instruction
                 self.chunk.instructions.push(Instruction::Import);
             }
-            Expr::Match { expr, arms } => {
+            Expr::Match { expr, arms, .. } => {
                 // Expression form of match - produces a single value directly
                 self.enter_scope();
                 self.emit_expr(expr);
@@ -1146,7 +1146,7 @@ impl Compiler {
                                 let mut arm_body = body.to_vec();
                                 if let Some(last) = arm_body.pop() {
                                     if let Stmt::ExprStmt(e) = last {
-                                        arm_body.push(Stmt::Return(e));
+                                        arm_body.push(Stmt::Return { value: e, span: None });
                                     } else {
                                         arm_body.push(last);
                                     }
@@ -1190,7 +1190,7 @@ impl Compiler {
                                 let mut arm_body = body.to_vec();
                                 if let Some(last) = arm_body.pop() {
                                     if let Stmt::ExprStmt(e) = last {
-                                        arm_body.push(Stmt::Return(e));
+                                        arm_body.push(Stmt::Return { value: e, span: None });
                                     } else {
                                         arm_body.push(last);
                                     }
@@ -1213,7 +1213,7 @@ impl Compiler {
                         let mut arm_body = body.to_vec();
                         if let Some(last) = arm_body.pop() {
                             if let Stmt::ExprStmt(e) = last {
-                                arm_body.push(Stmt::Return(e));
+                                arm_body.push(Stmt::Return { value: e, span: None });
                             } else {
                                 arm_body.push(last);
                             }
@@ -1418,7 +1418,7 @@ impl Compiler {
 
 fn block_leaves_value(block: &[Stmt]) -> bool {
     match block.last() {
-        Some(Stmt::Return(_)) => true,
+        Some(Stmt::Return { .. }) => true,
         Some(Stmt::If { then_block, elif_blocks, else_block, .. }) => {
             // An if-statement leaves a value if all branches leave a value
             let then_leaves = block_leaves_value(then_block);

@@ -1,8 +1,10 @@
 Program(
     statements: [
-        Return(Index(
+        Return(
+          value: Index(
             object: Identifier("arr"),
             index: Number(0.0),
-        )),
+        )
+        ),
     ],
 )

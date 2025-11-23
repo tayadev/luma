@@ -1,8 +1,10 @@
 Program(
   statements: [
-    Return(Table([
+    Return(
+      value: Table([
       (Identifier("a"), Identifier("a")),
       (Identifier("b"), Identifier("b")),
-    ])),
+    ])
+    ),
   ],
 )

@@ -66,7 +66,7 @@ where
                     .or_not()
             )
             .delimited_by(just('[').padded_by(ws.clone()), just(']').padded_by(ws.clone()))
-            .map(|(elements, rest)| Pattern::ListPattern { elements, rest })
+            .map(|(elements, rest)| Pattern::ListPattern { elements, rest, span: None })
             .boxed();
         
         // Table patterns with field renames: {key}, {key: binding}
@@ -87,7 +87,7 @@ where
             .at_least(1)
             .collect::<Vec<TablePatternField>>()
             .delimited_by(just('{').padded_by(ws.clone()), just('}').padded_by(ws.clone()))
-            .map(|fields| Pattern::TablePattern { fields })
+            .map(|fields| Pattern::TablePattern { fields, span: None })
             .boxed();
         
         // Identifier pattern (default)

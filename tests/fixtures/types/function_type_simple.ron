@@ -19,7 +19,9 @@ Program(
                 ],
                 return_type: Some(TypeIdent("String")),
                 body: [
-                    Return(String("value")),
+                    Return(
+                      value: String("value")
+                    ),
                 ],
             ),
         ),

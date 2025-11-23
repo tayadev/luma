@@ -41,7 +41,7 @@ fn test_should_fail_programs() {
         };
 
         // Parse
-        let ast = match luma::parser::parse(source.as_str()) {
+        let ast = match luma::parser::parse(source.as_str(), luma_path.to_str().unwrap()) {
             Ok(ast) => {
                 if expected_failure == "parse" {
                     println!("✓ {} (expected parse failure, got success - FAIL)", test_name);

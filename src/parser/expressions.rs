@@ -1,5 +1,5 @@
 use chumsky::prelude::*;
-use crate::ast::{Expr, Stmt, Argument, Type, Pattern};
+use crate::ast::{Expr, Stmt, Argument, Type, Pattern, Span};
 use super::utils::{apply_implicit_return, apply_implicit_return_stmts};
 
 /// Creates a parser for block expressions (do...end)
@@ -18,9 +18,7 @@ where
         .ignore_then(stmt.repeated().collect::<Vec<Stmt>>())
         .then(expr.or_not())
         .then_ignore(just("end").padded_by(ws))
-        .map(|(stmts, ret)| {
-            Expr::Block(apply_implicit_return(stmts, ret))
-        })
+        .try_map(|(stmts, ret), _span| Ok(Expr::Block(apply_implicit_return(stmts, ret))))
         .boxed()
 }
 
@@ -48,13 +46,12 @@ where
         .then(stmt.repeated().collect::<Vec<Stmt>>())
         .then(else_block.or_not())
         .then_ignore(just("end").padded_by(ws))
-        .map(|((condition, then_block), else_block)| {
-            Expr::If { 
-                condition: Box::new(condition), 
-                then_block: apply_implicit_return_stmts(then_block), 
-                else_block 
-            }
-        })
+        .try_map(|((condition, then_block), else_block), span| Ok(Expr::If { 
+            condition: Box::new(condition), 
+            then_block: apply_implicit_return_stmts(then_block), 
+            else_block,
+            span: Some(Span::from_chumsky(span)),
+        }))
         .boxed()
 }
 
@@ -103,8 +100,8 @@ where
         .then(just(':').padded_by(ws.clone()).ignore_then(type_parser).or_not())
         .then_ignore(just("do").padded_by(ws))
         .then(body_block)
-        .map(|((arguments, return_type), body): ((Vec<Argument>, Option<Type>), Vec<Stmt>)| {
-            Expr::Function { arguments, return_type, body }
+        .try_map(|((arguments, return_type), body): ((Vec<Argument>, Option<Type>), Vec<Stmt>), span| {
+            Ok(Expr::Function { arguments, return_type, body, span: Some(Span::from_chumsky(span)) })
         })
         .boxed()
 }
@@ -138,7 +135,7 @@ where
             .collect::<Vec<(Pattern, Vec<Stmt>)>>()
         )
         .then_ignore(just("end").padded_by(ws))
-        .map(|(expr, arms)| Expr::Match { expr: Box::new(expr), arms })
+        .try_map(|(expr, arms), span| Ok(Expr::Match { expr: Box::new(expr), arms, span: Some(Span::from_chumsky(span)) }))
         .boxed()
 }
 
@@ -160,6 +157,6 @@ where
                     just(')').padded_by(ws)
                 )
         )
-        .map(|path| Expr::Import { path: Box::new(path) })
+        .try_map(|path, _span| Ok(Expr::Import { path: Box::new(path) }))
         .boxed()
 }

@@ -31,7 +31,7 @@ where
         .boxed()
 }
 use chumsky::prelude::*;
-use crate::ast::{Stmt, Expr, Pattern, Type};
+use crate::ast::{Stmt, Expr, Pattern, Type, Span};
 use crate::parser::operators;
 use super::utils::apply_implicit_return_stmts;
 
@@ -44,7 +44,7 @@ where
     just("return")
         .padded_by(ws)
         .ignore_then(expr)
-        .map(Stmt::Return)
+        .try_map(|value, span| Ok(Stmt::Return { value, span: Some(Span::from_chumsky(span)) }))
         .boxed()
 }
 
@@ -74,12 +74,12 @@ where
 
     var_decl_token
         .then(expr)
-        .map(|(((mutable, (pattern, name)), opt_type), value)| {
-            if let Some(pattern) = pattern {
-                Stmt::DestructuringVarDecl { mutable, pattern, value, span: None }
+        .try_map(|(((mutable, (pattern, name)), opt_type), value), span| {
+            Ok(if let Some(pattern) = pattern {
+                Stmt::DestructuringVarDecl { mutable, pattern, value, span: Some(Span::from_chumsky(span)) }
             } else {
-                Stmt::VarDecl { mutable, name: name.unwrap(), r#type: opt_type, value, span: None }
-            }
+                Stmt::VarDecl { mutable, name: name.unwrap(), r#type: opt_type, value, span: Some(Span::from_chumsky(span)) }
+            })
         })
         .boxed()
 }
@@ -98,7 +98,7 @@ where
     expr.clone()
         .then(assign_op)
         .then(expr)
-        .map(|((target, op), value)| Stmt::Assignment { target, op, value, span: None })
+        .try_map(|((target, op), value), span| Ok(Stmt::Assignment { target, op, value, span: Some(Span::from_chumsky(span)) }))
         .boxed()
 }
 
@@ -135,14 +135,14 @@ where
         .then(elif_block.repeated().collect::<Vec<(Expr, Vec<Stmt>)>>())
         .then(else_block.or_not())
         .then_ignore(just("end").padded_by(ws))
-        .map(|(((condition, then_block), elif_blocks), else_block)| {
-            Stmt::If { 
+        .try_map(|(((condition, then_block), elif_blocks), else_block), span| {
+            Ok(Stmt::If { 
                 condition, 
                 then_block: apply_implicit_return_stmts(then_block), 
                 elif_blocks, 
                 else_block,
-                span: None,
-            }
+                span: Some(Span::from_chumsky(span)),
+            })
         })
         .boxed()
 }
@@ -164,7 +164,7 @@ where
         .then_ignore(just("do").padded_by(ws.clone()))
         .then(stmt.repeated().collect::<Vec<Stmt>>())
         .then_ignore(just("end").padded_by(ws))
-        .map(|(condition, body)| Stmt::While { condition, body, span: None })
+        .try_map(|(condition, body), span| Ok(Stmt::While { condition, body, span: Some(Span::from_chumsky(span)) }))
         .boxed()
 }
 
@@ -185,7 +185,7 @@ where
         .then_ignore(just("while").padded_by(ws.clone()))
         .then(expr)
         .then_ignore(just("end").padded_by(ws))
-        .map(|(body, condition)| Stmt::DoWhile { body, condition, span: None })
+        .try_map(|(body, condition), span| Ok(Stmt::DoWhile { body, condition, span: Some(Span::from_chumsky(span)) }))
         .boxed()
 }
 
@@ -210,7 +210,7 @@ where
         .then_ignore(just("do").padded_by(ws.clone()))
         .then(stmt.repeated().collect::<Vec<Stmt>>())
         .then_ignore(just("end").padded_by(ws))
-        .map(|((pattern, iterator), body)| Stmt::For { pattern, iterator, body, span: None })
+        .try_map(|((pattern, iterator), body), span| Ok(Stmt::For { pattern, iterator, body, span: Some(Span::from_chumsky(span)) }))
         .boxed()
 }
 

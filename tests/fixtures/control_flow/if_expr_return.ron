@@ -7,11 +7,15 @@ Program(
                 right: Number(0.0),
             ),
             then_block: [
-                Return(String("positive")),
+                Return(
+                  value: String("positive")
+                ),
             ],
             elif_blocks: [],
             else_block: Some([
-                Return(String("non-positive")),
+                Return(
+                  value: String("non-positive")
+                ),
             ]),
         ),
     ],

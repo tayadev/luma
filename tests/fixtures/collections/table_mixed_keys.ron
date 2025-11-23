@@ -1,6 +1,7 @@
 Program(
   statements: [
-    Return(Table([
+    Return(
+      value: Table([
       (Identifier("simple"), Number(1.0)),
       (StringLiteral("with spaces"), Number(2.0)),
       (Computed(Binary(
@@ -11,6 +12,7 @@ Program(
       (Identifier("another"), Table([
         (Identifier("nested"), Boolean(true)),
       ])),
-    ])),
+    ])
+    ),
   ],
 )

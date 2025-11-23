@@ -1,5 +1,7 @@
 Program(
   statements: [
-    Return(List([Number(1.0), Number(2.0), Boolean(true), Null])),
+    Return(
+      value: List([Number(1.0), Number(2.0), Boolean(true), Null])
+    ),
   ],
 )

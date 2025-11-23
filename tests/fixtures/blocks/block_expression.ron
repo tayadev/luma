@@ -14,11 +14,13 @@ Program(
           name: "b",
           value: Number(2.0),
         ),
-        Return(Binary(
-          left: Identifier("a"),
-          op: Add,
-          right: Identifier("b"),
-        )),
+        Return(
+          value: Binary(
+            left: Identifier("a"),
+            op: Add,
+            right: Identifier("b"),
+          ),
+        ),
       ]),
     ),
   ],

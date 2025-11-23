@@ -169,7 +169,7 @@ impl VM {
         let prelude_source = include_str!("../prelude.luma");
         
         // Parse the prelude
-        let ast = match crate::parser::parse(prelude_source) {
+        let ast = match crate::parser::parse(prelude_source, "<prelude>") {
             Ok(ast) => ast,
             Err(errors) => {
                 let error_msg = errors.iter()
@@ -1044,7 +1044,7 @@ impl VM {
                 .map_err(|e| VmError::runtime(format!("Failed to read module '{}': {}", path, e)))?;
             
             // Parse the module
-            let ast = crate::parser::parse(&source)
+            let ast = crate::parser::parse(&source, path)
                 .map_err(|errors| {
                     VmError::runtime(format!(
                         "Parse error in module '{}': {}",

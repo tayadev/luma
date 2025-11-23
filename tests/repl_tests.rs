@@ -120,8 +120,8 @@ fn test_repl_parse_error_recovery() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
     
-    assert!(stderr.contains("Parse error") || stdout.contains("Parse error"), 
-            "Expected parse error in output");
+    assert!(stderr.contains("error:") || stdout.contains("error:"), 
+            "Expected error in output");
     assert!(stdout.contains("10"), "Expected '10' for 5 + 5 after error, got: {}", stdout);
 }
 

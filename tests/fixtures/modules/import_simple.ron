@@ -8,7 +8,7 @@ Program(
       ),
     ),
     Return(
-      Identifier("result"),
+      value: Identifier("result"),
     ),
   ],
 )

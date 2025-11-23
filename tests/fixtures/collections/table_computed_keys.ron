@@ -1,6 +1,7 @@
 Program(
   statements: [
-    Return(Table([
+    Return(
+      value: Table([
       (Computed(Binary(
         left: String("key"),
         op: Add,
@@ -12,6 +13,7 @@ Program(
         right: Number(3.0),
       )), String("value2")),
       (Identifier("regular"), String("value3")),
-    ])),
+    ])
+    ),
   ],
 )

@@ -59,11 +59,11 @@ fn main() {
                     process::exit(1);
                 }
             };
-            let ast = match luma::parser::parse(&source) {
+            let ast = match luma::parser::parse(&source, file) {
                 Ok(ast) => ast,
                 Err(errors) => {
                     for error in &errors {
-                        eprintln!("{}", luma::parser::format_parse_error(error, &source, Some(file)));
+                        eprintln!("{}", error.format(&source));
                     }
                     process::exit(1);
                 }
@@ -78,11 +78,11 @@ fn main() {
                     process::exit(1);
                 }
             };
-            let ast = match luma::parser::parse(&source) {
+            let ast = match luma::parser::parse(&source, file) {
                 Ok(ast) => ast,
                 Err(errors) => {
                     for error in &errors {
-                        eprintln!("{}", luma::parser::format_parse_error(error, &source, Some(file)));
+                        eprintln!("{}", error.format(&source));
                     }
                     process::exit(1);
                 }
@@ -104,11 +104,11 @@ fn main() {
                     process::exit(1);
                 }
             };
-            let ast = match luma::parser::parse(&source) {
+            let ast = match luma::parser::parse(&source, file) {
                 Ok(ast) => ast,
                 Err(errors) => {
                     for error in &errors {
-                        eprintln!("{}", luma::parser::format_parse_error(error, &source, Some(file)));
+                        eprintln!("{}", error.format(&source));
                     }
                     process::exit(1);
                 }
@@ -142,11 +142,11 @@ fn run_file(file: &str) {
             process::exit(1);
         }
     };
-    let ast = match luma::parser::parse(&source) {
+    let ast = match luma::parser::parse(&source, file) {
         Ok(ast) => ast,
         Err(errors) => {
             for error in &errors {
-                eprintln!("{}", luma::parser::format_parse_error(error, &source, Some(file)));
+                eprintln!("{}", error.format(&source));
             }
             process::exit(1);
         }
@@ -227,12 +227,12 @@ fn run_repl() {
         }
         
         // Try to parse the input
-        let ast = match luma::parser::parse(&input) {
+        let ast = match luma::parser::parse(&input, "<repl>") {
             Ok(ast) => ast,
             Err(errors) => {
                 // Report parse errors
                 for error in &errors {
-                    eprintln!("{}", luma::parser::format_parse_error(error, &input, Some("<repl>")));
+                    eprintln!("{}", error.format(&input));
                 }
                 continue;
             }

@@ -28,9 +28,11 @@ Program(
       callee: Identifier("print"),
       arguments: [Positional(Identifier("userName"))],
     )),
-    Return(Call(
+    Return(
+      value: Call(
       callee: Identifier("print"),
       arguments: [Positional(Identifier("userAge"))],
-    )),
+    )
+    ),
   ],
 )

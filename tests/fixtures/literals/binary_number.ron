@@ -1,5 +1,7 @@
 Program(
   statements: [
-    Return(Number(10.0)),
+    Return(
+      value: Number(10.0)
+    ),
   ],
 )

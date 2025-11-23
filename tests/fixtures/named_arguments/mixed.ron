@@ -1,6 +1,7 @@
 Program(
     statements: [
-        Return(Call(
+        Return(
+          value: Call(
             callee: Identifier("calculate"),
             arguments: [
                 Positional(Number(1.0)),
@@ -13,6 +14,7 @@ Program(
                     value: Number(3.0),
                 ),
             ],
-        )),
+        )
+        ),
     ],
 )

@@ -18,11 +18,13 @@ Program(
         ],
         return_type: Some(TypeIdent("Number")),
         body: [
-          Return(Binary(
+          Return(
+            value: Binary(
             left: Identifier("a"),
             op: Add,
             right: Identifier("b"),
-          )),
+          )
+          ),
         ],
       ),
     ),

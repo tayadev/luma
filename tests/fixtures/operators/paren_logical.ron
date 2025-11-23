@@ -1,6 +1,7 @@
 Program(
     statements: [
-        Return(Logical(
+        Return(
+          value: Logical(
             left: Logical(
                 left: Identifier("a"),
                 op: And,
@@ -12,6 +13,7 @@ Program(
                 op: And,
                 right: Identifier("d"),
             ),
-        )),
+        )
+        ),
     ],
 )

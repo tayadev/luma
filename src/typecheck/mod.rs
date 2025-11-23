@@ -331,7 +331,7 @@ impl TypeEnv {
                 TcType::TableWithFields(fields)
             }
 
-            Expr::Binary { left, op, right } => {
+            Expr::Binary { left, op, right, .. } => {
                 let left_ty = self.check_expr(left);
                 let right_ty = self.check_expr(right);
 
@@ -413,7 +413,7 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Unary { op, operand } => match op {
+            Expr::Unary { op, operand, .. } => match op {
                 UnaryOp::Neg => {
                     let ty = self.check_expr(operand);
                     if ty.is_compatible(&TcType::Number) {
@@ -434,13 +434,13 @@ impl TypeEnv {
                 }
             },
 
-            Expr::Logical { left, op: _, right } => {
+            Expr::Logical { left, op: _, right, .. } => {
                 self.expect_type(left, &TcType::Boolean, "Logical op left operand");
                 self.expect_type(right, &TcType::Boolean, "Logical op right operand");
                 TcType::Boolean
             }
 
-            Expr::Call { callee, arguments } => {
+            Expr::Call { callee, arguments, .. } => {
                 let callee_ty = self.check_expr(callee);
                 match callee_ty {
                     TcType::Function { params, ret } => {
@@ -489,7 +489,7 @@ impl TypeEnv {
                 }
             }
 
-            Expr::MemberAccess { object, member } => {
+            Expr::MemberAccess { object, member, .. } => {
                 let obj_ty = self.check_expr(object);
                 match obj_ty {
                     TcType::Table => TcType::Unknown, // dynamic tables allowed
@@ -512,7 +512,7 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Index { object, index } => {
+            Expr::Index { object, index, .. } => {
                 let obj_ty = self.check_expr(object);
                 let idx_ty = self.check_expr(index);
 
@@ -546,7 +546,7 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Function { arguments, return_type, body } => {
+            Expr::Function { arguments, return_type, body, .. } => {
                 self.push_scope();
 
                 let mut param_types = Vec::new();
@@ -600,7 +600,7 @@ impl TypeEnv {
                 ret_ty
             }
 
-            Expr::If { condition, then_block, else_block } => {
+            Expr::If { condition, then_block, else_block, .. } => {
                 // Check condition
                 let cond_ty = self.check_expr(condition);
                 if !cond_ty.is_compatible(&TcType::Boolean) && cond_ty != TcType::Unknown {
@@ -652,7 +652,7 @@ impl TypeEnv {
                 // For now, we type it as Unknown (proper typing would require module analysis)
                 TcType::Unknown
             }
-            Expr::Match { expr, arms } => {
+            Expr::Match { expr, arms, .. } => {
                 // Type of the matched expression
                 let matched_ty = self.check_expr(expr);
                 
@@ -719,7 +719,7 @@ impl TypeEnv {
 
         for stmt in stmts {
             match stmt {
-                Stmt::Return(expr) => {
+                Stmt::Return { value: expr, .. } => {
                     ret_ty = self.check_expr(expr);
                     if !ret_ty.is_compatible(expected_ret) && *expected_ret != TcType::Unknown {
                         self.error(format!(
@@ -911,7 +911,7 @@ impl TypeEnv {
                 // TODO: Could check if we're inside a loop
             }
 
-            Stmt::Return(expr) => {
+            Stmt::Return { value: expr, .. } => {
                 self.check_expr(expr);
             }
 
@@ -939,7 +939,7 @@ impl TypeEnv {
                     TcType::Unknown
                 }
             }
-            Expr::MemberAccess { object, member: _ } => {
+            Expr::MemberAccess { object, member: _, .. } => {
                 let obj_ty = self.check_expr(object);
                 match obj_ty {
                     TcType::Table | TcType::TableWithFields(_) => TcType::Unknown,
@@ -953,7 +953,7 @@ impl TypeEnv {
                     }
                 }
             }
-            Expr::Index { object, index } => {
+            Expr::Index { object, index, .. } => {
                 let obj_ty = self.check_expr(object);
                 let idx_ty = self.check_expr(index);
 
@@ -1009,7 +1009,7 @@ impl TypeEnv {
                     );
                 }
             }
-            Pattern::ListPattern { elements, rest } => {
+            Pattern::ListPattern { elements, rest, .. } => {
                 match ty {
                     TcType::List(elem_ty) => {
                         for elem in elements {
@@ -1049,7 +1049,7 @@ impl TypeEnv {
                     }
                 }
             }
-            Pattern::TablePattern { fields } => {
+            Pattern::TablePattern { fields, .. } => {
                 match ty {
                     TcType::TableWithFields(present) => {
                         // Validate required fields exist by name

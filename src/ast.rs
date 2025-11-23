@@ -9,6 +9,44 @@ pub struct Span {
     pub end: usize,
 }
 
+/// A value with an associated source span
+/// Serializes transparently to the inner value for backward compatibility
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Spanned<T> {
+    pub value: T,
+    pub span: Span,
+}
+
+impl<T> Spanned<T> {
+    pub fn new(value: T, span: Span) -> Self {
+        Self { value, span }
+    }
+}
+
+// Serialize as the inner value only (skip span for now to avoid breaking fixtures)
+impl<T: Serialize> Serialize for Spanned<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.value.serialize(serializer)
+    }
+}
+
+// Deserialize as the inner value with a dummy span
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for Spanned<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = T::deserialize(deserializer)?;
+        Ok(Spanned {
+            value,
+            span: Span::new(0, 0), // Dummy span during deserialization
+        })
+    }
+}
+
 impl Span {
     pub fn new(start: usize, end: usize) -> Self {
         Span { start, end }
@@ -110,6 +148,9 @@ pub enum Expr {
         arguments: Vec<Argument>,
         return_type: Option<Type>,
         body: Vec<Stmt>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     Boolean(bool),
     Null,
@@ -119,32 +160,53 @@ pub enum Expr {
         left: Box<Expr>,
         op: BinaryOp,
         right: Box<Expr>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     Unary {
         op: UnaryOp,
         operand: Box<Expr>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     Logical {
         left: Box<Expr>,
         op: LogicalOp,
         right: Box<Expr>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     Call {
         callee: Box<Expr>,
         arguments: Vec<CallArgument>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     MemberAccess {
         object: Box<Expr>,
         member: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     Index {
         object: Box<Expr>,
         index: Box<Expr>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     If {
         condition: Box<Expr>,
         then_block: Vec<Stmt>,
         else_block: Option<Vec<Stmt>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     Block(Vec<Stmt>),
     Import {
@@ -154,13 +216,27 @@ pub enum Expr {
     Match {
         expr: Box<Expr>,
         arms: Vec<(Pattern, Vec<Stmt>)>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
 }
 
 impl Expr {
     /// Get the span of this expression, if available
     pub fn span(&self) -> Option<Span> {
-        None // Will be implemented when we add Spanned<Expr> wrapper
+        match self {
+            Expr::Function { span, .. } => *span,
+            Expr::Binary { span, .. } => *span,
+            Expr::Unary { span, .. } => *span,
+            Expr::Logical { span, .. } => *span,
+            Expr::Call { span, .. } => *span,
+            Expr::MemberAccess { span, .. } => *span,
+            Expr::Index { span, .. } => *span,
+            Expr::If { span, .. } => *span,
+            Expr::Match { span, .. } => *span,
+            _ => None,
+        }
     }
 }
 
@@ -203,9 +279,15 @@ pub enum Pattern {
     ListPattern {
         elements: Vec<Pattern>,
         rest: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     TablePattern {
         fields: Vec<TablePatternField>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
     },
     Literal(Literal),
 }
@@ -213,7 +295,11 @@ pub enum Pattern {
 impl Pattern {
     /// Get the span of this pattern, if available
     pub fn span(&self) -> Option<Span> {
-        None // Will be implemented when we add Spanned<Pattern> wrapper
+        match self {
+            Pattern::ListPattern { span, .. } => *span,
+            Pattern::TablePattern { span, .. } => *span,
+            _ => None,
+        }
     }
 }
 
@@ -244,7 +330,12 @@ pub enum Stmt {
         #[serde(default)]
         span: Option<Span>,
     },
-    Return(Expr),
+    Return {
+        value: Expr,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
     DestructuringVarDecl {
         mutable: bool,
         pattern: Pattern,
@@ -311,7 +402,7 @@ impl Stmt {
     pub fn span(&self) -> Option<Span> {
         match self {
             Stmt::VarDecl { span, .. } => *span,
-            Stmt::Return(_) => None,
+            Stmt::Return { span, .. } => *span,
             Stmt::DestructuringVarDecl { span, .. } => *span,
             Stmt::Assignment { span, .. } => *span,
             Stmt::If { span, .. } => *span,

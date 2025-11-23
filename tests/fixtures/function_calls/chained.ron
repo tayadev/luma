@@ -1,6 +1,7 @@
 Program(
     statements: [
-        Return(Index(
+        Return(
+          value: Index(
             object: MemberAccess(
                 object: Call(
                     callee: MemberAccess(
@@ -15,6 +16,7 @@ Program(
                 member: "field",
             ),
             index: Number(0.0),
-        )),
+        )
+        ),
     ],
 )

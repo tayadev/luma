@@ -10,6 +10,8 @@ Program(
       name: "b",
       value: Number(2.0),
     ),
-    Return(Identifier("b")),
+    Return(
+      value: Identifier("b")
+    ),
   ],
 )

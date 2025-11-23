@@ -1,12 +1,14 @@
 Program(
     statements: [
-        Return(Call(
+        Return(
+          value: Call(
             callee: Identifier("foo"),
             arguments: [
                 Positional(Number(1.0)),
                 Positional(Number(2.0)),
                 Positional(Number(3.0)),
             ],
-        )),
+        )
+        ),
     ],
 )

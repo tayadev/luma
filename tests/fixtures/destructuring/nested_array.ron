@@ -29,9 +29,11 @@ Program(
       callee: Identifier("print"),
       arguments: [Positional(Identifier("a"))],
     )),
-    Return(Call(
+    Return(
+      value: Call(
       callee: Identifier("print"),
       arguments: [Positional(Identifier("d"))],
-    )),
+    )
+    ),
   ],
 )

@@ -29,7 +29,7 @@ fn test_runtime_programs() {
         let source = source_raw.replace("\r\n", "\n").replace("\r", "\n");
 
         // Parse
-        let ast = match luma::parser::parse(source.as_str()) {
+        let ast = match luma::parser::parse(source.as_str(), luma_path.to_str().unwrap()) {
             Ok(ast) => ast,
             Err(errors) => {
                 failures.push(format!(

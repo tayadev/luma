@@ -13,11 +13,13 @@ Program(
                 ],
                 return_type: Some(TypeIdent("String")),
                 body: [
-                      Return(Binary(
+                      Return(
+                        value: Binary(
                         left: String("Hello "),
                         op: Add,
                         right: Identifier("name"),
-                      )),
+                      )
+                      ),
                 ],
             ),
         ),

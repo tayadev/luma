@@ -1,6 +1,7 @@
 Program(
     statements: [
-        Return(Call(
+        Return(
+          value: Call(
             callee: Identifier("add"),
             arguments: [
                 Named(
@@ -12,6 +13,7 @@ Program(
                     value: Number(3.0),
                 ),
             ],
-        )),
+        )
+        ),
     ],
 )

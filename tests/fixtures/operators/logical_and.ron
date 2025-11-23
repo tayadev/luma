@@ -1,9 +1,11 @@
 Program(
     statements: [
-        Return(Logical(
+        Return(
+          value: Logical(
             left: Identifier("x"),
             op: And,
             right: Identifier("y"),
-        )),
+        )
+        ),
     ],
 )
