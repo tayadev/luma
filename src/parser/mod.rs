@@ -119,7 +119,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         .try_map(|(ops, mut operand), span| {
             // Apply operators right-to-left
             for op in ops.into_iter().rev() {
-                let operand_span = operand.span().and_then(|s| Some(s.end)).unwrap_or(span.end);
+                let operand_span = operand.span().map(|s| s.end).unwrap_or(span.end);
                 operand = Expr::Unary {
                     op,
                     operand: Box::new(operand),
@@ -182,7 +182,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         .try_map(|(mut expr, ops), span| {
             let start = span.start;
             for op in ops {
-                let expr_span = expr.span().and_then(|s| Some(s.start)).unwrap_or(start);
+                let expr_span = expr.span().map(|s| s.start).unwrap_or(start);
                 expr = match op {
                     PostfixOp::Call(arguments) => Expr::Call {
                         callee: Box::new(expr),
@@ -219,7 +219,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         .then(mul_op.then(postfix.clone()).repeated().collect::<Vec<_>>())
         .try_map(|(mut left, ops), span| {
             for (op, right) in ops {
-                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                let left_span = left.span().map(|s| s.start).unwrap_or(span.start);
                 left = Expr::Binary {
                     left: Box::new(left),
                     op,
@@ -236,7 +236,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         .then(add_op.then(mul_expr.clone()).repeated().collect::<Vec<_>>())
         .try_map(|(mut left, ops), span| {
             for (op, right) in ops {
-                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                let left_span = left.span().map(|s| s.start).unwrap_or(span.start);
                 left = Expr::Binary {
                     left: Box::new(left),
                     op,
@@ -253,7 +253,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         .then(cmp_op.then(add_expr.clone()).repeated().collect::<Vec<_>>())
         .try_map(|(mut left, ops), span| {
             for (op, right) in ops {
-                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                let left_span = left.span().map(|s| s.start).unwrap_or(span.start);
                 left = Expr::Binary {
                     left: Box::new(left),
                     op,
@@ -270,7 +270,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         .then(eq_op.then(cmp_expr.clone()).repeated().collect::<Vec<_>>())
         .try_map(|(mut left, ops), span| {
             for (op, right) in ops {
-                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                let left_span = left.span().map(|s| s.start).unwrap_or(span.start);
                 left = Expr::Binary {
                     left: Box::new(left),
                     op,
@@ -287,7 +287,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         .then(and_op.then(eq_expr.clone()).repeated().collect::<Vec<_>>())
         .try_map(|(mut left, ops), span| {
             for (op, right) in ops {
-                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                let left_span = left.span().map(|s| s.start).unwrap_or(span.start);
                 left = Expr::Logical {
                     left: Box::new(left),
                     op,
@@ -304,7 +304,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         .then(or_op.then(and_expr.clone()).repeated().collect::<Vec<_>>())
         .try_map(|(mut left, ops), span| {
             for (op, right) in ops {
-                let left_span = left.span().and_then(|s| Some(s.start)).unwrap_or(span.start);
+                let left_span = left.span().map(|s| s.start).unwrap_or(span.start);
                 left = Expr::Logical {
                     left: Box::new(left),
                     op,

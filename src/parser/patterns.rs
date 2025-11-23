@@ -1,5 +1,5 @@
-use crate::ast::{Literal, Pattern, Span};
 use crate::ast::TablePatternField;
+use crate::ast::{Literal, Pattern, Span};
 use chumsky::prelude::*;
 
 /// Creates a parser for literal patterns

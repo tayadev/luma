@@ -79,7 +79,10 @@ where
                 1 => {
                     // Single part - return it but update span
                     let mut expr = parts.remove(0);
-                    if let Expr::String { span: ref mut s, .. } = expr {
+                    if let Expr::String {
+                        span: ref mut s, ..
+                    } = expr
+                    {
                         *s = Some(Span::from_chumsky(span));
                     }
                     expr

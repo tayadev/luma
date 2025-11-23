@@ -215,10 +215,7 @@ fn strip_spans_expr(expr: Expr) -> Expr {
                 .collect(),
             span: None,
         },
-        Expr::Import { path, .. } => Expr::Import {
-            path,
-            span: None,
-        },
+        Expr::Import { path, .. } => Expr::Import { path, span: None },
         other => other,
     }
 }

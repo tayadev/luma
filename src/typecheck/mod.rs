@@ -427,7 +427,9 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Table { fields: entries, .. } => {
+            Expr::Table {
+                fields: entries, ..
+            } => {
                 for (_, value) in entries {
                     self.check_expr(value);
                 }
@@ -719,7 +721,9 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Block { statements: stmts, .. } => {
+            Expr::Block {
+                statements: stmts, ..
+            } => {
                 self.push_scope();
                 let ret_ty = self.check_block(stmts, &TcType::Unknown);
                 self.pop_scope();
@@ -1290,7 +1294,9 @@ impl TypeEnv {
                 _ => TcType::Unknown, // Unknown type name
             },
             Type::Any { .. } => TcType::Any,
-            Type::GenericType { name, type_args, .. } => {
+            Type::GenericType {
+                name, type_args, ..
+            } => {
                 match name.as_str() {
                     // Concrete generics support (MVP): List<T>
                     "List" => {

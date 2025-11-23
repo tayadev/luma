@@ -22,13 +22,11 @@ pub fn type_parser<'a>(
 ) -> impl Parser<'a, &'a str, Type, extra::Err<Rich<'a, char>>> + Clone {
     recursive(|type_ref| {
         // Parse "Any" keyword as a type
-        let any_type = just("Any")
-            .padded_by(ws.clone())
-            .try_map(|_, span| {
-                Ok(Type::Any {
-                    span: Some(Span::from_chumsky(span)),
-                })
-            });
+        let any_type = just("Any").padded_by(ws.clone()).try_map(|_, span| {
+            Ok(Type::Any {
+                span: Some(Span::from_chumsky(span)),
+            })
+        });
 
         // Parse simple type identifier (not "Any")
         let type_ident = text::ident()

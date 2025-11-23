@@ -303,8 +303,8 @@ impl Compiler {
                     let is_wildcard = matches!(pattern, Pattern::Wildcard { .. });
                     // Ident patterns can be catch-all or tag patterns depending on the name
                     let is_tag_pattern = matches!(pattern, Pattern::Ident { name, .. } if matches!(name.as_str(), "ok" | "err" | "some" | "none"));
-                    let is_catch_all =
-                        is_wildcard || (matches!(pattern, Pattern::Ident { name: _, .. }) && !is_tag_pattern);
+                    let is_catch_all = is_wildcard
+                        || (matches!(pattern, Pattern::Ident { name: _, .. }) && !is_tag_pattern);
 
                     if !is_catch_all {
                         // Check if pattern matches
@@ -939,7 +939,9 @@ impl Compiler {
                 // Exit the entire loop scope (pop all loop locals)
                 self.exit_scope_with_preserve(false);
             }
-            Stmt::Break { level: level_opt, .. } => {
+            Stmt::Break {
+                level: level_opt, ..
+            } => {
                 let level = level_opt.unwrap_or(1) as usize;
 
                 // Validate that we're inside enough nested loops
@@ -972,7 +974,9 @@ impl Compiler {
                 // Register this jump in the appropriate loop context (counting from innermost)
                 self.loop_stack[target_loop_idx].break_patches.push(jump_ip);
             }
-            Stmt::Continue { level: level_opt, .. } => {
+            Stmt::Continue {
+                level: level_opt, ..
+            } => {
                 let level = level_opt.unwrap_or(1) as usize;
 
                 // Validate that we're inside enough nested loops
@@ -1038,7 +1042,9 @@ impl Compiler {
                 let idx = push_const(&mut self.chunk, Constant::Null);
                 self.chunk.instructions.push(Instruction::Const(idx));
             }
-            Expr::List { elements: items, .. } => {
+            Expr::List {
+                elements: items, ..
+            } => {
                 for item in items {
                     self.emit_expr(item);
                 }
@@ -1254,7 +1260,9 @@ impl Compiler {
                         .push(Instruction::Call(param_names.len()));
                 }
             }
-            Expr::Block { statements: stmts, .. } => {
+            Expr::Block {
+                statements: stmts, ..
+            } => {
                 // Block is an expression that evaluates to its last statement's value
                 self.enter_scope();
                 // Predeclare local function names for mutual recursion in block
@@ -1333,8 +1341,8 @@ impl Compiler {
                     let is_wildcard = matches!(pattern, Pattern::Wildcard { .. });
                     // Check for tag patterns
                     let is_tag_pattern = matches!(pattern, Pattern::Ident { name, .. } if matches!(name.as_str(), "ok" | "err" | "some" | "none"));
-                    let is_catch_all =
-                        is_wildcard || (matches!(pattern, Pattern::Ident { name: _, .. }) && !is_tag_pattern);
+                    let is_catch_all = is_wildcard
+                        || (matches!(pattern, Pattern::Ident { name: _, .. }) && !is_tag_pattern);
 
                     if !is_catch_all {
                         match pattern {
