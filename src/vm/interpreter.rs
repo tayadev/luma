@@ -1,9 +1,35 @@
-use crate::bytecode::ir::{Chunk, Instruction, Constant, UpvalueDescriptor};
+//! Virtual machine interpreter for Luma bytecode.
+//!
+//! This module implements a stack-based bytecode interpreter with support for:
+//!
+//! - **Stack management**: Values are pushed/popped from a stack during execution
+//! - **Closures and upvalues**: Functions can capture variables from outer scopes
+//! - **Operator overloading**: Custom types can define behavior for operators
+//! - **Module system**: Import and caching of external modules
+//! - **Native functions**: Built-in functions implemented in Rust
+//! - **Call frames**: Function calls maintain their own execution context
+//!
+//! ## Execution Model
+//!
+//! The VM executes bytecode instructions in a loop, maintaining:
+//! - A value stack for computation
+//! - A call stack (frames) for function calls
+//! - Global variables accessible from all scopes
+//! - Upvalues for closure captures
+//!
+//! ## Error Handling
+//!
+//! Runtime errors are returned as `VmError` with optional source location information
+//! for better error messages.
+
+use super::native::*;
+use super::value::{Upvalue, Value};
+use super::{modules, operators};
 use crate::ast::Span;
-use super::value::{Value, Upvalue};
+use crate::bytecode::ir::{Chunk, Constant, Instruction, UpvalueDescriptor};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 /// Represents a runtime error with optional source location information
 #[derive(Debug)]
@@ -41,17 +67,21 @@ impl VmError {
     /// Format the error with source location if available
     pub fn format(&self, source: Option<&str>) -> String {
         let mut result = String::new();
-        
+
         if let (Some(file), Some(span)) = (&self.file, &self.span) {
             if let Some(src) = source {
                 let loc = span.location(src);
-                result.push_str(&format!("Runtime error at {}:{}:{}\n", file, loc.line, loc.col));
-                
+                result.push_str(&format!(
+                    "Runtime error at {}:{}:{}\n",
+                    file, loc.line, loc.col
+                ));
+
                 // Show the line with the error
                 let lines: Vec<&str> = src.lines().collect();
                 if loc.line > 0 && loc.line <= lines.len() {
                     result.push_str(&format!("  {} | {}\n", loc.line, lines[loc.line - 1]));
-                    result.push_str(&format!("  {} | {}{}\n", 
+                    result.push_str(&format!(
+                        "  {} | {}{}\n",
                         " ".repeat(loc.line.to_string().len()),
                         " ".repeat(loc.col.saturating_sub(1)),
                         "^"
@@ -63,53 +93,53 @@ impl VmError {
         } else {
             result.push_str("Runtime error\n");
         }
-        
+
         result.push_str(&self.message);
         result
     }
 }
 
-struct CallFrame {
-    chunk: Chunk,
-    ip: usize,
-    base: usize,
-    upvalues: Vec<Upvalue>,  // Captured upvalues for this function
+pub struct CallFrame {
+    pub chunk: Chunk,
+    pub ip: usize,
+    pub base: usize,
+    pub upvalues: Vec<Upvalue>, // Captured upvalues for this function
     // Captured locals for this frame: absolute stack index -> shared cell
-    captured_locals: HashMap<usize, Upvalue>,
+    pub captured_locals: HashMap<usize, Upvalue>,
 }
 
 pub struct VM {
-    stack: Vec<Value>,
-    ip: usize,
-    chunk: Chunk,
-    globals: HashMap<String, Value>,
-    base: usize,
-    frames: Vec<CallFrame>,
-    upvalues: Vec<Upvalue>,  // Current function's upvalues
+    pub stack: Vec<Value>,
+    pub ip: usize,
+    pub chunk: Chunk,
+    pub globals: HashMap<String, Value>,
+    pub base: usize,
+    pub frames: Vec<CallFrame>,
+    pub upvalues: Vec<Upvalue>, // Current function's upvalues
     // Captured locals for the current frame: absolute stack index -> shared cell
-    captured_locals: HashMap<usize, Upvalue>,
-    native_functions: HashMap<String, fn(&[Value]) -> Result<Value, String>>,
+    pub captured_locals: HashMap<usize, Upvalue>,
+    pub native_functions: HashMap<String, fn(&[Value]) -> Result<Value, String>>,
     // Module system fields
-    module_cache: Rc<RefCell<HashMap<String, Value>>>,  // Shared cache of loaded modules
-    loading_modules: Rc<RefCell<Vec<String>>>,          // Shared stack for circular detection
-    current_file: Option<String>,                       // Current file being executed
-    source: Option<String>,                             // Source code for error reporting
+    pub module_cache: Rc<RefCell<HashMap<String, Value>>>, // Shared cache of loaded modules
+    pub loading_modules: Rc<RefCell<Vec<String>>>,         // Shared stack for circular detection
+    pub current_file: Option<String>,                      // Current file being executed
+    pub source: Option<String>,                            // Source code for error reporting
 }
 
 impl VM {
     pub fn new(chunk: Chunk) -> Self {
         Self::new_with_file(chunk, None)
     }
-    
+
     pub fn new_with_file(chunk: Chunk, current_file: Option<String>) -> Self {
-        let mut vm = VM { 
-            stack: Vec::new(), 
-            ip: 0, 
-            chunk, 
-            globals: HashMap::new(), 
-            base: 0, 
+        let mut vm = VM {
+            stack: Vec::new(),
+            ip: 0,
+            chunk,
+            globals: HashMap::new(),
+            base: 0,
             frames: Vec::new(),
-            upvalues: Vec::new(),  // Initialize empty upvalues for top-level
+            upvalues: Vec::new(), // Initialize empty upvalues for top-level
             captured_locals: HashMap::new(),
             native_functions: HashMap::new(),
             module_cache: Rc::new(RefCell::new(HashMap::new())),
@@ -117,33 +147,33 @@ impl VM {
             current_file,
             source: None,
         };
-        
+
         // Register native functions
         vm.register_native_function("cast", 2, native_cast);
         vm.register_native_function("isInstanceOf", 2, native_is_instance_of);
         vm.register_native_function("into", 2, native_into);
         vm.register_native_function("typeof", 1, native_typeof);
         vm.register_native_function("iter", 1, native_iter);
-        vm.register_native_function("print", 0, native_print);  // Variadic, arity 0 is placeholder
-        
+        vm.register_native_function("print", 0, native_print); // Variadic, arity 0 is placeholder
+
         // Register I/O functions
         vm.register_native_function("write", 2, native_write);
         vm.register_native_function("read_file", 1, native_read_file);
         vm.register_native_function("write_file", 2, native_write_file);
         vm.register_native_function("file_exists", 1, native_file_exists);
-        
+
         // Register panic function
         vm.register_native_function("panic", 1, native_panic);
-        
+
         // Expose file descriptor constants
         vm.globals.insert("STDOUT".to_string(), Value::Number(1.0));
         vm.globals.insert("STDERR".to_string(), Value::Number(2.0));
-        
+
         // Load prelude (standard library)
         if let Err(e) = vm.load_prelude() {
             eprintln!("Warning: Failed to load prelude: {:?}", e);
         }
-        
+
         vm
     }
 
@@ -161,43 +191,41 @@ impl VM {
     fn _error(&self, message: String) -> VmError {
         VmError::with_location(message, self._current_span(), self.current_file.clone())
     }
-    
+
     /// Load and execute the prelude (standard library)
     /// This is called automatically during VM initialization
     fn load_prelude(&mut self) -> Result<(), VmError> {
         // Include prelude source at compile time
         let prelude_source = include_str!("../prelude.luma");
-        
+
         // Parse the prelude
         let ast = match crate::parser::parse(prelude_source, "<prelude>") {
             Ok(ast) => ast,
             Err(errors) => {
-                let error_msg = errors.iter()
+                let error_msg = errors
+                    .iter()
                     .map(|e| format!("{}", e))
                     .collect::<Vec<_>>()
                     .join(", ");
-                return Err(VmError::runtime(format!("Failed to parse prelude: {}", error_msg)));
+                return Err(VmError::runtime(format!(
+                    "Failed to parse prelude: {}",
+                    error_msg
+                )));
             }
         };
-        
-        // Skip typechecking the prelude for now - it's pre-verified
-        // The typechecker is too strict for some prelude patterns
-        // if let Err(errs) = crate::typecheck::typecheck_program(&ast) {
-        //     let error_msg = errs.iter()
-        //         .map(|e| e.message.clone())
-        //         .collect::<Vec<_>>()
-        //         .join(", ");
-        //     return Err(VmError::runtime(format!("Failed to typecheck prelude: {}", error_msg)));
-        // }
-        
+
+        // Note: Prelude typechecking is skipped as it uses advanced patterns
+        // that the current typechecker doesn't fully support. The prelude is
+        // manually verified for correctness during development.
+
         // Compile the prelude
         let prelude_chunk = crate::bytecode::compile::compile_program(&ast);
-        
+
         // Save current VM state
         let saved_chunk = self.chunk.clone();
         let saved_ip = self.ip;
         let saved_base = self.base;
-        
+
         // Execute the prelude in the current VM context
         // This will return the prelude export table as the result
         self.chunk = prelude_chunk;
@@ -216,202 +244,28 @@ impl VM {
             Ok(prelude_exports) => {
                 self.globals.insert("prelude".to_string(), prelude_exports);
                 Ok(())
-            },
-            Err(e) => Err(VmError::runtime(format!("Failed to execute prelude: {:?}", e))),
+            }
+            Err(e) => Err(VmError::runtime(format!(
+                "Failed to execute prelude: {:?}",
+                e
+            ))),
         }
     }
-    
-    fn register_native_function(&mut self, name: &str, arity: usize, _func: fn(&[Value]) -> Result<Value, String>) {
-        let native_val = Value::NativeFunction { 
-            name: name.to_string(), 
-            arity 
+
+    fn register_native_function(
+        &mut self,
+        name: &str,
+        arity: usize,
+        _func: fn(&[Value]) -> Result<Value, String>,
+    ) {
+        let native_val = Value::NativeFunction {
+            name: name.to_string(),
+            arity,
         };
         self.globals.insert(name.to_string(), native_val.clone());
         self.native_functions.insert(name.to_string(), _func);
     }
-    
-    /// Helper method to check if a value is a table with a specific method
-    /// Checks both the value itself and its type definition (if it has __type metadata)
-    fn has_method(value: &Value, method_name: &str) -> Option<Value> {
-        match value {
-            Value::Table(table) => {
-                let borrowed = table.borrow();
-                
-                // First check if the method exists directly on the value
-                if let Some(method) = borrowed.get(method_name) {
-                    return Some(method.clone());
-                }
-                
-                // If not, check the type definition (if value has __type metadata)
-                // __type can be either Value::Type (created by cast()) or Value::Table (user-defined)
-                if let Some(Value::Type(type_table) | Value::Table(type_table)) = borrowed.get("__type") {
-                    let type_borrowed = type_table.borrow();
-                    if let Some(method) = type_borrowed.get(method_name) {
-                        return Some(method.clone());
-                    }
-                }
-                
-                None
-            }
-            _ => None,
-        }
-    }
-    
-    /// Helper method to set up and execute a method call for operator overloading
-    fn call_overload_method(
-        &mut self,
-        method: Value,
-        args: Vec<Value>,
-        expected_arity: usize,
-        method_name: &str,
-    ) -> Result<(), VmError> {
-        match &method {
-            Value::Function { chunk, arity } => {
-                if *arity != expected_arity {
-                    return Err(VmError::runtime(format!(
-                        "{} method must have arity {}, got {}", method_name, expected_arity, arity
-                    )));
-                }
-                
-                // Save current frame
-                let frame = CallFrame {
-                    chunk: self.chunk.clone(),
-                    ip: self.ip,
-                    base: self.base,
-                    upvalues: self.upvalues.clone(),
-                    captured_locals: std::mem::take(&mut self.captured_locals),
-                };
-                self.frames.push(frame);
-                
-                // Set up stack for function call
-                self.stack.push(method.clone());
-                for arg in args {
-                    self.stack.push(arg);
-                }
-                
-                // Set new base to point to first argument
-                self.base = self.stack.len() - expected_arity;
-                // Switch to method chunk
-                self.chunk = chunk.clone();
-                self.ip = 0;
-                // Methods are plain functions: reset upvalues and captured locals
-                self.upvalues = Vec::new();
-                self.captured_locals = HashMap::new();
-                Ok(())
-            }
-            _ => Err(VmError::runtime(format!("{} must be a function", method_name))),
-        }
-    }
-    
-    /// Helper method to execute a binary operator with optional operator overloading
-    fn execute_binary_op(
-        &mut self,
-        a: Value,
-        b: Value,
-        method_name: &str,
-        default_op: impl FnOnce(&Value, &Value) -> Result<Value, String>,
-    ) -> Result<(), VmError> {
-        // Try default operation first
-        match default_op(&a, &b) {
-            Ok(result) => {
-                self.stack.push(result);
-                Ok(())
-            }
-            Err(_) => {
-                // Try operator overloading
-                if let Some(method) = Self::has_method(&a, method_name) {
-                    self.call_overload_method(method, vec![a, b], 2, method_name)
-                } else {
-                    let at = match &a {
-                        Value::Number(_) => "Number",
-                        Value::String(_) => "String",
-                        Value::Boolean(_) => "Boolean",
-                        Value::Null => "Null",
-                        Value::List(_) => "List",
-                        Value::Table(_) => "Table",
-                        Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
-                        Value::Type(_) => "Type",
-                    };
-                    let bt = match &b {
-                        Value::Number(_) => "Number",
-                        Value::String(_) => "String",
-                        Value::Boolean(_) => "Boolean",
-                        Value::Null => "Null",
-                        Value::List(_) => "List",
-                        Value::Table(_) => "Table",
-                        Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
-                        Value::Type(_) => "Type",
-                    };
-                    Err(VmError::runtime(format!(
-                        "Operator {} not supported for {} and {} (no {} method)",
-                        method_name, at, bt, method_name
-                    )))
-                }
-            }
-        }
-    }
-    
-    /// Helper for equality comparison with operator overloading
-    fn execute_eq_op(&mut self, a: Value, b: Value) -> Result<(), VmError> {
-        // Try operator overloading first for tables
-        if let Some(method) = Self::has_method(&a, "__eq") {
-            self.call_overload_method(method, vec![a, b], 2, "__eq")
-        } else {
-            // Default equality
-            self.stack.push(Value::Boolean(a == b));
-            Ok(())
-        }
-    }
-    
-    /// Helper for comparison operations with operator overloading
-    fn execute_cmp_op(
-        &mut self,
-        a: Value,
-        b: Value,
-        method_name: &str,
-        default_cmp: impl FnOnce(f64, f64) -> bool,
-    ) -> Result<(), VmError> {
-        // Try default numeric comparison
-        match (&a, &b) {
-            (Value::Number(x), Value::Number(y)) => {
-                self.stack.push(Value::Boolean(default_cmp(*x, *y)));
-                Ok(())
-            }
-            _ => {
-                // Try operator overloading
-                if let Some(method) = Self::has_method(&a, method_name) {
-                    self.call_overload_method(method, vec![a, b], 2, method_name)
-                } else {
-                    let at = match &a {
-                        Value::Number(_) => "Number",
-                        Value::String(_) => "String",
-                        Value::Boolean(_) => "Boolean",
-                        Value::Null => "Null",
-                        Value::List(_) => "List",
-                        Value::Table(_) => "Table",
-                        Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
-                        Value::Type(_) => "Type",
-                    };
-                    let bt = match &b {
-                        Value::Number(_) => "Number",
-                        Value::String(_) => "String",
-                        Value::Boolean(_) => "Boolean",
-                        Value::Null => "Null",
-                        Value::List(_) => "List",
-                        Value::Table(_) => "Table",
-                        Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
-                        Value::Type(_) => "Type",
-                    };
-                    Err(VmError::runtime(format!(
-                        "Comparison {} requires numbers or {} method; got {} and {}",
-                        method_name, method_name, at, bt
-                    )))
-                }
-            }
-        }
-    }
 
-//
     pub fn run(&mut self) -> Result<Value, VmError> {
         loop {
             if self.ip >= self.chunk.instructions.len() {
@@ -439,7 +293,10 @@ impl VM {
                 }
                 Instruction::PopNPreserve(n) => {
                     // Preserve the top value, pop n items beneath, then restore the preserved value
-                    let top = self.stack.pop().ok_or_else(|| VmError::runtime("POPN_PRESERVE on empty stack".into()))?;
+                    let top = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("POPN_PRESERVE on empty stack".into()))?;
                     for _ in 0..n {
                         if self.stack.pop().is_none() {
                             return Err(VmError::runtime("POPN_PRESERVE underflow".into()));
@@ -455,75 +312,100 @@ impl VM {
                     }
                 }
                 Instruction::Add => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("ADD right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("ADD left underflow".into()))?;
-                    
-                    self.execute_binary_op(a, b, "__add", |a, b| {
-                        match (a, b) {
-                            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x + y)),
-                            (Value::String(x), Value::String(y)) => Ok(Value::String(format!("{}{}", x, y))),
-                            _ => Err("Type mismatch".to_string()),
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("ADD right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("ADD left underflow".into()))?;
+
+                    operators::execute_binary_op(self, a, b, "__add", |a, b| match (a, b) {
+                        (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x + y)),
+                        (Value::String(x), Value::String(y)) => {
+                            Ok(Value::String(format!("{}{}", x, y)))
                         }
+                        _ => Err("Type mismatch".to_string()),
                     })?;
                 }
                 Instruction::Sub => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("SUB right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("SUB left underflow".into()))?;
-                    
-                    self.execute_binary_op(a, b, "__sub", |a, b| {
-                        match (a, b) {
-                            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x - y)),
-                            _ => Err("Type mismatch".to_string()),
-                        }
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("SUB right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("SUB left underflow".into()))?;
+
+                    operators::execute_binary_op(self, a, b, "__sub", |a, b| match (a, b) {
+                        (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x - y)),
+                        _ => Err("Type mismatch".to_string()),
                     })?;
                 }
                 Instruction::Mul => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("MUL right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("MUL left underflow".into()))?;
-                    
-                    self.execute_binary_op(a, b, "__mul", |a, b| {
-                        match (a, b) {
-                            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x * y)),
-                            _ => Err("Type mismatch".to_string()),
-                        }
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("MUL right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("MUL left underflow".into()))?;
+
+                    operators::execute_binary_op(self, a, b, "__mul", |a, b| match (a, b) {
+                        (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x * y)),
+                        _ => Err("Type mismatch".to_string()),
                     })?;
                 }
                 Instruction::Div => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("DIV right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("DIV left underflow".into()))?;
-                    
-                    self.execute_binary_op(a, b, "__div", |a, b| {
-                        match (a, b) {
-                            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x / y)),
-                            _ => Err("Type mismatch".to_string()),
-                        }
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("DIV right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("DIV left underflow".into()))?;
+
+                    operators::execute_binary_op(self, a, b, "__div", |a, b| match (a, b) {
+                        (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x / y)),
+                        _ => Err("Type mismatch".to_string()),
                     })?;
                 }
                 Instruction::Mod => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("MOD right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("MOD left underflow".into()))?;
-                    
-                    self.execute_binary_op(a, b, "__mod", |a, b| {
-                        match (a, b) {
-                            (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x % y)),
-                            _ => Err("Type mismatch".to_string()),
-                        }
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("MOD right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("MOD left underflow".into()))?;
+
+                    operators::execute_binary_op(self, a, b, "__mod", |a, b| match (a, b) {
+                        (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x % y)),
+                        _ => Err("Type mismatch".to_string()),
                     })?;
                 }
                 Instruction::Neg => {
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("NEG underflow".into()))?;
-                    
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("NEG underflow".into()))?;
+
                     match &a {
                         Value::Number(x) => {
                             self.stack.push(Value::Number(-x));
                         }
                         _ => {
                             // Try operator overloading for __neg
-                            if let Some(method) = Self::has_method(&a, "__neg") {
-                                self.call_overload_method(method, vec![a], 1, "__neg")?;
+                            if let Some(method) = operators::has_method(&a, "__neg") {
+                                operators::call_overload_method(self, method, vec![a], 1, "__neg")?;
                             } else {
                                 return Err(VmError::runtime(
-                                    "NEG requires Number or __neg method".into()
+                                    "NEG requires Number or __neg method".into(),
                                 ));
                             }
                         }
@@ -532,7 +414,11 @@ impl VM {
                 Instruction::GetGlobal(idx) => {
                     let name = match self.chunk.constants.get(idx) {
                         Some(Constant::String(s)) => s.clone(),
-                        _ => return Err(VmError::runtime("GET_GLOBAL expects string constant".into())),
+                        _ => {
+                            return Err(VmError::runtime(
+                                "GET_GLOBAL expects string constant".into(),
+                            ));
+                        }
                     };
                     if let Some(v) = self.globals.get(&name).cloned() {
                         self.stack.push(v);
@@ -543,60 +429,104 @@ impl VM {
                 Instruction::SetGlobal(idx) => {
                     let name = match self.chunk.constants.get(idx) {
                         Some(Constant::String(s)) => s.clone(),
-                        _ => return Err(VmError::runtime("SET_GLOBAL expects string constant".into())),
+                        _ => {
+                            return Err(VmError::runtime(
+                                "SET_GLOBAL expects string constant".into(),
+                            ));
+                        }
                     };
-                    let v = self.stack.pop().ok_or_else(|| VmError::runtime("SET_GLOBAL pop underflow".into()))?;
+                    let v = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("SET_GLOBAL pop underflow".into()))?;
                     self.globals.insert(name, v);
                 }
                 Instruction::BuildList(n) => {
-                    if self.stack.len() < n { return Err(VmError::runtime("BUILD_LIST underflow".into())); }
+                    if self.stack.len() < n {
+                        return Err(VmError::runtime("BUILD_LIST underflow".into()));
+                    }
                     let mut tmp = Vec::with_capacity(n);
-                    for _ in 0..n { tmp.push(self.stack.pop().unwrap()); }
+                    for _ in 0..n {
+                        tmp.push(self.stack.pop().unwrap());
+                    }
                     tmp.reverse();
                     self.stack.push(Value::List(Rc::new(RefCell::new(tmp))));
                 }
                 Instruction::BuildTable(n) => {
-                    if self.stack.len() < n * 2 { return Err(VmError::runtime("BUILD_TABLE underflow".into())); }
+                    if self.stack.len() < n * 2 {
+                        return Err(VmError::runtime("BUILD_TABLE underflow".into()));
+                    }
                     let mut map: HashMap<String, Value> = HashMap::with_capacity(n);
                     for _ in 0..n {
                         let val = self.stack.pop().unwrap();
                         let key_v = self.stack.pop().unwrap();
-                        let key = match key_v { Value::String(s) => s, _ => return Err(VmError::runtime("TABLE key must be string".into())) };
+                        let key = match key_v {
+                            Value::String(s) => s,
+                            _ => return Err(VmError::runtime("TABLE key must be string".into())),
+                        };
                         map.insert(key, val);
                     }
                     self.stack.push(Value::Table(Rc::new(RefCell::new(map))));
                 }
                 Instruction::GetIndex => {
-                    let index = self.stack.pop().ok_or_else(|| VmError::runtime("GET_INDEX index underflow".into()))?;
-                    let obj = self.stack.pop().ok_or_else(|| VmError::runtime("GET_INDEX obj underflow".into()))?;
+                    let index = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("GET_INDEX index underflow".into()))?;
+                    let obj = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("GET_INDEX obj underflow".into()))?;
                     match (obj, index) {
                         (Value::List(arr), Value::Number(n)) => {
                             let i = n as i64;
-                            if i < 0 { return Err(VmError::runtime("List index negative".into())); }
+                            if i < 0 {
+                                return Err(VmError::runtime("List index negative".into()));
+                            }
                             let i = i as usize;
                             let borrowed = arr.borrow();
-                            match borrowed.get(i) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::runtime("List index out of bounds".into())) }
+                            match borrowed.get(i) {
+                                Some(v) => self.stack.push(v.clone()),
+                                None => {
+                                    return Err(VmError::runtime("List index out of bounds".into()));
+                                }
+                            }
                         }
                         (Value::Table(map), Value::String(k)) => {
                             let borrowed = map.borrow();
-                            match borrowed.get(&k) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::runtime("Table key not found".into())) }
+                            match borrowed.get(&k) {
+                                Some(v) => self.stack.push(v.clone()),
+                                None => return Err(VmError::runtime("Table key not found".into())),
+                            }
                         }
                         _ => return Err(VmError::runtime("GET_INDEX type error".into())),
                     }
                 }
                 Instruction::GetProp(idx) => {
-                    let name = match self.chunk.constants.get(idx) { Some(Constant::String(s)) => s.clone(), _ => return Err(VmError::runtime("GET_PROP expects string const".into())) };
-                    let obj = self.stack.pop().ok_or_else(|| VmError::runtime("GET_PROP obj underflow".into()))?;
+                    let name = match self.chunk.constants.get(idx) {
+                        Some(Constant::String(s)) => s.clone(),
+                        _ => return Err(VmError::runtime("GET_PROP expects string const".into())),
+                    };
+                    let obj = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("GET_PROP obj underflow".into()))?;
                     match obj {
                         Value::Table(map) => {
                             let borrowed = map.borrow();
-                            match borrowed.get(&name) { Some(v) => self.stack.push(v.clone()), None => return Err(VmError::runtime("Property not found".into())) }
+                            match borrowed.get(&name) {
+                                Some(v) => self.stack.push(v.clone()),
+                                None => return Err(VmError::runtime("Property not found".into())),
+                            }
                         }
                         _ => return Err(VmError::runtime("GET_PROP on non-table".into())),
                     }
                 }
                 Instruction::GetLen => {
-                    let obj = self.stack.pop().ok_or_else(|| VmError::runtime("GET_LEN obj underflow".into()))?;
+                    let obj = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("GET_LEN obj underflow".into()))?;
                     match obj {
                         Value::List(arr) => {
                             let borrowed = arr.borrow();
@@ -609,19 +539,34 @@ impl VM {
                         Value::String(s) => {
                             self.stack.push(Value::Number(s.len() as f64));
                         }
-                        _ => return Err(VmError::runtime("GET_LEN requires list, table, or string".into())),
+                        _ => {
+                            return Err(VmError::runtime(
+                                "GET_LEN requires list, table, or string".into(),
+                            ));
+                        }
                     }
                 }
                 Instruction::SetIndex => {
                     // Stack: value, index, object
-                    let value = self.stack.pop().ok_or_else(|| VmError::runtime("SET_INDEX value underflow".into()))?;
-                    let index = self.stack.pop().ok_or_else(|| VmError::runtime("SET_INDEX index underflow".into()))?;
-                    let obj = self.stack.pop().ok_or_else(|| VmError::runtime("SET_INDEX obj underflow".into()))?;
-                    
+                    let value = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("SET_INDEX value underflow".into()))?;
+                    let index = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("SET_INDEX index underflow".into()))?;
+                    let obj = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("SET_INDEX obj underflow".into()))?;
+
                     match (obj, index) {
                         (Value::List(arr), Value::Number(n)) => {
                             let i = n as i64;
-                            if i < 0 { return Err(VmError::runtime("List index negative".into())); }
+                            if i < 0 {
+                                return Err(VmError::runtime("List index negative".into()));
+                            }
                             let i = i as usize;
                             let mut borrowed = arr.borrow_mut();
                             if i == borrowed.len() {
@@ -642,13 +587,19 @@ impl VM {
                 }
                 Instruction::SetProp(idx) => {
                     // Stack: value, object
-                    let name = match self.chunk.constants.get(idx) { 
-                        Some(Constant::String(s)) => s.clone(), 
-                        _ => return Err(VmError::runtime("SET_PROP expects string const".into())) 
+                    let name = match self.chunk.constants.get(idx) {
+                        Some(Constant::String(s)) => s.clone(),
+                        _ => return Err(VmError::runtime("SET_PROP expects string const".into())),
                     };
-                    let value = self.stack.pop().ok_or_else(|| VmError::runtime("SET_PROP value underflow".into()))?;
-                    let obj = self.stack.pop().ok_or_else(|| VmError::runtime("SET_PROP obj underflow".into()))?;
-                    
+                    let value = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("SET_PROP value underflow".into()))?;
+                    let obj = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("SET_PROP obj underflow".into()))?;
+
                     match obj {
                         Value::Table(map) => {
                             let mut borrowed = map.borrow_mut();
@@ -663,77 +614,133 @@ impl VM {
                         let v = cell.value.borrow().clone();
                         self.stack.push(v);
                     } else {
-                        let v = self.stack.get(idx).cloned().ok_or_else(|| VmError::runtime("GET_LOCAL out of range".into()))?;
+                        let v = self
+                            .stack
+                            .get(idx)
+                            .cloned()
+                            .ok_or_else(|| VmError::runtime("GET_LOCAL out of range".into()))?;
                         self.stack.push(v);
                     }
                 }
                 Instruction::SetLocal(slot) => {
-                    let v = self.stack.pop().ok_or_else(|| VmError::runtime("SET_LOCAL pop underflow".into()))?;
+                    let v = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("SET_LOCAL pop underflow".into()))?;
                     let idx = self.base + slot;
                     if let Some(cell) = self.captured_locals.get(&idx) {
                         *cell.value.borrow_mut() = v;
                     } else {
-                        if idx >= self.stack.len() { return Err(VmError::runtime("SET_LOCAL out of range".into())); }
+                        if idx >= self.stack.len() {
+                            return Err(VmError::runtime("SET_LOCAL out of range".into()));
+                        }
                         self.stack[idx] = v;
                     }
                 }
                 Instruction::SliceList(start_index) => {
-                    let arr = self.stack.pop().ok_or_else(|| VmError::runtime("SLICE_LIST pop underflow".into()))?;
+                    let arr = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("SLICE_LIST pop underflow".into()))?;
                     match arr {
                         Value::List(arr_ref) => {
                             let borrowed = arr_ref.borrow();
                             let len = borrowed.len();
-                            
+
                             // Create a slice from start_index to end
                             let slice_start = start_index.min(len);
                             let sliced: Vec<Value> = borrowed[slice_start..].to_vec();
-                            
+
                             self.stack.push(Value::List(Rc::new(RefCell::new(sliced))));
                         }
                         _ => return Err(VmError::runtime("SLICE_LIST requires a list".into())),
                     }
                 }
                 Instruction::Eq => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("EQ right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("EQ left underflow".into()))?;
-                    self.execute_eq_op(a, b)?;
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("EQ right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("EQ left underflow".into()))?;
+                    operators::execute_eq_op(self, a, b)?;
                 }
                 Instruction::Ne => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("NE right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("NE left underflow".into()))?;
-                    self.execute_eq_op(a, b)?;
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("NE right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("NE left underflow".into()))?;
+                    operators::execute_eq_op(self, a, b)?;
                     flip_bool(&mut self.stack)?;
                 }
                 Instruction::Lt => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("LT right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("LT left underflow".into()))?;
-                    self.execute_cmp_op(a, b, "__lt", |a, b| a < b)?;
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("LT right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("LT left underflow".into()))?;
+                    operators::execute_cmp_op(self, a, b, "__lt", |a, b| a < b)?;
                 }
                 Instruction::Le => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("LE right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("LE left underflow".into()))?;
-                    self.execute_cmp_op(a, b, "__le", |a, b| a <= b)?;
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("LE right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("LE left underflow".into()))?;
+                    operators::execute_cmp_op(self, a, b, "__le", |a, b| a <= b)?;
                 }
                 Instruction::Gt => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("GT right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("GT left underflow".into()))?;
-                    self.execute_cmp_op(a, b, "__gt", |a, b| a > b)?;
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("GT right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("GT left underflow".into()))?;
+                    operators::execute_cmp_op(self, a, b, "__gt", |a, b| a > b)?;
                 }
                 Instruction::Ge => {
-                    let b = self.stack.pop().ok_or_else(|| VmError::runtime("GE right underflow".into()))?;
-                    let a = self.stack.pop().ok_or_else(|| VmError::runtime("GE left underflow".into()))?;
-                    self.execute_cmp_op(a, b, "__ge", |a, b| a >= b)?;
+                    let b = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("GE right underflow".into()))?;
+                    let a = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("GE left underflow".into()))?;
+                    operators::execute_cmp_op(self, a, b, "__ge", |a, b| a >= b)?;
                 }
                 Instruction::Not => {
-                    let v = self.stack.pop().ok_or_else(|| VmError::runtime("NOT on empty stack".into()))?;
+                    let v = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("NOT on empty stack".into()))?;
                     self.stack.push(Value::Boolean(!truthy(&v)));
                 }
                 Instruction::Jump(target) => {
                     self.ip = target;
                 }
                 Instruction::JumpIfFalse(target) => {
-                    let v = self.stack.pop().ok_or_else(|| VmError::runtime("JUMP_IF_FALSE pop underflow".into()))?;
-                    if !truthy(&v) { self.ip = target; }
+                    let v = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("JUMP_IF_FALSE pop underflow".into()))?;
+                    if !truthy(&v) {
+                        self.ip = target;
+                    }
                 }
                 Instruction::MakeFunction(idx) => {
                     // Function constant already created during CONST; this is a no-op for now
@@ -743,7 +750,11 @@ impl VM {
                             chunk: chunk.clone(),
                             arity: chunk.local_count as usize,
                         },
-                        _ => return Err(VmError::runtime("MAKE_FUNCTION expects function constant".into())),
+                        _ => {
+                            return Err(VmError::runtime(
+                                "MAKE_FUNCTION expects function constant".into(),
+                            ));
+                        }
                     };
                     self.stack.push(v);
                 }
@@ -751,9 +762,13 @@ impl VM {
                     // Create a closure by capturing upvalues from the current environment
                     let chunk = match self.chunk.constants.get(idx) {
                         Some(Constant::Function(chunk)) => chunk.clone(),
-                        _ => return Err(VmError::runtime("CLOSURE expects function constant".into())),
+                        _ => {
+                            return Err(VmError::runtime(
+                                "CLOSURE expects function constant".into(),
+                            ));
+                        }
                     };
-                    
+
                     // Capture upvalues according to the function's upvalue descriptors
                     let mut upvalues = Vec::new();
                     for descriptor in &chunk.upvalue_descriptors {
@@ -764,8 +779,15 @@ impl VM {
                                 if let Some(cell) = self.captured_locals.get(&abs) {
                                     cell.clone()
                                 } else {
-                                    let value = self.stack.get(abs)
-                                        .ok_or_else(|| VmError::runtime(format!("Upvalue capture: local slot {} out of bounds", slot)))?
+                                    let value = self
+                                        .stack
+                                        .get(abs)
+                                        .ok_or_else(|| {
+                                            VmError::runtime(format!(
+                                                "Upvalue capture: local slot {} out of bounds",
+                                                slot
+                                            ))
+                                        })?
                                         .clone();
                                     let cell = Upvalue::new(value);
                                     self.captured_locals.insert(abs, cell.clone());
@@ -774,47 +796,66 @@ impl VM {
                             }
                             UpvalueDescriptor::Upvalue(upvalue_idx) => {
                                 // Capture an upvalue from the current function's upvalues
-                                self.upvalues.get(*upvalue_idx)
-                                    .ok_or_else(|| VmError::runtime(format!("Upvalue capture: upvalue {} out of bounds", upvalue_idx)))?
+                                self.upvalues
+                                    .get(*upvalue_idx)
+                                    .ok_or_else(|| {
+                                        VmError::runtime(format!(
+                                            "Upvalue capture: upvalue {} out of bounds",
+                                            upvalue_idx
+                                        ))
+                                    })?
                                     .clone()
                             }
                         };
                         upvalues.push(upvalue);
                     }
-                    
+
                     let closure = Value::Closure {
                         chunk: chunk.clone(),
-                        arity: chunk.local_count as usize,  // Number of parameters
+                        arity: chunk.local_count as usize, // Number of parameters
                         upvalues,
                     };
                     self.stack.push(closure);
                 }
                 Instruction::GetUpvalue(idx) => {
                     // Get value from upvalue at index
-                    let upvalue = self.upvalues.get(idx)
-                        .ok_or_else(|| VmError::runtime(format!("GetUpvalue: index {} out of bounds", idx)))?;
+                    let upvalue = self.upvalues.get(idx).ok_or_else(|| {
+                        VmError::runtime(format!("GetUpvalue: index {} out of bounds", idx))
+                    })?;
                     let value = upvalue.value.borrow().clone();
                     self.stack.push(value);
                 }
                 Instruction::SetUpvalue(idx) => {
                     // Set value in upvalue at index
-                    let value = self.stack.pop()
+                    let value = self
+                        .stack
+                        .pop()
                         .ok_or_else(|| VmError::runtime("SetUpvalue: stack underflow".into()))?;
-                    let upvalue = self.upvalues.get(idx)
-                        .ok_or_else(|| VmError::runtime(format!("SetUpvalue: index {} out of bounds", idx)))?;
+                    let upvalue = self.upvalues.get(idx).ok_or_else(|| {
+                        VmError::runtime(format!("SetUpvalue: index {} out of bounds", idx))
+                    })?;
                     *upvalue.value.borrow_mut() = value;
                 }
                 Instruction::Call(arity) => {
                     // Stack: [... callee arg1 arg2 ... argN]
                     // After call: [... result]
                     let callee_idx = self.stack.len() - arity - 1;
-                    let callee = self.stack.get(callee_idx).cloned()
+                    let callee = self
+                        .stack
+                        .get(callee_idx)
+                        .cloned()
                         .ok_or_else(|| VmError::runtime("CALL callee underflow".into()))?;
-                    
+
                     match callee {
-                        Value::Function { chunk: fn_chunk, arity: fn_arity } => {
+                        Value::Function {
+                            chunk: fn_chunk,
+                            arity: fn_arity,
+                        } => {
                             if arity != fn_arity {
-                                return Err(VmError::runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
+                                return Err(VmError::runtime(format!(
+                                    "Arity mismatch: expected {}, got {}",
+                                    fn_arity, arity
+                                )));
                             }
                             // Save current frame
                             let frame = CallFrame {
@@ -825,7 +866,7 @@ impl VM {
                                 captured_locals: std::mem::take(&mut self.captured_locals),
                             };
                             self.frames.push(frame);
-                            
+
                             // Set new base to point to first argument
                             self.base = callee_idx + 1;
                             // Switch to function chunk
@@ -835,9 +876,16 @@ impl VM {
                             self.upvalues = Vec::new();
                             self.captured_locals = HashMap::new();
                         }
-                        Value::Closure { chunk: fn_chunk, arity: fn_arity, upvalues: fn_upvalues } => {
+                        Value::Closure {
+                            chunk: fn_chunk,
+                            arity: fn_arity,
+                            upvalues: fn_upvalues,
+                        } => {
                             if arity != fn_arity {
-                                return Err(VmError::runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
+                                return Err(VmError::runtime(format!(
+                                    "Arity mismatch: expected {}, got {}",
+                                    fn_arity, arity
+                                )));
                             }
                             // Save current frame
                             let frame = CallFrame {
@@ -848,7 +896,7 @@ impl VM {
                                 captured_locals: std::mem::take(&mut self.captured_locals),
                             };
                             self.frames.push(frame);
-                            
+
                             // Set new base to point to first argument
                             self.base = callee_idx + 1;
                             // Switch to function chunk
@@ -858,10 +906,16 @@ impl VM {
                             self.upvalues = fn_upvalues;
                             self.captured_locals = HashMap::new();
                         }
-                        Value::NativeFunction { name, arity: fn_arity } => {
+                        Value::NativeFunction {
+                            name,
+                            arity: fn_arity,
+                        } => {
                             // Skip arity check for variadic functions (print)
                             if name != "print" && arity != fn_arity {
-                                return Err(VmError::runtime(format!("Arity mismatch: expected {}, got {}", fn_arity, arity)));
+                                return Err(VmError::runtime(format!(
+                                    "Arity mismatch: expected {}, got {}",
+                                    fn_arity, arity
+                                )));
                             }
                             // Collect arguments
                             let args: Vec<Value> = self.stack.drain(callee_idx + 1..).collect();
@@ -871,28 +925,44 @@ impl VM {
                             // Special dispatch for into(value, target_type)
                             if name == "into" {
                                 if args.len() != 2 {
-                                    return Err(VmError::runtime(format!("into() expects 2 arguments, got {}", args.len())));
+                                    return Err(VmError::runtime(format!(
+                                        "into() expects 2 arguments, got {}",
+                                        args.len()
+                                    )));
                                 }
                                 let value = args[0].clone();
                                 let target_type = args[1].clone();
 
                                 // If value has __into, call it as a regular function
-                                if let Some(method) = VM::has_method(&value, "__into") {
+                                if let Some(method) = operators::has_method(&value, "__into") {
                                     // call_overload_method sets up the new frame and switches chunks
-                                    self.call_overload_method(method, vec![value, target_type], 2, "__into")?;
+                                    operators::call_overload_method(
+                                        self,
+                                        method,
+                                        vec![value, target_type],
+                                        2,
+                                        "__into",
+                                    )?;
                                     // Do not push a result here; execution will continue in the method
                                 } else {
                                     // Primitive fallback: allow simple String conversions
                                     match target_type {
                                         Value::Type(tmap) | Value::Table(tmap) => {
                                             let tb = tmap.borrow();
-                                            let is_string_target = tb.contains_key("String") || tb.is_empty();
+                                            let is_string_target =
+                                                tb.contains_key("String") || tb.is_empty();
                                             if is_string_target {
                                                 let converted = match value {
-                                                    Value::Number(n) => Value::String(n.to_string()),
+                                                    Value::Number(n) => {
+                                                        Value::String(n.to_string())
+                                                    }
                                                     Value::String(s) => Value::String(s),
-                                                    Value::Boolean(b) => Value::String(b.to_string()),
-                                                    Value::Null => Value::String("null".to_string()),
+                                                    Value::Boolean(b) => {
+                                                        Value::String(b.to_string())
+                                                    }
+                                                    Value::Null => {
+                                                        Value::String("null".to_string())
+                                                    }
                                                     other => Value::String(format!("{}", other)),
                                                 };
                                                 self.stack.push(converted);
@@ -901,16 +971,22 @@ impl VM {
                                             }
                                         }
                                         _ => {
-                                            return Err(VmError::runtime("Second argument to into() must be a type".to_string()));
+                                            return Err(VmError::runtime(
+                                                "Second argument to into() must be a type"
+                                                    .to_string(),
+                                            ));
                                         }
                                     }
                                 }
                             } else {
                                 // Call native function normally
-                                let func = self.native_functions.get(&name)
-                                    .ok_or_else(|| VmError::runtime(format!("Native function '{}' not found", name)))?;
-                                let result = func(&args)
-                                    .map_err(|e| VmError::runtime(e))?;
+                                let func = self.native_functions.get(&name).ok_or_else(|| {
+                                    VmError::runtime(format!(
+                                        "Native function '{}' not found",
+                                        name
+                                    ))
+                                })?;
+                                let result = func(&args).map_err(|e| VmError::runtime(e))?;
                                 self.stack.push(result);
                             }
                         }
@@ -920,10 +996,10 @@ impl VM {
                 Instruction::Return => {
                     // Pop return value
                     let ret_val = self.stack.pop().unwrap_or(Value::Null);
-                    
+
                     // Pop all locals and arguments (everything from base onwards)
                     self.stack.truncate(self.base - 1); // Keep everything before the callee
-                    
+
                     // Restore previous frame
                     if let Some(frame) = self.frames.pop() {
                         self.chunk = frame.chunk;
@@ -931,7 +1007,7 @@ impl VM {
                         self.base = frame.base;
                         self.upvalues = frame.upvalues;
                         self.captured_locals = frame.captured_locals;
-                        
+
                         // Push return value
                         self.stack.push(ret_val);
                     } else {
@@ -940,17 +1016,23 @@ impl VM {
                     }
                 }
                 Instruction::Import => {
-                    let path_val = self.stack.pop().ok_or_else(|| VmError::runtime("IMPORT requires path on stack".into()))?;
+                    let path_val = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| VmError::runtime("IMPORT requires path on stack".into()))?;
                     let path = match path_val {
                         Value::String(s) => s,
                         _ => return Err(VmError::runtime("IMPORT requires String path".into())),
                     };
-                    
+
                     // Resolve the path relative to current file
-                    let resolved_path = self.resolve_import_path(&path)?;
-                    
+                    let resolved_path =
+                        modules::resolve_import_path(&path, self.current_file.as_ref())?;
+
                     // Check if module is already cached
-                    if let Some(cached_value) = self.module_cache.borrow().get(&resolved_path).cloned() {
+                    if let Some(cached_value) =
+                        self.module_cache.borrow().get(&resolved_path).cloned()
+                    {
                         self.stack.push(cached_value);
                     } else {
                         // Check for circular dependencies
@@ -962,9 +1044,9 @@ impl VM {
                                 cycle.join(" -> ")
                             )));
                         }
-                        
+
                         // Load and evaluate the module
-                        let module_value = self.load_module(&resolved_path)?;
+                        let module_value = modules::load_module(self, &resolved_path)?;
                         self.stack.push(module_value);
                     }
                 }
@@ -974,7 +1056,7 @@ impl VM {
             }
         }
     }
-    
+
     /// Evaluate a chunk in the context of this VM's existing state (globals, etc.)
     /// This is useful for REPL-style evaluation where state persists across evaluations.
     pub fn eval(&mut self, chunk: Chunk) -> Result<Value, VmError> {
@@ -982,548 +1064,36 @@ impl VM {
         let saved_chunk = std::mem::replace(&mut self.chunk, chunk);
         let saved_ip = self.ip;
         let saved_base = self.base;
-        
+
         // Reset execution state for new chunk
         self.ip = 0;
         self.base = 0;
-        
+
         // Run the chunk
         let result = self.run();
-        
+
         // Restore state (but keep globals, module_cache, etc.)
         self.chunk = saved_chunk;
         self.ip = saved_ip;
         self.base = saved_base;
-        
-        result
-    }
-    
-    fn resolve_import_path(&self, path: &str) -> Result<String, VmError> {
-        use std::path::Path;
-        
-        let path_obj = Path::new(path);
-        
-        // If it's an absolute path, use it as-is
-        if path_obj.is_absolute() {
-            return Ok(path_obj.canonicalize()
-                .map_err(|e| VmError::runtime(format!("Failed to resolve path '{}': {}", path, e)))?
-                .to_string_lossy()
-                .to_string());
-        }
-        
-        // For relative paths, resolve relative to the current file
-        let base_dir = if let Some(ref current_file) = self.current_file {
-            Path::new(current_file).parent()
-                .ok_or_else(|| VmError::runtime(format!("Invalid current file path: {}", current_file)))?
-                .to_path_buf()
-        } else {
-            // No current file, use current working directory
-            std::env::current_dir()
-                .map_err(|e| VmError::runtime(format!("Failed to get current directory: {}", e)))?
-        };
-        
-        let full_path = base_dir.join(path);
-        
-        // Canonicalize to get absolute path and resolve .. and .
-        let canonical = full_path.canonicalize()
-            .map_err(|e| VmError::runtime(format!("Failed to resolve import path '{}': {}", path, e)))?;
-        
-        Ok(canonical.to_string_lossy().to_string())
-    }
-    
-    fn load_module(&mut self, path: &str) -> Result<Value, VmError> {
-        use std::fs;
-        
-        // Mark module as loading (for circular dependency detection)
-        self.loading_modules.borrow_mut().push(path.to_string());
-        
-        // Ensure we always unmark the module, even on error
-        let result = (|| {
-            // Read the module source
-            let source = fs::read_to_string(path)
-                .map_err(|e| VmError::runtime(format!("Failed to read module '{}': {}", path, e)))?;
-            
-            // Parse the module
-            let ast = crate::parser::parse(&source, path)
-                .map_err(|errors| {
-                    VmError::runtime(format!(
-                        "Parse error in module '{}': {}",
-                        path,
-                        errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join(", ")
-                    ))
-                })?;
-            
-            // Typecheck the module (if enabled)
-            crate::typecheck::typecheck_program(&ast)
-                .map_err(|errs| {
-                    VmError::runtime(format!(
-                        "Typecheck error in module '{}': {}",
-                        path,
-                        errs.iter().map(|e| e.message.clone()).collect::<Vec<_>>().join(", ")
-                    ))
-                })?;
-            
-            // Compile the module
-            let chunk = crate::bytecode::compile::compile_program(&ast);
-            
-            // Create a new VM for the module with the module's path as current file
-            let mut module_vm = VM::new_with_file(chunk, Some(path.to_string()));
-            
-            // Share the module cache and loading stack (now using Rc, so they're truly shared)
-            module_vm.module_cache = Rc::clone(&self.module_cache);
-            module_vm.loading_modules = Rc::clone(&self.loading_modules);
-            
-            // Execute the module
-            let module_value = module_vm.run()
-                .map_err(|e| VmError::runtime(format!("Error executing module '{}': {:?}", path, e)))?;
-            
-            // Cache the module value
-            self.module_cache.borrow_mut().insert(path.to_string(), module_value.clone());
-            
-            Ok(module_value)
-        })();
-        
-        // Always unmark module as loading, even on error
-        self.loading_modules.borrow_mut().pop();
-        
+
         result
     }
 }
 
 fn flip_bool(stack: &mut Vec<Value>) -> Result<(), VmError> {
-    let v = stack.pop().ok_or_else(|| VmError::runtime("flip bool underflow".into()))?;
+    let v = stack
+        .pop()
+        .ok_or_else(|| VmError::runtime("flip bool underflow".into()))?;
     match v {
-        Value::Boolean(b) => { stack.push(Value::Boolean(!b)); Ok(()) }
+        Value::Boolean(b) => {
+            stack.push(Value::Boolean(!b));
+            Ok(())
+        }
         _ => Err(VmError::runtime("flip bool type error".into())),
     }
 }
 
 fn truthy(v: &Value) -> bool {
     !matches!(v, Value::Boolean(false) | Value::Null)
-}
-
-// Helper to extract type definition from a Value (either Table or Type)
-fn get_type_map(value: &Value) -> Option<Rc<RefCell<HashMap<String, Value>>>> {
-    match value {
-        Value::Type(t) => Some(t.clone()),
-        Value::Table(t) => Some(t.clone()),
-        _ => None,
-    }
-}
-
-// Helper function to check if a value has all required fields for a type (for trait matching)
-fn has_required_fields(value: &Value, type_def: &HashMap<String, Value>) -> Result<bool, String> {
-    match value {
-        Value::Table(table) => {
-            let borrowed = table.borrow();
-            
-            // Check all required fields in the type definition
-            for (field_name, field_type) in type_def.iter() {
-                // Skip special fields like __parent and methods (functions)
-                if field_name.starts_with("__") {
-                    continue;
-                }
-                
-                // If the field type is a function, it's a method - skip validation for methods
-                if matches!(field_type, Value::Function { .. } | Value::NativeFunction { .. }) {
-                    continue;
-                }
-                
-                // Check if the field exists in the value
-                if !borrowed.contains_key(field_name) {
-                    return Ok(false);
-                }
-                
-                // For now, we do structural matching - just check if field exists
-                // Full type checking would require recursively validating field types
-            }
-            Ok(true)
-        }
-        _ => Ok(false),
-    }
-}
-
-// Helper function to check if a value is compatible for casting
-// For casting, we allow missing fields (they'll be filled with defaults)
-fn is_castable(value: &Value) -> bool {
-    matches!(value, Value::Table(_))
-}
-
-// Helper function to merge parent fields into child
-fn merge_parent_fields(type_def: &HashMap<String, Value>) -> HashMap<String, Value> {
-    let mut merged = type_def.clone();
-    
-    // Check if there's a __parent field
-    if let Some(parent_val) = type_def.get("__parent") {
-        if let Some(parent_map) = get_type_map(parent_val) {
-            let parent_borrowed = parent_map.borrow();
-            
-            // Recursively merge parent's fields
-            let parent_merged = merge_parent_fields(&parent_borrowed);
-            
-            // Add parent fields that don't exist in child
-            for (key, value) in parent_merged.iter() {
-                if !merged.contains_key(key) {
-                    merged.insert(key.clone(), value.clone());
-                }
-            }
-        }
-    }
-    
-    merged
-}
-
-// Native function: cast(type, value) -> typed_value
-fn native_cast(args: &[Value]) -> Result<Value, String> {
-    if args.len() != 2 {
-        return Err(format!("cast() expects 2 arguments, got {}", args.len()));
-    }
-    
-    let type_def = match &args[0] {
-        Value::Table(t) => t.clone(),
-        Value::Type(t) => t.clone(),
-        _ => return Err("cast() first argument must be a type (table)".to_string()),
-    };
-    
-    let value = &args[1];
-    
-    // Check that the value is a table (castable)
-    if !is_castable(value) {
-        return Err("cast() can only cast table values".to_string());
-    }
-    
-    // Merge inherited fields from parent types
-    let type_borrowed = type_def.borrow();
-    let merged_type = merge_parent_fields(&type_borrowed);
-    
-    // At this point, value is guaranteed to be a Table
-    match value {
-        Value::Table(table) => {
-            let value_borrowed = table.borrow();
-            let mut new_table = value_borrowed.clone();
-            
-            // Merge inherited fields from parent if any
-            for (key, val) in merged_type.iter() {
-                if !key.starts_with("__") && !new_table.contains_key(key) {
-                    // Don't copy methods, only data fields
-                    if !matches!(val, Value::Function { .. } | Value::NativeFunction { .. }) {
-                        new_table.insert(key.clone(), val.clone());
-                    }
-                }
-            }
-            
-            // Attach the type definition as metadata
-            new_table.insert("__type".to_string(), Value::Type(type_def.clone()));
-            
-            Ok(Value::Table(Rc::new(RefCell::new(new_table))))
-        }
-        _ => unreachable!("is_castable ensures value is a Table"),
-    }
-}
-
-// Native function: isInstanceOf(value, type) -> boolean
-fn native_is_instance_of(args: &[Value]) -> Result<Value, String> {
-    if args.len() != 2 {
-        return Err(format!("isInstanceOf() expects 2 arguments, got {}", args.len()));
-    }
-    
-    let value = &args[0];
-    let type_def = match &args[1] {
-        Value::Table(t) => t.clone(),
-        Value::Type(t) => t.clone(),
-        _ => return Err("isInstanceOf() second argument must be a type (table)".to_string()),
-    };
-    
-    // Check if the value is a table with __type metadata
-    if let Value::Table(table) = value {
-        let borrowed = table.borrow();
-        
-        // Check direct type match
-        if let Some(Value::Type(value_type)) = borrowed.get("__type") {
-            // Compare type references
-            if Rc::ptr_eq(value_type, &type_def) {
-                return Ok(Value::Boolean(true));
-            }
-            
-            // Check if value_type inherits from type_def via __parent chain
-            let mut current_type = value_type.clone();
-            loop {
-                let has_parent = {
-                    let current_borrowed = current_type.borrow();
-                    current_borrowed.get("__parent").cloned()
-                };
-                
-                if let Some(parent_val) = has_parent {
-                    if let Some(parent_map) = get_type_map(&parent_val) {
-                        // Check if this parent matches the target type
-                        if Rc::ptr_eq(&parent_map, &type_def) {
-                            return Ok(Value::Boolean(true));
-                        }
-                        current_type = parent_map;
-                    } else {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
-        }
-        
-        // Fallback to structural matching (trait-like behavior)
-        let type_borrowed = type_def.borrow();
-        if has_required_fields(value, &type_borrowed)? {
-            return Ok(Value::Boolean(true));
-        }
-    }
-    
-    Ok(Value::Boolean(false))
-}
-
-// Native function: into(value, target_type) -> converted_value
-// Calls the __into method on the value with the target type
-fn native_into(args: &[Value]) -> Result<Value, String> {
-    if args.len() != 2 {
-        return Err(format!("into() expects 2 arguments, got {}", args.len()));
-    }
-    
-    let value = &args[0];
-    let target_type = &args[1];
-    
-    // Check if value has __into method
-    match value {
-        Value::Table(table) => {
-            let borrowed = table.borrow();
-            if let Some(_into_method) = borrowed.get("__into") {
-                // We need to call the __into method with (self, target_type)
-                // But we can't easily call it from here without access to the VM
-                // For now, return an error suggesting that __into calls must happen in VM context
-                return Err(format!(
-                    "Type conversions via __into are not fully implemented yet. \
-                     For now, use explicit conversion methods or wait for v2. \
-                     See GC_HOOKS.md for details."
-                ));
-            } else {
-                return Err(format!("Type does not support conversion (no __into method)"));
-            }
-        }
-        _ => {
-            // For non-table values, provide default conversions
-            match target_type {
-                Value::Type(type_map) | Value::Table(type_map) => {
-                    let type_borrowed = type_map.borrow();
-                    // Check if target is String type (basic heuristic)
-                    // TODO: Improve type matching logic
-                    if type_borrowed.contains_key("String") || type_borrowed.is_empty() {
-                        // Default string conversion for primitive types
-                        match value {
-                            Value::Number(n) => Ok(Value::String(n.to_string())),
-                            Value::String(s) => Ok(Value::String(s.clone())),
-                            Value::Boolean(b) => Ok(Value::String(b.to_string())),
-                            Value::Null => Ok(Value::String("null".to_string())),
-                            _ => Err("Cannot convert value to String".to_string()),
-                        }
-                    } else {
-                        Err(format!("Unsupported conversion target"))
-                    }
-                }
-                _ => Err("Second argument to into() must be a type".to_string()),
-            }
-        }
-    }
-}
-
-// Native function: print(...values) -> null
-// Prints all arguments to stdout, separated by tabs
-fn native_print(args: &[Value]) -> Result<Value, String> {
-    let mut output = String::new();
-    for (i, arg) in args.iter().enumerate() {
-        if i > 0 {
-            output.push('\t');
-        }
-        output.push_str(&format!("{}", arg));
-    }
-    println!("{}", output);
-    Ok(Value::Null)
-}
-
-// Native function: write(fd: Number, content: String) -> Result(Null, String)
-// Writes content to a file descriptor (1=stdout, 2=stderr)
-fn native_write(args: &[Value]) -> Result<Value, String> {
-    if args.len() != 2 {
-        return Err(format!("write() expects 2 arguments, got {}", args.len()));
-    }
-    
-    let fd = match &args[0] {
-        Value::Number(n) => *n as i32,
-        _ => return Ok(make_result_err("write() first argument must be a number (file descriptor)".to_string())),
-    };
-    
-    let content = match &args[1] {
-        Value::String(s) => s.clone(),
-        Value::Number(n) => n.to_string(),
-        Value::Boolean(b) => b.to_string(),
-        Value::Null => "null".to_string(),
-        other => format!("{}", other),
-    };
-    
-    use std::io::Write;
-    let result = match fd {
-        1 => std::io::stdout().write_all(content.as_bytes()),
-        2 => std::io::stderr().write_all(content.as_bytes()),
-        _ => {
-            return Ok(make_result_err(format!("Invalid file descriptor: {}. Only 1 (stdout) and 2 (stderr) are supported", fd)));
-        }
-    };
-    
-    match result {
-        Ok(_) => Ok(make_result_ok(Value::Null)),
-        Err(e) => Ok(make_result_err(format!("I/O error: {}", e))),
-    }
-}
-
-// Native function: read_file(path: String) -> Result(String, String)
-// Reads entire file contents as a string
-fn native_read_file(args: &[Value]) -> Result<Value, String> {
-    if args.len() != 1 {
-        return Err(format!("read_file() expects 1 argument, got {}", args.len()));
-    }
-    
-    let path = match &args[0] {
-        Value::String(s) => s,
-        _ => return Ok(make_result_err("read_file() argument must be a string (file path)".to_string())),
-    };
-    
-    match std::fs::read_to_string(path) {
-        Ok(content) => Ok(make_result_ok(Value::String(content))),
-        Err(e) => Ok(make_result_err(format!("Failed to read file '{}': {}", path, e))),
-    }
-}
-
-// Native function: write_file(path: String, content: String) -> Result(Null, String)
-// Writes content to a file, creating or overwriting it
-fn native_write_file(args: &[Value]) -> Result<Value, String> {
-    if args.len() != 2 {
-        return Err(format!("write_file() expects 2 arguments, got {}", args.len()));
-    }
-    
-    let path = match &args[0] {
-        Value::String(s) => s,
-        _ => return Ok(make_result_err("write_file() first argument must be a string (file path)".to_string())),
-    };
-    
-    let content = match &args[1] {
-        Value::String(s) => s.clone(),
-        Value::Number(n) => n.to_string(),
-        Value::Boolean(b) => b.to_string(),
-        Value::Null => "null".to_string(),
-        other => format!("{}", other),
-    };
-    
-    match std::fs::write(path, content) {
-        Ok(_) => Ok(make_result_ok(Value::Null)),
-        Err(e) => Ok(make_result_err(format!("Failed to write file '{}': {}", path, e))),
-    }
-}
-
-// Native function: file_exists(path: String) -> Boolean
-// Checks if a file or directory exists at the given path
-fn native_file_exists(args: &[Value]) -> Result<Value, String> {
-    if args.len() != 1 {
-        return Err(format!("file_exists() expects 1 argument, got {}", args.len()));
-    }
-    
-    let path = match &args[0] {
-        Value::String(s) => s,
-        _ => return Err("file_exists() argument must be a string (file path)".to_string()),
-    };
-    
-    Ok(Value::Boolean(std::path::Path::new(path).exists()))
-}
-
-// Native function: panic(message: String) -> Never
-// Prints error message to stderr and terminates the program
-fn native_panic(args: &[Value]) -> Result<Value, String> {
-    if args.len() != 1 {
-        return Err(format!("panic() expects 1 argument, got {}", args.len()));
-    }
-    
-    let message = match &args[0] {
-        Value::String(s) => s.clone(),
-        other => format!("{}", other),
-    };
-    
-    eprintln!("PANIC: {}", message);
-    std::process::exit(1);
-}
-
-// Native function: typeof(value: Any) -> String
-// Returns the runtime type name of a value
-fn native_typeof(args: &[Value]) -> Result<Value, String> {
-    if args.len() != 1 {
-        return Err(format!("typeof() expects 1 argument, got {}", args.len()));
-    }
-    
-    let type_name = match &args[0] {
-        Value::Number(_) => "Number",
-        Value::String(_) => "String",
-        Value::Boolean(_) => "Boolean",
-        Value::Null => "Null",
-        Value::List(_) => "List",
-        Value::Table(table) => {
-            // Check if this table has a __type field (from cast())
-            let borrowed = table.borrow();
-            if let Some(Value::Type(_)) = borrowed.get("__type") {
-                // This is a typed instance, return "Table" as the base type
-                // The actual type information is in the __type field
-                "Table"
-            } else {
-                "Table"
-            }
-        }
-        Value::Function { .. } => "Function",
-        Value::Closure { .. } => "Function",
-        Value::NativeFunction { .. } => "Function",
-        Value::Type(_) => "Type",
-    };
-    
-    Ok(Value::String(type_name.to_string()))
-}
-
-// Native function: iter(value: List|Table) -> List
-// - List: returns the same list (no copy)
-// - Table: returns list of [key, value] pairs
-fn native_iter(args: &[Value]) -> Result<Value, String> {
-    if args.len() != 1 {
-        return Err(format!("iter() expects 1 argument, got {}", args.len()));
-    }
-
-    match &args[0] {
-        Value::List(list_rc) => Ok(Value::List(list_rc.clone())),
-        Value::Table(map_rc) => {
-            let map = map_rc.borrow();
-            let mut out: Vec<Value> = Vec::with_capacity(map.len());
-            for (k, v) in map.iter() {
-                let pair = vec![Value::String(k.clone()), v.clone()];
-                out.push(Value::List(std::rc::Rc::new(std::cell::RefCell::new(pair))));
-            }
-            Ok(Value::List(std::rc::Rc::new(std::cell::RefCell::new(out))))
-        }
-        _ => Err("iter() requires a List or Table".to_string()),
-    }
-}
-
-// Helper: Create a Result value with ok field set
-fn make_result_ok(value: Value) -> Value {
-    let mut map = HashMap::new();
-    map.insert("ok".to_string(), value);
-    map.insert("err".to_string(), Value::Null);
-    Value::Table(Rc::new(RefCell::new(map)))
-}
-
-// Helper: Create a Result value with err field set
-fn make_result_err(error: String) -> Value {
-    let mut map = HashMap::new();
-    map.insert("ok".to_string(), Value::Null);
-    map.insert("err".to_string(), Value::String(error));
-    Value::Table(Rc::new(RefCell::new(map)))
 }

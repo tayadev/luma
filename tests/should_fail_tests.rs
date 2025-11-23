@@ -1,4 +1,7 @@
-use std::{fs, path::{PathBuf, Path}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[test]
 fn test_should_fail_programs() {
@@ -8,7 +11,10 @@ fn test_should_fail_programs() {
         for entry in fs::read_dir(dir).expect("Failed to read should_fail tests directory") {
             let entry = entry.expect("Failed to read directory entry");
             let path = entry.path();
-            if path.is_dir() { collect(&path, files); continue; }
+            if path.is_dir() {
+                collect(&path, files);
+                continue;
+            }
             if path.extension().and_then(|s| s.to_str()) == Some("luma") {
                 files.push(path.clone());
             }
@@ -44,8 +50,14 @@ fn test_should_fail_programs() {
         let ast = match luma::parser::parse(source.as_str(), luma_path.to_str().unwrap()) {
             Ok(ast) => {
                 if expected_failure == "parse" {
-                    println!("✓ {} (expected parse failure, got success - FAIL)", test_name);
-                    failures.push(format!("❌ {}: Expected parse failure but parsing succeeded", test_name));
+                    println!(
+                        "✓ {} (expected parse failure, got success - FAIL)",
+                        test_name
+                    );
+                    failures.push(format!(
+                        "❌ {}: Expected parse failure but parsing succeeded",
+                        test_name
+                    ));
                     continue;
                 }
                 ast
@@ -68,7 +80,10 @@ fn test_should_fail_programs() {
         match luma::typecheck::typecheck_program(&ast) {
             Ok(_) => {
                 if expected_failure == "typecheck" {
-                    failures.push(format!("❌ {}: Expected typecheck failure but typechecking succeeded", test_name));
+                    failures.push(format!(
+                        "❌ {}: Expected typecheck failure but typechecking succeeded",
+                        test_name
+                    ));
                     continue;
                 } else {
                     // Continue to runtime
@@ -96,7 +111,10 @@ fn test_should_fail_programs() {
         match vm.run() {
             Ok(_) => {
                 if expected_failure == "runtime" {
-                    failures.push(format!("❌ {}: Expected runtime failure but execution succeeded", test_name));
+                    failures.push(format!(
+                        "❌ {}: Expected runtime failure but execution succeeded",
+                        test_name
+                    ));
                 } else {
                     failures.push(format!(
                         "❌ {}: Test succeeded but expected {} failure",
@@ -118,6 +136,10 @@ fn test_should_fail_programs() {
     }
 
     if !failures.is_empty() {
-        panic!("\n{} should_fail test(s) had issues:\n\n{}", failures.len(), failures.join("\n"));
+        panic!(
+            "\n{} should_fail test(s) had issues:\n\n{}",
+            failures.len(),
+            failures.join("\n")
+        );
     }
 }

@@ -1,6 +1,6 @@
-use chumsky::prelude::*;
-use crate::ast::{Expr, Stmt, Argument, Type, Pattern, Span};
 use super::utils::{apply_implicit_return, apply_implicit_return_stmts};
+use crate::ast::{Argument, Expr, Pattern, Span, Stmt, Type};
+use chumsky::prelude::*;
 
 /// Creates a parser for block expressions (do...end)
 pub fn block<'a, WS, S, E>(
@@ -46,12 +46,14 @@ where
         .then(stmt.repeated().collect::<Vec<Stmt>>())
         .then(else_block.or_not())
         .then_ignore(just("end").padded_by(ws))
-        .try_map(|((condition, then_block), else_block), span| Ok(Expr::If { 
-            condition: Box::new(condition), 
-            then_block: apply_implicit_return_stmts(then_block), 
-            else_block,
-            span: Some(Span::from_chumsky(span)),
-        }))
+        .try_map(|((condition, then_block), else_block), span| {
+            Ok(Expr::If {
+                condition: Box::new(condition),
+                then_block: apply_implicit_return_stmts(then_block),
+                else_block,
+                span: Some(Span::from_chumsky(span)),
+            })
+        })
         .boxed()
 }
 
@@ -71,25 +73,38 @@ where
     E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
     // Argument parsing with default values
-    let argument = ident.clone()
+    let argument = ident
+        .clone()
         .then_ignore(just(':').padded_by(ws.clone()))
         .then(type_parser.clone())
-        .then(just('=').padded_by(ws.clone()).ignore_then(expr.clone()).or_not())
-        .map(|((name, t), default): ((&str, Type), Option<Expr>)| Argument { 
-            name: name.to_string(), 
-            r#type: t, 
-            default,
-            span: None,
-        });
+        .then(
+            just('=')
+                .padded_by(ws.clone())
+                .ignore_then(expr.clone())
+                .or_not(),
+        )
+        .map(
+            |((name, t), default): ((&str, Type), Option<Expr>)| Argument {
+                name: name.to_string(),
+                r#type: t,
+                default,
+                span: None,
+            },
+        );
 
     let arg_list = argument
         .separated_by(just(',').padded_by(ws.clone()))
         .allow_trailing()
         .collect::<Vec<Argument>>()
-        .delimited_by(just('(').padded_by(ws.clone()), just(')').padded_by(ws.clone()));
+        .delimited_by(
+            just('(').padded_by(ws.clone()),
+            just(')').padded_by(ws.clone()),
+        );
 
     // Function body: statements + optional trailing expression as Return
-    let body_block = stmt.repeated().collect::<Vec<Stmt>>()
+    let body_block = stmt
+        .repeated()
+        .collect::<Vec<Stmt>>()
         .then(expr.or_not())
         .then_ignore(just("end").padded_by(ws.clone()))
         .map(|(stmts, ret)| apply_implicit_return(stmts, ret));
@@ -97,12 +112,24 @@ where
     just("fn")
         .padded_by(ws.clone())
         .ignore_then(arg_list)
-        .then(just(':').padded_by(ws.clone()).ignore_then(type_parser).or_not())
+        .then(
+            just(':')
+                .padded_by(ws.clone())
+                .ignore_then(type_parser)
+                .or_not(),
+        )
         .then_ignore(just("do").padded_by(ws))
         .then(body_block)
-        .try_map(|((arguments, return_type), body): ((Vec<Argument>, Option<Type>), Vec<Stmt>), span| {
-            Ok(Expr::Function { arguments, return_type, body, span: Some(Span::from_chumsky(span)) })
-        })
+        .try_map(
+            |((arguments, return_type), body): ((Vec<Argument>, Option<Type>), Vec<Stmt>), span| {
+                Ok(Expr::Function {
+                    arguments,
+                    return_type,
+                    body,
+                    span: Some(Span::from_chumsky(span)),
+                })
+            },
+        )
         .boxed()
 }
 
@@ -124,18 +151,22 @@ where
         .ignore_then(expr)
         .then_ignore(just("do").padded_by(ws.clone()))
         .then(
-            (
-                pattern
-                    .then_ignore(ws.clone())
-                    .then_ignore(just("do").padded_by(ws.clone()))
-                    .then(stmt.repeated().collect::<Vec<Stmt>>())
-                    .then_ignore(just("end").padded_by(ws.clone()))
-            )
+            (pattern
+                .then_ignore(ws.clone())
+                .then_ignore(just("do").padded_by(ws.clone()))
+                .then(stmt.repeated().collect::<Vec<Stmt>>())
+                .then_ignore(just("end").padded_by(ws.clone())))
             .repeated()
-            .collect::<Vec<(Pattern, Vec<Stmt>)>>()
+            .collect::<Vec<(Pattern, Vec<Stmt>)>>(),
         )
         .then_ignore(just("end").padded_by(ws))
-        .try_map(|(expr, arms), span| Ok(Expr::Match { expr: Box::new(expr), arms, span: Some(Span::from_chumsky(span)) }))
+        .try_map(|(expr, arms), span| {
+            Ok(Expr::Match {
+                expr: Box::new(expr),
+                arms,
+                span: Some(Span::from_chumsky(span)),
+            })
+        })
         .boxed()
 }
 
@@ -150,13 +181,11 @@ where
 {
     just("import")
         .padded_by(ws.clone())
-        .ignore_then(
-            expr
-                .delimited_by(
-                    just('(').padded_by(ws.clone()),
-                    just(')').padded_by(ws)
-                )
-        )
-        .try_map(|path, _span| Ok(Expr::Import { path: Box::new(path) }))
+        .ignore_then(expr.delimited_by(just('(').padded_by(ws.clone()), just(')').padded_by(ws)))
+        .try_map(|path, _span| {
+            Ok(Expr::Import {
+                path: Box::new(path),
+            })
+        })
         .boxed()
 }

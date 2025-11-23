@@ -1,0 +1,12 @@
+let Point = fn(x: Number, y: Number) do
+  return {
+    x = x,
+    y = y,
+    __eq = fn(self: Any, other: Any) do
+      return self.x == other.x && self.y == other.y
+    end
+  }
+end
+let p1: Any = Point(5, 10)
+let p2: Any = Point(5, 10)
+p1 == p2

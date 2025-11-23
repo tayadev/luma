@@ -1,0 +1,2 @@
+-- Module A that imports module B
+let b = import("./circular_b_helper.module")

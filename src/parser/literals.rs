@@ -1,5 +1,5 @@
-use chumsky::prelude::*;
 use crate::ast::{Expr, TableKey};
+use chumsky::prelude::*;
 
 /// Creates a parser for number literals (integers, floats, hex, binary, scientific)
 pub fn number<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
@@ -12,43 +12,36 @@ where
             one_of("0123456789abcdefABCDEF")
                 .repeated()
                 .at_least(1)
-                .collect::<String>()
+                .collect::<String>(),
         )
         .map(|s: String| {
             let val = i64::from_str_radix(&s, 16).unwrap_or(0);
             Expr::Number(val as f64)
         });
-    
+
     let binary = just("0b")
         .or(just("0B"))
-        .ignore_then(
-            one_of("01")
-                .repeated()
-                .at_least(1)
-                .collect::<String>()
-        )
+        .ignore_then(one_of("01").repeated().at_least(1).collect::<String>())
         .map(|s: String| {
             let val = i64::from_str_radix(&s, 2).unwrap_or(0);
             Expr::Number(val as f64)
         });
-    
+
     let decimal = text::int(10)
         .then(just('.').then(text::digits(10)).or_not())
         .then(
             one_of("eE")
                 .then(one_of("+-").or_not())
                 .then(text::digits(10))
-                .or_not()
+                .or_not(),
         )
         .to_slice()
         .map(|s: &str| {
             let val = s.parse::<f64>().unwrap_or(0.0);
             Expr::Number(val)
         });
-    
-    choice((hex, binary, decimal))
-        .padded_by(ws)
-        .boxed()
+
+    choice((hex, binary, decimal)).padded_by(ws).boxed()
 }
 
 /// Creates a parser for boolean literals (true/false)
@@ -59,7 +52,9 @@ where
     choice((
         just("true").to(Expr::Boolean(true)),
         just("false").to(Expr::Boolean(false)),
-    )).padded_by(ws).boxed()
+    ))
+    .padded_by(ws)
+    .boxed()
 }
 
 /// Creates a parser for null literal
@@ -79,7 +74,10 @@ where
     expr.separated_by(just(',').padded_by(ws.clone()))
         .allow_trailing()
         .collect::<Vec<Expr>>()
-        .delimited_by(just('[').padded_by(ws.clone()), just(']').padded_by(ws.clone()))
+        .delimited_by(
+            just('[').padded_by(ws.clone()),
+            just(']').padded_by(ws.clone()),
+        )
         .map(Expr::List)
         .boxed()
 }
@@ -90,8 +88,8 @@ where
 /// - String literal keys: "key with spaces" = value  
 /// - Computed keys: [expression] = value
 pub fn table<'a, WS, I, E, S>(
-    ws: WS, 
-    ident: I, 
+    ws: WS,
+    ident: I,
     expr: E,
     string_lit: S,
 ) -> Boxed<'a, 'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
@@ -102,44 +100,54 @@ where
     S: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
     // Identifier key: key = value
-    let identifier_key = ident.clone()
+    let identifier_key = ident
+        .clone()
         .map(|s: &str| TableKey::Identifier(s.to_string()));
-    
+
     // String literal key: "key with spaces" = value
-    let string_key = string_lit
-        .try_map(|expr, span| match expr {
-            Expr::String(s) => Ok(TableKey::StringLiteral(s)),
-            _ => Err(Rich::custom(span, "String literal key cannot contain interpolation")),
-        });
-    
+    let string_key = string_lit.try_map(|expr, span| match expr {
+        Expr::String(s) => Ok(TableKey::StringLiteral(s)),
+        _ => Err(Rich::custom(
+            span,
+            "String literal key cannot contain interpolation",
+        )),
+    });
+
     // Computed key: [expression] = value
-    let computed_key = expr.clone()
+    let computed_key = expr
+        .clone()
         .delimited_by(
             just('[').padded_by(ws.clone()),
-            just(']').padded_by(ws.clone())
+            just(']').padded_by(ws.clone()),
         )
         .map(|e| TableKey::Computed(Box::new(e)));
-    
+
     // Any of the three key types followed by = and value
-    let kv_entry = choice((computed_key.clone(), string_key.clone(), identifier_key.clone()))
-        .then_ignore(just('=').padded_by(ws.clone()))
-        .then(expr.clone())
-        .map(|(k, v)| (k, v));
+    let kv_entry = choice((
+        computed_key.clone(),
+        string_key.clone(),
+        identifier_key.clone(),
+    ))
+    .then_ignore(just('=').padded_by(ws.clone()))
+    .then(expr.clone())
+    .map(|(k, v)| (k, v));
 
     // Shorthand entry: identifier alone expands to key=name, value=Identifier(name)
-    let shorthand_entry = ident
-        .map(|s: &str| {
-            let name = s.to_string();
-            (TableKey::Identifier(name.clone()), Expr::Identifier(name))
-        });
+    let shorthand_entry = ident.map(|s: &str| {
+        let name = s.to_string();
+        (TableKey::Identifier(name.clone()), Expr::Identifier(name))
+    });
 
     let table_entry = choice((kv_entry, shorthand_entry));
-    
+
     table_entry
         .separated_by(just(',').padded_by(ws.clone()))
         .allow_trailing()
         .collect::<Vec<(TableKey, Expr)>>()
-        .delimited_by(just('{').padded_by(ws.clone()), just('}').padded_by(ws.clone()))
+        .delimited_by(
+            just('{').padded_by(ws.clone()),
+            just('}').padded_by(ws.clone()),
+        )
         .map(Expr::Table)
         .boxed()
 }

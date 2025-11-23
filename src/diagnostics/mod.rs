@@ -150,10 +150,7 @@ impl<'a> DiagnosticFormatter<'a> {
             Severity::Warning => "warning",
             Severity::Info => "info",
         };
-        output.push_str(&format!(
-            "{}: {}\n",
-            severity_str, self.diagnostic.message
-        ));
+        output.push_str(&format!("{}: {}\n", severity_str, self.diagnostic.message));
 
         // Location
         let (start_line, start_col) = self.line_index.line_col(self.diagnostic.span.start);
@@ -197,11 +194,7 @@ impl<'a> DiagnosticFormatter<'a> {
         let context_start = start_line.saturating_sub(1).max(1);
         let context_end = (end_line + 1).min(self.line_index.line_count());
 
-        output.push_str(&format!(
-            "{:width$} |\n",
-            "",
-            width = line_num_width
-        ));
+        output.push_str(&format!("{:width$} |\n", "", width = line_num_width));
 
         for line_num in context_start..=context_end {
             if let Some((line_start, line_end)) = self.line_index.line_range(line_num) {
@@ -218,11 +211,7 @@ impl<'a> DiagnosticFormatter<'a> {
 
                 // Print underline/caret for error span
                 if line_num >= start_line && line_num <= end_line {
-                    output.push_str(&format!(
-                        "{:width$} | ",
-                        "",
-                        width = line_num_width
-                    ));
+                    output.push_str(&format!("{:width$} | ", "", width = line_num_width));
 
                     let line_span_start = if line_num == start_line {
                         start_col - 1
@@ -259,11 +248,7 @@ impl<'a> DiagnosticFormatter<'a> {
             }
         }
 
-        output.push_str(&format!(
-            "{:width$} |\n",
-            "",
-            width = line_num_width
-        ));
+        output.push_str(&format!("{:width$} |\n", "", width = line_num_width));
 
         output
     }

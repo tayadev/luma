@@ -1,3 +1,26 @@
+//! Static type checker for Luma.
+//!
+//! This module implements a gradual type system that provides static type checking
+//! while allowing dynamic typing where needed.
+//!
+//! ## Type System Features
+//!
+//! - **Gradual typing**: Mix of static and dynamic types with `Any` and `Unknown`
+//! - **Type inference**: Infers types from expressions and declarations
+//! - **Pattern matching**: Type-safe destructuring with exhaustiveness checking
+//! - **Operator overloading**: Validates operator methods on custom types
+//! - **Function types**: First-class function types with parameter and return type checking
+//!
+//! ## Type Checking Process
+//!
+//! 1. **Pre-declaration**: Top-level functions are registered to enable mutual recursion
+//! 2. **Type checking**: Traverse statements and expressions, building type environment
+//! 3. **Pattern validation**: Check patterns for exhaustiveness and type compatibility
+//! 4. **Error collection**: Accumulate all type errors for batch reporting
+//!
+//! The type checker is designed to be permissive - it allows `Any` and `Unknown` types
+//! where exact types cannot be determined, falling back to runtime checking.
+
 use crate::ast::*;
 use std::collections::HashMap;
 
@@ -43,7 +66,16 @@ impl TcType {
             (TcType::TableWithFields(_), TcType::Table) => true,
             (TcType::Table, TcType::TableWithFields(_)) => true,
             (TcType::TableWithFields(_), TcType::TableWithFields(_)) => true,
-            (TcType::Function { params: p1, ret: r1 }, TcType::Function { params: p2, ret: r2 }) => {
+            (
+                TcType::Function {
+                    params: p1,
+                    ret: r1,
+                },
+                TcType::Function {
+                    params: p2,
+                    ret: r2,
+                },
+            ) => {
                 p1.len() == p2.len()
                     && p1.iter().zip(p2.iter()).all(|(a, b)| a.is_compatible(b))
                     && r1.is_compatible(r2)
@@ -75,155 +107,212 @@ impl TypeEnv {
             errors: Vec::new(),
             in_match_arm_depth: 0,
         };
-        
+
         // Register built-in functions
-        env.declare("cast".to_string(), VarInfo {
-            ty: TcType::Function {
-                params: vec![TcType::Any, TcType::Any],
-                ret: Box::new(TcType::Any),
+        env.declare(
+            "cast".to_string(),
+            VarInfo {
+                ty: TcType::Function {
+                    params: vec![TcType::Any, TcType::Any],
+                    ret: Box::new(TcType::Any),
+                },
+                mutable: false,
+                annotated: true,
             },
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("isInstanceOf".to_string(), VarInfo {
-            ty: TcType::Function {
-                params: vec![TcType::Any, TcType::Any],
-                ret: Box::new(TcType::Boolean),
+        );
+
+        env.declare(
+            "isInstanceOf".to_string(),
+            VarInfo {
+                ty: TcType::Function {
+                    params: vec![TcType::Any, TcType::Any],
+                    ret: Box::new(TcType::Boolean),
+                },
+                mutable: false,
+                annotated: true,
             },
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("into".to_string(), VarInfo {
-            ty: TcType::Function {
-                params: vec![TcType::Any, TcType::Any],
-                ret: Box::new(TcType::Any),
+        );
+
+        env.declare(
+            "into".to_string(),
+            VarInfo {
+                ty: TcType::Function {
+                    params: vec![TcType::Any, TcType::Any],
+                    ret: Box::new(TcType::Any),
+                },
+                mutable: false,
+                annotated: true,
             },
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("typeof".to_string(), VarInfo {
-            ty: TcType::Function {
-                params: vec![TcType::Any],
-                ret: Box::new(TcType::String),
+        );
+
+        env.declare(
+            "typeof".to_string(),
+            VarInfo {
+                ty: TcType::Function {
+                    params: vec![TcType::Any],
+                    ret: Box::new(TcType::String),
+                },
+                mutable: false,
+                annotated: true,
             },
-            mutable: false,
-            annotated: true,
-        });
-        
+        );
+
         // print is variadic - we use Any to accept any number of arguments
         // The actual arity check is skipped for print in the VM
-        env.declare("print".to_string(), VarInfo {
-            ty: TcType::Any,  // Variadic function - any type
-            mutable: false,
-            annotated: true,
-        });
-        
+        env.declare(
+            "print".to_string(),
+            VarInfo {
+                ty: TcType::Any, // Variadic function - any type
+                mutable: false,
+                annotated: true,
+            },
+        );
+
         // Register I/O native functions
-        env.declare("write".to_string(), VarInfo {
-            ty: TcType::Function {
-                params: vec![TcType::Number, TcType::Any],
-                ret: Box::new(TcType::Table),  // Returns Result
+        env.declare(
+            "write".to_string(),
+            VarInfo {
+                ty: TcType::Function {
+                    params: vec![TcType::Number, TcType::Any],
+                    ret: Box::new(TcType::Table), // Returns Result
+                },
+                mutable: false,
+                annotated: true,
             },
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("read_file".to_string(), VarInfo {
-            ty: TcType::Function {
-                params: vec![TcType::String],
-                ret: Box::new(TcType::Table),  // Returns Result
+        );
+
+        env.declare(
+            "read_file".to_string(),
+            VarInfo {
+                ty: TcType::Function {
+                    params: vec![TcType::String],
+                    ret: Box::new(TcType::Table), // Returns Result
+                },
+                mutable: false,
+                annotated: true,
             },
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("write_file".to_string(), VarInfo {
-            ty: TcType::Function {
-                params: vec![TcType::String, TcType::Any],
-                ret: Box::new(TcType::Table),  // Returns Result
+        );
+
+        env.declare(
+            "write_file".to_string(),
+            VarInfo {
+                ty: TcType::Function {
+                    params: vec![TcType::String, TcType::Any],
+                    ret: Box::new(TcType::Table), // Returns Result
+                },
+                mutable: false,
+                annotated: true,
             },
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("file_exists".to_string(), VarInfo {
-            ty: TcType::Function {
-                params: vec![TcType::String],
-                ret: Box::new(TcType::Boolean),
+        );
+
+        env.declare(
+            "file_exists".to_string(),
+            VarInfo {
+                ty: TcType::Function {
+                    params: vec![TcType::String],
+                    ret: Box::new(TcType::Boolean),
+                },
+                mutable: false,
+                annotated: true,
             },
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("panic".to_string(), VarInfo {
-            ty: TcType::Function {
-                params: vec![TcType::Any],
-                ret: Box::new(TcType::Any),  // Never returns, but use Any
+        );
+
+        env.declare(
+            "panic".to_string(),
+            VarInfo {
+                ty: TcType::Function {
+                    params: vec![TcType::Any],
+                    ret: Box::new(TcType::Any), // Never returns, but use Any
+                },
+                mutable: false,
+                annotated: true,
             },
-            mutable: false,
-            annotated: true,
-        });
-        
+        );
+
         // Register file descriptor constants
-        env.declare("STDOUT".to_string(), VarInfo {
-            ty: TcType::Number,
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("STDERR".to_string(), VarInfo {
-            ty: TcType::Number,
-            mutable: false,
-            annotated: true,
-        });
-        
+        env.declare(
+            "STDOUT".to_string(),
+            VarInfo {
+                ty: TcType::Number,
+                mutable: false,
+                annotated: true,
+            },
+        );
+
+        env.declare(
+            "STDERR".to_string(),
+            VarInfo {
+                ty: TcType::Number,
+                mutable: false,
+                annotated: true,
+            },
+        );
+
         // Register prelude types/tables (from prelude.luma)
         // These are tables containing methods/constructors
-        env.declare("Result".to_string(), VarInfo {
-            ty: TcType::Table,
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("Option".to_string(), VarInfo {
-            ty: TcType::Table,
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("File".to_string(), VarInfo {
-            ty: TcType::Table,
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("List".to_string(), VarInfo {
-            ty: TcType::Table,
-            mutable: false,
-            annotated: true,
-        });
-        
-        env.declare("String".to_string(), VarInfo {
-            ty: TcType::Table,
-            mutable: false,
-            annotated: true,
-        });
-        
+        env.declare(
+            "Result".to_string(),
+            VarInfo {
+                ty: TcType::Table,
+                mutable: false,
+                annotated: true,
+            },
+        );
+
+        env.declare(
+            "Option".to_string(),
+            VarInfo {
+                ty: TcType::Table,
+                mutable: false,
+                annotated: true,
+            },
+        );
+
+        env.declare(
+            "File".to_string(),
+            VarInfo {
+                ty: TcType::Table,
+                mutable: false,
+                annotated: true,
+            },
+        );
+
+        env.declare(
+            "List".to_string(),
+            VarInfo {
+                ty: TcType::Table,
+                mutable: false,
+                annotated: true,
+            },
+        );
+
+        env.declare(
+            "String".to_string(),
+            VarInfo {
+                ty: TcType::Table,
+                mutable: false,
+                annotated: true,
+            },
+        );
+
         // Prelude helpers registered as built-ins (MVP: treat as Any to allow flexible arity)
-        env.declare("range".to_string(), VarInfo {
-            ty: TcType::Any,
-            mutable: false,
-            annotated: true,
-        });
-        env.declare("indexed".to_string(), VarInfo {
-            ty: TcType::Any,
-            mutable: false,
-            annotated: true,
-        });
-        
+        env.declare(
+            "range".to_string(),
+            VarInfo {
+                ty: TcType::Any,
+                mutable: false,
+                annotated: true,
+            },
+        );
+        env.declare(
+            "indexed".to_string(),
+            VarInfo {
+                ty: TcType::Any,
+                mutable: false,
+                annotated: true,
+            },
+        );
+
         env
     }
 
@@ -273,7 +362,7 @@ impl TypeEnv {
             // Unknown types are permissively allowed (we don't have enough info to reject)
             // This matches the gradual typing philosophy and is_compatible behavior
             TcType::Unknown => true,
-            TcType::Table => true,  // dynamic table may provide method at runtime
+            TcType::Table => true, // dynamic table may provide method at runtime
             TcType::TableWithFields(fields) => fields.contains(&method_name.to_string()),
             _ => false,
         }
@@ -321,7 +410,9 @@ impl TypeEnv {
                 let mut fields = Vec::new();
                 for (k, _) in entries {
                     match k {
-                        TableKey::Identifier(s) | TableKey::StringLiteral(s) => fields.push(s.clone()),
+                        TableKey::Identifier(s) | TableKey::StringLiteral(s) => {
+                            fields.push(s.clone())
+                        }
                         TableKey::Computed(_) => {}
                     }
                 }
@@ -331,16 +422,22 @@ impl TypeEnv {
                 TcType::TableWithFields(fields)
             }
 
-            Expr::Binary { left, op, right, .. } => {
+            Expr::Binary {
+                left, op, right, ..
+            } => {
                 let left_ty = self.check_expr(left);
                 let right_ty = self.check_expr(right);
 
                 match op {
                     BinaryOp::Add => {
                         // Allow String + String → String OR Number + Number → Number
-                        if left_ty.is_compatible(&TcType::String) && right_ty.is_compatible(&TcType::String) {
+                        if left_ty.is_compatible(&TcType::String)
+                            && right_ty.is_compatible(&TcType::String)
+                        {
                             TcType::String
-                        } else if left_ty.is_compatible(&TcType::Number) && right_ty.is_compatible(&TcType::Number) {
+                        } else if left_ty.is_compatible(&TcType::Number)
+                            && right_ty.is_compatible(&TcType::Number)
+                        {
                             TcType::Number
                         } else {
                             self.error(format!(
@@ -352,7 +449,9 @@ impl TypeEnv {
                     }
                     BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
                         // Check if both operands are Numbers (default case)
-                        if left_ty.is_compatible(&TcType::Number) && right_ty.is_compatible(&TcType::Number) {
+                        if left_ty.is_compatible(&TcType::Number)
+                            && right_ty.is_compatible(&TcType::Number)
+                        {
                             TcType::Number
                         } else {
                             // Check for operator method fallback
@@ -366,9 +465,9 @@ impl TypeEnv {
                                 BinaryOp::Mod => "__mod",
                                 _ => unreachable!(),
                             };
-                            
+
                             if Self::has_operator_method(&left_ty, method_name) {
-                                TcType::Unknown  // Return type depends on implementation
+                                TcType::Unknown // Return type depends on implementation
                             } else {
                                 self.error(format!(
                                     "Arithmetic op {:?} requires Number operands or type with {} method, got ({:?}, {:?})",
@@ -384,7 +483,9 @@ impl TypeEnv {
                     }
                     BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => {
                         // Check if both operands are Numbers (default case)
-                        if left_ty.is_compatible(&TcType::Number) && right_ty.is_compatible(&TcType::Number) {
+                        if left_ty.is_compatible(&TcType::Number)
+                            && right_ty.is_compatible(&TcType::Number)
+                        {
                             TcType::Boolean
                         } else {
                             // Check for operator method fallback
@@ -398,9 +499,9 @@ impl TypeEnv {
                                 BinaryOp::Ge => "__ge",
                                 _ => unreachable!(),
                             };
-                            
+
                             if Self::has_operator_method(&left_ty, method_name) {
-                                TcType::Boolean  // Comparison methods should return Boolean
+                                TcType::Boolean // Comparison methods should return Boolean
                             } else {
                                 self.error(format!(
                                     "Comparison op {:?} requires Number operands or type with {} method, got ({:?}, {:?})",
@@ -419,7 +520,7 @@ impl TypeEnv {
                     if ty.is_compatible(&TcType::Number) {
                         TcType::Number
                     } else if Self::has_operator_method(&ty, "__neg") {
-                        TcType::Unknown  // Return type depends on implementation
+                        TcType::Unknown // Return type depends on implementation
                     } else {
                         self.error(format!(
                             "Unary negation requires Number or type with __neg method, got {:?}",
@@ -434,13 +535,17 @@ impl TypeEnv {
                 }
             },
 
-            Expr::Logical { left, op: _, right, .. } => {
+            Expr::Logical {
+                left, op: _, right, ..
+            } => {
                 self.expect_type(left, &TcType::Boolean, "Logical op left operand");
                 self.expect_type(right, &TcType::Boolean, "Logical op right operand");
                 TcType::Boolean
             }
 
-            Expr::Call { callee, arguments, .. } => {
+            Expr::Call {
+                callee, arguments, ..
+            } => {
                 let callee_ty = self.check_expr(callee);
                 match callee_ty {
                     TcType::Function { params, ret } => {
@@ -451,7 +556,9 @@ impl TypeEnv {
                                 arguments.len()
                             ));
                         } else {
-                            for (i, (arg, param_ty)) in arguments.iter().zip(params.iter()).enumerate() {
+                            for (i, (arg, param_ty)) in
+                                arguments.iter().zip(params.iter()).enumerate()
+                            {
                                 // Extract the expression from the CallArgument
                                 let arg_expr = match arg {
                                     CallArgument::Positional(expr) => expr,
@@ -503,10 +610,7 @@ impl TypeEnv {
                     }
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
-                        self.error(format!(
-                            "Member access requires a table, got {:?}",
-                            obj_ty
-                        ));
+                        self.error(format!("Member access requires a table, got {:?}", obj_ty));
                         TcType::Unknown
                     }
                 }
@@ -519,19 +623,13 @@ impl TypeEnv {
                 match obj_ty {
                     TcType::List(elem_ty) => {
                         if !idx_ty.is_compatible(&TcType::Number) {
-                            self.error(format!(
-                                "List index requires Number, got {:?}",
-                                idx_ty
-                            ));
+                            self.error(format!("List index requires Number, got {:?}", idx_ty));
                         }
                         (*elem_ty).clone()
                     }
                     TcType::Table | TcType::TableWithFields(_) => {
                         if !idx_ty.is_compatible(&TcType::String) {
-                            self.error(format!(
-                                "Table index requires String, got {:?}",
-                                idx_ty
-                            ));
+                            self.error(format!("Table index requires String, got {:?}", idx_ty));
                         }
                         TcType::Unknown
                     }
@@ -546,7 +644,12 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Function { arguments, return_type, body, .. } => {
+            Expr::Function {
+                arguments,
+                return_type,
+                body,
+                ..
+            } => {
                 self.push_scope();
 
                 let mut param_types = Vec::new();
@@ -600,14 +703,16 @@ impl TypeEnv {
                 ret_ty
             }
 
-            Expr::If { condition, then_block, else_block, .. } => {
+            Expr::If {
+                condition,
+                then_block,
+                else_block,
+                ..
+            } => {
                 // Check condition
                 let cond_ty = self.check_expr(condition);
                 if !cond_ty.is_compatible(&TcType::Boolean) && cond_ty != TcType::Unknown {
-                    self.error(format!(
-                        "If condition should be Boolean, got {:?}",
-                        cond_ty
-                    ));
+                    self.error(format!("If condition should be Boolean, got {:?}", cond_ty));
                 }
 
                 // Check then block
@@ -643,10 +748,7 @@ impl TypeEnv {
                 // Check that path is a string expression
                 let path_ty = self.check_expr(path);
                 if !path_ty.is_compatible(&TcType::String) && path_ty != TcType::Unknown {
-                    self.error(format!(
-                        "Import path should be a String, got {:?}",
-                        path_ty
-                    ));
+                    self.error(format!("Import path should be a String, got {:?}", path_ty));
                 }
                 // Import returns the module's exported value
                 // For now, we type it as Unknown (proper typing would require module analysis)
@@ -655,13 +757,13 @@ impl TypeEnv {
             Expr::Match { expr, arms, .. } => {
                 // Type of the matched expression
                 let matched_ty = self.check_expr(expr);
-                
+
                 // Check for unreachable patterns
                 self.check_unreachable_patterns(arms);
-                
+
                 // Check exhaustiveness
                 self.check_match_exhaustiveness(arms, Some(&matched_ty));
-                
+
                 let mut unified_ret: Option<TcType> = None;
                 for (pattern, body) in arms {
                     self.push_scope();
@@ -678,7 +780,10 @@ impl TypeEnv {
                         } else if arm_ret.is_compatible(current) {
                             unified_ret = Some(arm_ret);
                         } else {
-                            self.error(format!("Match arms have incompatible types: {:?} vs {:?}", current, arm_ret));
+                            self.error(format!(
+                                "Match arms have incompatible types: {:?} vs {:?}",
+                                current, arm_ret
+                            ));
                             unified_ret = Some(TcType::Unknown);
                         }
                     } else {
@@ -696,8 +801,20 @@ impl TypeEnv {
         // Predeclare local function variables in this block to support mutual recursion
         // and allow references within the same scope before their textual definition.
         for stmt in stmts {
-            if let Stmt::VarDecl { mutable, name, r#type, value, .. } = stmt {
-                if let Expr::Function { arguments, return_type, .. } = value {
+            if let Stmt::VarDecl {
+                mutable,
+                name,
+                r#type,
+                value,
+                ..
+            } = stmt
+            {
+                if let Expr::Function {
+                    arguments,
+                    return_type,
+                    ..
+                } = value
+                {
                     // Determine function type from signature
                     let mut param_types = Vec::new();
                     for arg in arguments {
@@ -708,10 +825,17 @@ impl TypeEnv {
                     } else {
                         TcType::Unknown
                     };
-                    let func_ty = TcType::Function { params: param_types, ret: Box::new(ret_ty_annot) };
+                    let func_ty = TcType::Function {
+                        params: param_types,
+                        ret: Box::new(ret_ty_annot),
+                    };
                     self.declare(
                         name.clone(),
-                        VarInfo { ty: func_ty, mutable: *mutable, annotated: r#type.is_some() },
+                        VarInfo {
+                            ty: func_ty,
+                            mutable: *mutable,
+                            annotated: r#type.is_some(),
+                        },
                     );
                 }
             }
@@ -740,19 +864,19 @@ impl TypeEnv {
             Stmt::Match { expr, arms, .. } => {
                 // Check the match expression
                 let expr_ty = self.check_expr(expr);
-                
+
                 // Check for unreachable patterns
                 self.check_unreachable_patterns(arms);
-                
+
                 // Check exhaustiveness
                 self.check_match_exhaustiveness(arms, Some(&expr_ty));
-                
+
                 // For each arm, check the pattern and body
                 for (pattern, body) in arms {
                     self.push_scope();
                     // Bind pattern variables with the matched expression's type
                     self.check_pattern(pattern, &expr_ty, false, true); // match bindings are immutable
-                    
+
                     // Check the body statements
                     self.in_match_arm_depth += 1;
                     for stmt in body {
@@ -762,7 +886,13 @@ impl TypeEnv {
                     self.pop_scope();
                 }
             }
-            Stmt::VarDecl { mutable, name, r#type, value, .. } => {
+            Stmt::VarDecl {
+                mutable,
+                name,
+                r#type,
+                value,
+                ..
+            } => {
                 // For function values, we already pre-declared them in typecheck_program
                 // Just check the function body here
                 let value_ty = match value {
@@ -773,7 +903,7 @@ impl TypeEnv {
                     _ => {
                         // Non-function: check value and declare normally
                         let val_ty = self.check_expr(value);
-                        
+
                         let declared_ty = if let Some(ty) = r#type {
                             let t = self.type_from_ast(ty);
                             if !val_ty.is_compatible(&t) {
@@ -795,11 +925,11 @@ impl TypeEnv {
                                 annotated: r#type.is_some(),
                             },
                         );
-                        
+
                         val_ty
                     }
                 };
-                
+
                 // Verify declared type matches if annotated (for functions)
                 if matches!(value, Expr::Function { .. }) {
                     if let Some(ty) = r#type {
@@ -814,12 +944,22 @@ impl TypeEnv {
                 }
             }
 
-            Stmt::DestructuringVarDecl { mutable, pattern, value, .. } => {
+            Stmt::DestructuringVarDecl {
+                mutable,
+                pattern,
+                value,
+                ..
+            } => {
                 let value_ty = self.check_expr(value);
                 self.check_pattern(pattern, &value_ty, *mutable, false);
             }
 
-            Stmt::Assignment { target, op: _, value, .. } => {
+            Stmt::Assignment {
+                target,
+                op: _,
+                value,
+                ..
+            } => {
                 let target_ty = self.check_assignment_target(target);
                 let value_ty = self.check_expr(value);
 
@@ -831,7 +971,13 @@ impl TypeEnv {
                 }
             }
 
-            Stmt::If { condition, then_block, elif_blocks, else_block, .. } => {
+            Stmt::If {
+                condition,
+                then_block,
+                elif_blocks,
+                else_block,
+                ..
+            } => {
                 self.expect_type(condition, &TcType::Boolean, "If condition");
 
                 self.push_scope();
@@ -858,7 +1004,9 @@ impl TypeEnv {
                 }
             }
 
-            Stmt::While { condition, body, .. } => {
+            Stmt::While {
+                condition, body, ..
+            } => {
                 self.expect_type(condition, &TcType::Boolean, "While condition");
                 self.push_scope();
                 for stmt in body {
@@ -867,7 +1015,9 @@ impl TypeEnv {
                 self.pop_scope();
             }
 
-            Stmt::DoWhile { body, condition, .. } => {
+            Stmt::DoWhile {
+                body, condition, ..
+            } => {
                 self.push_scope();
                 for stmt in body {
                     self.check_stmt(stmt);
@@ -876,9 +1026,14 @@ impl TypeEnv {
                 self.expect_type(condition, &TcType::Boolean, "Do-while condition");
             }
 
-            Stmt::For { pattern, iterator, body, .. } => {
+            Stmt::For {
+                pattern,
+                iterator,
+                body,
+                ..
+            } => {
                 let iter_ty = self.check_expr(iterator);
-                
+
                 self.push_scope();
                 match &iter_ty {
                     TcType::List(elem_ty) => {
@@ -928,10 +1083,7 @@ impl TypeEnv {
                     let ty = info.ty.clone();
                     let mutable = info.mutable;
                     if !mutable {
-                        self.error(format!(
-                            "Cannot assign to immutable variable: {}",
-                            name
-                        ));
+                        self.error(format!("Cannot assign to immutable variable: {}", name));
                     }
                     ty
                 } else {
@@ -939,7 +1091,9 @@ impl TypeEnv {
                     TcType::Unknown
                 }
             }
-            Expr::MemberAccess { object, member: _, .. } => {
+            Expr::MemberAccess {
+                object, member: _, ..
+            } => {
                 let obj_ty = self.check_expr(object);
                 match obj_ty {
                     TcType::Table | TcType::TableWithFields(_) => TcType::Unknown,
@@ -960,19 +1114,13 @@ impl TypeEnv {
                 match obj_ty {
                     TcType::List(elem_ty) => {
                         if !idx_ty.is_compatible(&TcType::Number) {
-                            self.error(format!(
-                                "List index requires Number, got {:?}",
-                                idx_ty
-                            ));
+                            self.error(format!("List index requires Number, got {:?}", idx_ty));
                         }
                         (*elem_ty).clone()
                     }
                     TcType::Table => {
                         if !idx_ty.is_compatible(&TcType::String) {
-                            self.error(format!(
-                                "Table index requires String, got {:?}",
-                                idx_ty
-                            ));
+                            self.error(format!("Table index requires String, got {:?}", idx_ty));
                         }
                         TcType::Unknown
                     }
@@ -1009,46 +1157,41 @@ impl TypeEnv {
                     );
                 }
             }
-            Pattern::ListPattern { elements, rest, .. } => {
-                match ty {
-                    TcType::List(elem_ty) => {
-                        for elem in elements {
-                            self.check_pattern(elem, elem_ty, mutable, in_match);
-                        }
-                        if let Some(rest_name) = rest {
-                            self.declare(
-                                rest_name.clone(),
-                                VarInfo {
-                                    ty: TcType::List(elem_ty.clone()),
-                                    mutable,
-                                    annotated: false,
-                                },
-                            );
-                        }
+            Pattern::ListPattern { elements, rest, .. } => match ty {
+                TcType::List(elem_ty) => {
+                    for elem in elements {
+                        self.check_pattern(elem, elem_ty, mutable, in_match);
                     }
-                    TcType::Unknown | TcType::Any => {
-                        for elem in elements {
-                            self.check_pattern(elem, &TcType::Unknown, mutable, in_match);
-                        }
-                        if let Some(rest_name) = rest {
-                            self.declare(
-                                rest_name.clone(),
-                                VarInfo {
-                                    ty: TcType::List(Box::new(TcType::Unknown)),
-                                    mutable,
-                                    annotated: false,
-                                },
-                            );
-                        }
-                    }
-                    _ => {
-                        self.error(format!(
-                            "List pattern requires List type, got {:?}",
-                            ty
-                        ));
+                    if let Some(rest_name) = rest {
+                        self.declare(
+                            rest_name.clone(),
+                            VarInfo {
+                                ty: TcType::List(elem_ty.clone()),
+                                mutable,
+                                annotated: false,
+                            },
+                        );
                     }
                 }
-            }
+                TcType::Unknown | TcType::Any => {
+                    for elem in elements {
+                        self.check_pattern(elem, &TcType::Unknown, mutable, in_match);
+                    }
+                    if let Some(rest_name) = rest {
+                        self.declare(
+                            rest_name.clone(),
+                            VarInfo {
+                                ty: TcType::List(Box::new(TcType::Unknown)),
+                                mutable,
+                                annotated: false,
+                            },
+                        );
+                    }
+                }
+                _ => {
+                    self.error(format!("List pattern requires List type, got {:?}", ty));
+                }
+            },
             Pattern::TablePattern { fields, .. } => {
                 match ty {
                     TcType::TableWithFields(present) => {
@@ -1101,10 +1244,7 @@ impl TypeEnv {
                         }
                     }
                     _ => {
-                        self.error(format!(
-                            "Table pattern requires Table type, got {:?}",
-                            ty
-                        ));
+                        self.error(format!("Table pattern requires Table type, got {:?}", ty));
                     }
                 }
             }
@@ -1144,8 +1284,14 @@ impl TypeEnv {
                     _ => TcType::Unknown,
                 }
             }
-            Type::FunctionType { param_types, return_type } => {
-                let params = param_types.iter().map(|t| self.type_from_ast(t)).collect::<Vec<_>>();
+            Type::FunctionType {
+                param_types,
+                return_type,
+            } => {
+                let params = param_types
+                    .iter()
+                    .map(|t| self.type_from_ast(t))
+                    .collect::<Vec<_>>();
                 let ret = Box::new(self.type_from_ast(return_type));
                 TcType::Function { params, ret }
             }
@@ -1156,7 +1302,7 @@ impl TypeEnv {
     /// A pattern is unreachable if a previous pattern already catches all cases
     fn check_unreachable_patterns(&mut self, arms: &[(Pattern, Vec<Stmt>)]) {
         let mut seen_catch_all = false;
-        
+
         for (i, (pattern, _)) in arms.iter().enumerate() {
             if seen_catch_all {
                 self.error(format!(
@@ -1164,7 +1310,7 @@ impl TypeEnv {
                     i + 1
                 ));
             }
-            
+
             // Check if this pattern is a catch-all
             match pattern {
                 Pattern::Wildcard => {
@@ -1188,13 +1334,17 @@ impl TypeEnv {
     /// 1. It has a wildcard pattern (_), OR
     /// 2. It covers all known variants (like ok/err for Result, some/none for Option), OR
     /// 3. It covers all literal values (not practical, so we require wildcard for literals)
-    fn check_match_exhaustiveness(&mut self, arms: &[(Pattern, Vec<Stmt>)], matched_ty: Option<&TcType>) {
+    fn check_match_exhaustiveness(
+        &mut self,
+        arms: &[(Pattern, Vec<Stmt>)],
+        matched_ty: Option<&TcType>,
+    ) {
         use std::collections::HashSet;
-        
+
         let mut has_wildcard = false;
         let mut has_literal = false;
         let mut tags = HashSet::new();
-        
+
         for (pattern, _) in arms {
             match pattern {
                 Pattern::Wildcard => {
@@ -1220,7 +1370,7 @@ impl TypeEnv {
                 }
             }
         }
-        
+
         // If we used tag patterns and the matched type has known fields, check presence first
         if !tags.is_empty() && !has_wildcard {
             if let Some(ty) = matched_ty {
@@ -1241,11 +1391,11 @@ impl TypeEnv {
         if has_wildcard {
             return;
         }
-        
+
         // Check if we have all known tag variants
         let has_result_tags = tags.contains("ok") && tags.contains("err");
         let has_option_tags = tags.contains("some") && tags.contains("none");
-        
+
         if has_result_tags || has_option_tags {
             // Exhaustive for Result or Option types
             return;
@@ -1256,7 +1406,7 @@ impl TypeEnv {
             self.error("Match expression is not exhaustive: literal patterns require a wildcard (_) or catch-all case".to_string());
             return;
         }
-        
+
         // If we have tags but not all variants, not exhaustive
         if !tags.is_empty() {
             self.error(format!(
@@ -1265,9 +1415,12 @@ impl TypeEnv {
             ));
             return;
         }
-        
+
         // Otherwise, we need a wildcard
-        self.error("Match expression is not exhaustive: add a wildcard (_) pattern or cover all cases".to_string());
+        self.error(
+            "Match expression is not exhaustive: add a wildcard (_) pattern or cover all cases"
+                .to_string(),
+        );
     }
 }
 
@@ -1277,8 +1430,20 @@ pub fn typecheck_program(program: &Program) -> TypecheckResult<()> {
     // First pass: Pre-declare all top-level let/var with function values
     // This enables mutual recursion between functions
     for stmt in &program.statements {
-        if let Stmt::VarDecl { mutable, name, r#type, value, .. } = stmt {
-            if let Expr::Function { arguments, return_type, .. } = value {
+        if let Stmt::VarDecl {
+            mutable,
+            name,
+            r#type,
+            value,
+            ..
+        } = stmt
+        {
+            if let Expr::Function {
+                arguments,
+                return_type,
+                ..
+            } = value
+            {
                 // Compute function type from signature
                 let mut param_types = Vec::new();
                 for arg in arguments {
@@ -1289,12 +1454,12 @@ pub fn typecheck_program(program: &Program) -> TypecheckResult<()> {
                 } else {
                     TcType::Unknown
                 };
-                
+
                 let func_ty = TcType::Function {
                     params: param_types,
                     ret: Box::new(ret_ty),
                 };
-                
+
                 // Pre-declare the function variable
                 env.declare(
                     name.clone(),

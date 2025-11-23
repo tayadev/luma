@@ -1,9 +1,7 @@
-
+use clap::{Parser, Subcommand};
 use std::fs;
 use std::io::{self, Read};
 use std::process;
-use clap::{Parser, Subcommand};
-
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -91,7 +89,9 @@ fn main() {
                 Ok(()) => println!("Typecheck: OK"),
                 Err(errs) => {
                     eprintln!("Typecheck failed:");
-                    for e in errs { eprintln!("- {}", e.message); }
+                    for e in errs {
+                        eprintln!("- {}", e.message);
+                    }
                     process::exit(1);
                 }
             }
@@ -124,14 +124,15 @@ fn main() {
             let file = match &cli.file {
                 Some(f) => f,
                 None => {
-                    eprintln!("No file provided. Usage: luma <file.luma> or luma <SUBCOMMAND> <file.luma>");
+                    eprintln!(
+                        "No file provided. Usage: luma <file.luma> or luma <SUBCOMMAND> <file.luma>"
+                    );
                     process::exit(1);
                 }
             };
             run_file(file);
         }
     }
-
 }
 
 fn run_file(file: &str) {
@@ -153,11 +154,13 @@ fn run_file(file: &str) {
     };
     if let Err(errs) = luma::typecheck::typecheck_program(&ast) {
         eprintln!("Typecheck failed:");
-        for e in errs { eprintln!("- {}", e.message); }
+        for e in errs {
+            eprintln!("- {}", e.message);
+        }
         process::exit(1);
     }
     let chunk = luma::bytecode::compile::compile_program(&ast);
-    
+
     // Get absolute path for the file
     // For stdin ("-"), don't try to resolve an absolute path
     let absolute_path = if file == "-" {
@@ -171,7 +174,7 @@ fn run_file(file: &str) {
             }
         }
     };
-    
+
     let mut vm = luma::vm::VM::new_with_file(chunk, absolute_path);
     vm.set_source(source.clone());
     match vm.run() {
@@ -185,26 +188,26 @@ fn run_file(file: &str) {
 
 fn run_repl() {
     use std::io::{BufRead, Write};
-    
+
     println!("Luma REPL v{}", env!("CARGO_PKG_VERSION"));
     println!("Type expressions and press Enter. Use Ctrl+D (Unix) or Ctrl+Z (Windows) to exit.");
     println!();
-    
+
     // Create an empty chunk to initialize the VM
     // The VM will be reused across evaluations to maintain state
     let empty_chunk = luma::bytecode::ir::Chunk::new_empty("<init>".to_string());
     let mut vm = luma::vm::VM::new_with_file(empty_chunk, Some("<repl>".to_string()));
-    
+
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
-    
+
     loop {
         print!(">>> ");
         io::stdout().flush().unwrap();
-        
+
         // Read input line by line, accumulating until we have a complete expression
         let mut input = String::new();
-        
+
         match lines.next() {
             Some(Ok(line)) => {
                 input.push_str(&line);
@@ -220,12 +223,12 @@ fn run_repl() {
                 break;
             }
         }
-        
+
         // Skip empty lines
         if input.trim().is_empty() {
             continue;
         }
-        
+
         // Try to parse the input
         let ast = match luma::parser::parse(&input, "<repl>") {
             Ok(ast) => ast,
@@ -237,17 +240,17 @@ fn run_repl() {
                 continue;
             }
         };
-        
+
         // Skip typechecking in REPL mode since each statement is evaluated independently
         // The typechecker doesn't have visibility into variables defined in previous REPL statements
         // Runtime errors will still be caught during execution
-        
+
         // Compile the AST
         let chunk = luma::bytecode::compile::compile_program(&ast);
-        
+
         // Set source for error reporting
         vm.set_source(input.clone());
-        
+
         // Execute in the existing VM context
         match vm.eval(chunk) {
             Ok(val) => {

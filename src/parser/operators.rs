@@ -1,8 +1,10 @@
+use crate::ast::{AssignOp, BinaryOp, LogicalOp, UnaryOp};
 use chumsky::prelude::*;
-use crate::ast::{BinaryOp, UnaryOp, LogicalOp, AssignOp};
 
 /// Creates a parser for unary operators
-pub fn unary_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, UnaryOp, extra::Err<Rich<'a, char>>> + Clone
+pub fn unary_op<'a, WS>(
+    ws: WS,
+) -> impl Parser<'a, &'a str, UnaryOp, extra::Err<Rich<'a, char>>> + Clone
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
@@ -13,7 +15,9 @@ where
 }
 
 /// Creates a parser for logical OR operator
-pub fn or_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, LogicalOp, extra::Err<Rich<'a, char>>> + Clone
+pub fn or_op<'a, WS>(
+    ws: WS,
+) -> impl Parser<'a, &'a str, LogicalOp, extra::Err<Rich<'a, char>>> + Clone
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
@@ -21,7 +25,9 @@ where
 }
 
 /// Creates a parser for logical AND operator
-pub fn and_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, LogicalOp, extra::Err<Rich<'a, char>>> + Clone
+pub fn and_op<'a, WS>(
+    ws: WS,
+) -> impl Parser<'a, &'a str, LogicalOp, extra::Err<Rich<'a, char>>> + Clone
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
@@ -29,7 +35,9 @@ where
 }
 
 /// Creates a parser for assignment operators
-pub fn assign_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, AssignOp, extra::Err<Rich<'a, char>>> + Clone
+pub fn assign_op<'a, WS>(
+    ws: WS,
+) -> impl Parser<'a, &'a str, AssignOp, extra::Err<Rich<'a, char>>> + Clone
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
@@ -37,7 +45,9 @@ where
 }
 
 /// Creates a parser for multiplication/division/modulo operators
-pub fn mul_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone
+pub fn mul_op<'a, WS>(
+    ws: WS,
+) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
@@ -50,19 +60,20 @@ where
 }
 
 /// Creates a parser for addition/subtraction operators
-pub fn add_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone
+pub fn add_op<'a, WS>(
+    ws: WS,
+) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
     let op = |c| just(c).padded_by(ws.clone());
-    choice((
-        op('+').to(BinaryOp::Add),
-        op('-').to(BinaryOp::Sub),
-    ))
+    choice((op('+').to(BinaryOp::Add), op('-').to(BinaryOp::Sub)))
 }
 
 /// Creates a parser for equality operators (== and !=)
-pub fn eq_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone
+pub fn eq_op<'a, WS>(
+    ws: WS,
+) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
@@ -73,7 +84,9 @@ where
 }
 
 /// Creates a parser for comparison operators (< <= > >=)
-pub fn cmp_op<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone
+pub fn cmp_op<'a, WS>(
+    ws: WS,
+) -> impl Parser<'a, &'a str, BinaryOp, extra::Err<Rich<'a, char>>> + Clone
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 {

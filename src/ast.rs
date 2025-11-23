@@ -64,7 +64,7 @@ impl Span {
     pub fn location(&self, source: &str) -> Location {
         let mut line = 1;
         let mut col = 1;
-        
+
         for (byte_idx, ch) in source.char_indices() {
             if byte_idx >= self.start {
                 break;
@@ -76,8 +76,12 @@ impl Span {
                 col += 1;
             }
         }
-        
-        Location { line, col, offset: self.start }
+
+        Location {
+            line,
+            col,
+            offset: self.start,
+        }
     }
 
     /// Get the source text for this span
@@ -257,14 +261,14 @@ pub enum BinaryOp {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum UnaryOp {
-    Neg,  // -x
-    Not,  // not x
+    Neg, // -x
+    Not, // not x
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum LogicalOp {
-    And,  // and
-    Or,   // or
+    And, // and
+    Or,  // or
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -306,7 +310,7 @@ impl Pattern {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct TablePatternField {
     pub key: String,
-    pub binding: Option<String>,  // None means key is also the binding name
+    pub binding: Option<String>, // None means key is also the binding name
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -345,7 +349,7 @@ pub enum Stmt {
         span: Option<Span>,
     },
     Assignment {
-        target: Expr,  // Can be Identifier, MemberAccess, or Index
+        target: Expr, // Can be Identifier, MemberAccess, or Index
         op: AssignOp,
         value: Expr,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -383,9 +387,9 @@ pub enum Stmt {
         #[serde(default)]
         span: Option<Span>,
     },
-    Break(Option<u32>),  // Optional level (default: 1)
-    Continue(Option<u32>),  // Optional level (default: 1)
-    ExprStmt(Expr),  // Expression statement (e.g., function calls)
+    Break(Option<u32>),    // Optional level (default: 1)
+    Continue(Option<u32>), // Optional level (default: 1)
+    ExprStmt(Expr),        // Expression statement (e.g., function calls)
 
     /// Pattern matching: match expr do ... end
     Match {

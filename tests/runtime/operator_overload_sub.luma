@@ -1,0 +1,13 @@
+let Vec = fn(x: Number, y: Number) do
+  return {
+    x = x,
+    y = y,
+    __sub = fn(self: Any, other: Any) do
+      return Vec(self.x - other.x, self.y - other.y)
+    end
+  }
+end
+let v1: Any = Vec(10, 20)
+let v2: Any = Vec(3, 7)
+let v3: Any = v1 - v2
+v3.x + v3.y

@@ -1,5 +1,5 @@
+use crate::ast::{BinaryOp, Expr};
 use chumsky::prelude::*;
-use crate::ast::{Expr, BinaryOp};
 
 // Parser-based string interpolation with full expression support inside ${}
 pub fn string_parser<'a, WS, E>(
@@ -31,13 +31,17 @@ where
 
     // Segment enum (local) to accumulate pieces
     #[derive(Clone)]
-    enum Segment { Text(char), Expr(Expr) }
+    enum Segment {
+        Text(char),
+        Expr(Expr),
+    }
 
     let segment = choice((
         interpolation.map(Segment::Expr).boxed(),
         escape.map(Segment::Text).boxed(),
         plain_char.map(Segment::Text).boxed(),
-    )).boxed();
+    ))
+    .boxed();
 
     let body = segment.repeated().collect::<Vec<Segment>>();
     just('"')
@@ -58,16 +62,21 @@ where
                     }
                 }
             }
-            if !buf.is_empty() { parts.push(Expr::String(buf)); }
+            if !buf.is_empty() {
+                parts.push(Expr::String(buf));
+            }
             match parts.len() {
                 0 => Expr::String(String::new()),
                 1 => parts.remove(0),
-                _ => parts.into_iter().reduce(|left, right| Expr::Binary {
-                    left: Box::new(left),
-                    op: BinaryOp::Add,
-                    right: Box::new(right),
-                    span: None,
-                }).unwrap(),
+                _ => parts
+                    .into_iter()
+                    .reduce(|left, right| Expr::Binary {
+                        left: Box::new(left),
+                        op: BinaryOp::Add,
+                        right: Box::new(right),
+                        span: None,
+                    })
+                    .unwrap(),
             }
         })
         .padded_by(ws)

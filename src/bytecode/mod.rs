@@ -1,2 +1,2 @@
-pub mod ir;
 pub mod compile;
+pub mod ir;

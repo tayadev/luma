@@ -1,0 +1,12 @@
+let Fraction = fn(num: Number, den: Number) do
+  return {
+    num = num,
+    den = den,
+    __div = fn(self: Any, other: Any) do
+      return self.num * other.den + self.den * other.num
+    end
+  }
+end
+let f1: Any = Fraction(1, 2)
+let f2: Any = Fraction(3, 4)
+f1 / f2

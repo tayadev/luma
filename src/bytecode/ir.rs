@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use crate::ast::Span;
+use serde::{Deserialize, Serialize};
 
 /// Describes where an upvalue is captured from
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,9 +41,9 @@ pub enum Instruction {
     Dup,
     Jump(usize),
     JumpIfFalse(usize),
-    GetGlobal(usize), // const string name index
-    SetGlobal(usize), // const string name index, pops value
-    BuildList(usize), // n
+    GetGlobal(usize),  // const string name index
+    SetGlobal(usize),  // const string name index, pops value
+    BuildList(usize),  // n
     BuildTable(usize), // n pairs
     GetIndex,          // pops index and object, pushes value
     GetProp(usize),    // const string name index
@@ -52,7 +52,7 @@ pub enum Instruction {
     SetProp(usize),    // const string name index, pops value and object
     GetLocal(usize),
     SetLocal(usize),
-    SliceList(usize),   // pops list, pushes sliced list from index onwards
+    SliceList(usize),    // pops list, pushes sliced list from index onwards
     MakeFunction(usize), // const index of Function chunk
     Closure(usize),      // const index of Function chunk, captures upvalues from stack/upvalues
     GetUpvalue(usize),   // get upvalue at index
@@ -60,7 +60,7 @@ pub enum Instruction {
     Call(usize),         // arity (number of arguments)
     Return,              // return top of stack
     Halt,
-    Import,              // pops path string, pushes module value
+    Import, // pops path string, pushes module value
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -88,7 +88,7 @@ impl Chunk {
             local_count: 0,
             name,
             upvalue_descriptors: vec![],
-            spans: vec![None],  // One span for the Halt instruction
+            spans: vec![None], // One span for the Halt instruction
         }
     }
 

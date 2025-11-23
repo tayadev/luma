@@ -1,0 +1,2 @@
+-- Test that circular imports are detected and rejected
+import("./helpers/circular_a_helper.module")

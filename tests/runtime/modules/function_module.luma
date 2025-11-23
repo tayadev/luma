@@ -1,0 +1,4 @@
+-- Module that exports a function
+fn(x: Number) do
+  x * 2
+end

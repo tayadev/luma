@@ -6,9 +6,6 @@ If you realize the priority of an item has changed, feel free to reorder the lis
 
 - [ ] Enhanced parser/typechecker error recovery strategies
 	- Recover past first error where possible; improve chumsky recovery and reporting.
-- [ ] Documentation sync pass (SPEC + README)
-	- Verify coverage and examples for: match as expression, string interpolation, pattern forms, import semantics.
-	- Clarify and finalize reserved keywords list to match lexer.
 - [ ] Import resolution future-proofing
 	- Hooks for remote sources; lockfile placeholder alignment for integrity.
 - [ ] Decide on async direction
