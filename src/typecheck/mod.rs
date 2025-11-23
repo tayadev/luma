@@ -18,6 +18,8 @@ pub enum TcType {
     Null,
     List(Box<TcType>),
     Table,
+    // Table with a known (best-effort) set of fields; used for structural presence checks
+    TableWithFields(Vec<String>),
     Function {
         params: Vec<TcType>,
         ret: Box<TcType>,
@@ -35,6 +37,9 @@ impl TcType {
             (TcType::Null, TcType::Null) => true,
             (TcType::List(a), TcType::List(b)) => a.is_compatible(b),
             (TcType::Table, TcType::Table) => true,
+            (TcType::TableWithFields(_), TcType::Table) => true,
+            (TcType::Table, TcType::TableWithFields(_)) => true,
+            (TcType::TableWithFields(_), TcType::TableWithFields(_)) => true,
             (TcType::Function { params: p1, ret: r1 }, TcType::Function { params: p2, ret: r2 }) => {
                 p1.len() == p2.len()
                     && p1.iter().zip(p2.iter()).all(|(a, b)| a.is_compatible(b))
@@ -56,6 +61,8 @@ struct VarInfo {
 struct TypeEnv {
     scopes: Vec<HashMap<String, VarInfo>>,
     errors: Vec<TypeError>,
+    // Track match arm context to relax certain checks inside arms
+    in_match_arm_depth: usize,
 }
 
 impl TypeEnv {
@@ -63,6 +70,7 @@ impl TypeEnv {
         let mut env = TypeEnv {
             scopes: vec![HashMap::new()],
             errors: Vec::new(),
+            in_match_arm_depth: 0,
         };
         
         // Register built-in functions
@@ -292,7 +300,18 @@ impl TypeEnv {
                 for (_, value) in entries {
                     self.check_expr(value);
                 }
-                TcType::Table
+                // Collect identifier and string literal keys for structural presence
+                let mut fields = Vec::new();
+                for (k, _) in entries {
+                    match k {
+                        TableKey::Identifier(s) | TableKey::StringLiteral(s) => fields.push(s.clone()),
+                        TableKey::Computed(_) => {}
+                    }
+                }
+                // Deduplicate while preserving order
+                let mut seen = std::collections::HashSet::new();
+                fields.retain(|f| seen.insert(f.clone()));
+                TcType::TableWithFields(fields)
             }
 
             Expr::Binary { left, op, right } => {
@@ -417,10 +436,18 @@ impl TypeEnv {
                 }
             }
 
-            Expr::MemberAccess { object, member: _ } => {
+            Expr::MemberAccess { object, member } => {
                 let obj_ty = self.check_expr(object);
                 match obj_ty {
-                    TcType::Table => TcType::Unknown, // Can't know member types in MVP
+                    TcType::Table => TcType::Unknown, // dynamic tables allowed
+                    TcType::TableWithFields(ref fields) => {
+                        if !fields.contains(member) {
+                            if self.in_match_arm_depth == 0 {
+                                self.error(format!("Unknown field '{}' on table", member));
+                            }
+                        }
+                        TcType::Unknown
+                    }
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
                         self.error(format!(
@@ -446,7 +473,7 @@ impl TypeEnv {
                         }
                         (*elem_ty).clone()
                     }
-                    TcType::Table => {
+                    TcType::Table | TcType::TableWithFields(_) => {
                         if !idx_ty.is_compatible(&TcType::String) {
                             self.error(format!(
                                 "Table index requires String, got {:?}",
@@ -500,9 +527,16 @@ impl TypeEnv {
 
                 self.pop_scope();
 
+                // Use declared return type if provided to propagate function type outward
+                let ret_ty = if !matches!(expected_ret, TcType::Unknown) {
+                    expected_ret
+                } else {
+                    actual_ret
+                };
+
                 TcType::Function {
                     params: param_types,
-                    ret: Box::new(actual_ret),
+                    ret: Box::new(ret_ty),
                 }
             }
 
@@ -570,7 +604,7 @@ impl TypeEnv {
                 let matched_ty = self.check_expr(expr);
                 
                 // Check exhaustiveness
-                self.check_match_exhaustiveness(arms);
+                self.check_match_exhaustiveness(arms, Some(&matched_ty));
                 
                 let mut unified_ret: Option<TcType> = None;
                 for (pattern, body) in arms {
@@ -578,7 +612,9 @@ impl TypeEnv {
                     // Bind pattern variables assuming matched expression type
                     self.check_pattern(pattern, &matched_ty, false);
                     // Determine arm return type similar to check_block
+                    self.in_match_arm_depth += 1;
                     let arm_ret = self.check_block(body, &TcType::Unknown);
+                    self.in_match_arm_depth -= 1;
                     self.pop_scope();
                     if let Some(current) = &unified_ret {
                         if current.is_compatible(&arm_ret) {
@@ -650,7 +686,7 @@ impl TypeEnv {
                 let expr_ty = self.check_expr(expr);
                 
                 // Check exhaustiveness
-                self.check_match_exhaustiveness(arms);
+                self.check_match_exhaustiveness(arms, Some(&expr_ty));
                 
                 // For each arm, check the pattern and body
                 for (pattern, body) in arms {
@@ -659,9 +695,11 @@ impl TypeEnv {
                     self.check_pattern(pattern, &expr_ty, false); // match bindings are immutable
                     
                     // Check the body statements
+                    self.in_match_arm_depth += 1;
                     for stmt in body {
                         self.check_stmt(stmt);
                     }
+                    self.in_match_arm_depth -= 1;
                     self.pop_scope();
                 }
             }
@@ -840,7 +878,7 @@ impl TypeEnv {
             Expr::MemberAccess { object, member: _ } => {
                 let obj_ty = self.check_expr(object);
                 match obj_ty {
-                    TcType::Table => TcType::Unknown,
+                    TcType::Table | TcType::TableWithFields(_) => TcType::Unknown,
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
                         self.error(format!(
@@ -945,7 +983,7 @@ impl TypeEnv {
             }
             Pattern::TablePattern { fields } => {
                 match ty {
-                    TcType::Table => {
+                    TcType::Table | TcType::TableWithFields(_) => {
                         for field in fields {
                             let binding_name = field.binding.as_ref().unwrap_or(&field.key);
                             self.declare(
@@ -1000,10 +1038,26 @@ impl TypeEnv {
                 _ => TcType::Unknown, // Unknown type name
             },
             Type::Any => TcType::Any,
-            // For now, generic and function types are treated as Unknown
-            // Full type system implementation will handle these properly
-            Type::GenericType { .. } => TcType::Unknown,
-            Type::FunctionType { .. } => TcType::Unknown,
+            Type::GenericType { name, type_args } => {
+                match name.as_str() {
+                    // Concrete generics support (MVP): List<T>
+                    "List" => {
+                        if let Some(first) = type_args.get(0) {
+                            TcType::List(Box::new(self.type_from_ast(first)))
+                        } else {
+                            // List without argument defaults to Unknown element
+                            TcType::List(Box::new(TcType::Unknown))
+                        }
+                    }
+                    // Unknown generic types fall back to Unknown (until structural typing improves)
+                    _ => TcType::Unknown,
+                }
+            }
+            Type::FunctionType { param_types, return_type } => {
+                let params = param_types.iter().map(|t| self.type_from_ast(t)).collect::<Vec<_>>();
+                let ret = Box::new(self.type_from_ast(return_type));
+                TcType::Function { params, ret }
+            }
         }
     }
 
@@ -1012,7 +1066,7 @@ impl TypeEnv {
     /// 1. It has a wildcard pattern (_), OR
     /// 2. It covers all known variants (like ok/err for Result, some/none for Option), OR
     /// 3. It covers all literal values (not practical, so we require wildcard for literals)
-    fn check_match_exhaustiveness(&mut self, arms: &[(Pattern, Vec<Stmt>)]) {
+    fn check_match_exhaustiveness(&mut self, arms: &[(Pattern, Vec<Stmt>)], matched_ty: Option<&TcType>) {
         use std::collections::HashSet;
         
         let mut has_wildcard = false;
@@ -1045,6 +1099,22 @@ impl TypeEnv {
             }
         }
         
+        // If we used tag patterns and the matched type has known fields, check presence first
+        if !tags.is_empty() && !has_wildcard {
+            if let Some(ty) = matched_ty {
+                if let TcType::TableWithFields(fields) = ty {
+                    for &tag in &tags {
+                        if !fields.contains(&tag.to_string()) {
+                            self.error(format!(
+                                "Match tag '{}' not present on matched table type",
+                                tag
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
         // If we have a wildcard or catch-all identifier, we're exhaustive
         if has_wildcard {
             return;
@@ -1058,7 +1128,7 @@ impl TypeEnv {
             // Exhaustive for Result or Option types
             return;
         }
-        
+
         // If we have literal patterns without wildcard, not exhaustive
         if has_literal {
             self.error("Match expression is not exhaustive: literal patterns require a wildcard (_) or catch-all case".to_string());

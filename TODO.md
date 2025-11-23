@@ -13,7 +13,9 @@ If not specified otherwise, work on the tasks in the order they appear.
 	- Implemented shared captured-local cells in VM so multiple closures share the same variable by reference; updates reflect across closures and after parent returns.
 	- Updated VM call frames to preserve/restore captured locals; adjusted GetLocal/SetLocal to read/write via captured cells when present.
 	- Added runtime test `closures_shared_state` verifying shared state across two closures.
-- [ ] Typechecker: concrete generics (`GenericType { name, args }`) and function type validation (params & return). 
+- [x] Typechecker: concrete generics (`GenericType { name, args }`) and function type validation (params & return). 
+	- Implemented `List<T>` mapping in typechecker and support for `FunctionType` param/return validation. Declared return types now propagate for function expressions.
+	- Added should-fail tests: `function_generic_arg_mismatch` and `function_return_mismatch`.
 - [ ] Structural typing improvements: table field presence + simple trait/tag matching.
 - [ ] Refine equality/comparison diagnostics (value vs reference semantics, lists/tables). 
 - [ ] Pattern typing inference (bind variable types from pattern shape).

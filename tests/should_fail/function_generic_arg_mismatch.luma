@@ -1,0 +1,5 @@
+let sumList: fn(List(Number)): Number = fn(xs: List(Number)): Number do
+  0
+end
+
+sumList(["a", "b"])  -- passing List(String), should fail typecheck

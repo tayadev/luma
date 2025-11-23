@@ -1,0 +1,3 @@
+let t = { a = 1, b = 2 }
+-- Unknown field access should be reported at typecheck
+let x = t.c

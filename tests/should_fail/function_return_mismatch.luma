@@ -1,0 +1,3 @@
+let bad: fn(Number): Number = fn(x: Number): Number do
+  "oops"  -- returning String instead of Number
+end
