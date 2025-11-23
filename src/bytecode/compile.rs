@@ -1,4 +1,4 @@
-use crate::ast::{Program, Stmt, Expr, BinaryOp, UnaryOp, LogicalOp, Argument, Pattern, CallArgument};
+use crate::ast::{Program, Stmt, Expr, BinaryOp, UnaryOp, LogicalOp, Argument, Pattern, CallArgument, TableKey};
 use super::ir::{Chunk, Instruction, Constant, UpvalueDescriptor};
 use std::collections::HashMap;
 
@@ -717,10 +717,21 @@ impl Compiler {
                 self.chunk.instructions.push(Instruction::BuildArray(items.len()));
             }
             Expr::Table(fields) => {
-                for (k, v) in fields {
-                    let k_idx = push_const(&mut self.chunk, Constant::String(k.clone()));
-                    self.chunk.instructions.push(Instruction::Const(k_idx));
-                    self.emit_expr(v);
+                for (key, value) in fields {
+                    // Emit the key based on its type
+                    match key {
+                        TableKey::Identifier(s) | TableKey::StringLiteral(s) => {
+                            // Both identifier and string literal keys become string constants
+                            let k_idx = push_const(&mut self.chunk, Constant::String(s.clone()));
+                            self.chunk.instructions.push(Instruction::Const(k_idx));
+                        }
+                        TableKey::Computed(expr) => {
+                            // Computed keys: evaluate the expression at runtime
+                            self.emit_expr(expr);
+                        }
+                    }
+                    // Emit the value
+                    self.emit_expr(value);
                 }
                 self.chunk.instructions.push(Instruction::BuildTable(fields.len()));
             }

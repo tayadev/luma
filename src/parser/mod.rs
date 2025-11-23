@@ -112,7 +112,12 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
 
     // Array and Table literals
     let array = literals::array(ws.clone(), expr_ref.clone());
-    let table = literals::table(ws.clone(), ident.clone(), expr_ref.clone());
+    let table = literals::table(
+        ws.clone(), 
+        ident.clone(), 
+        expr_ref.clone(), 
+        string_parser(ws.clone(), expr_ref.clone()).boxed()
+    );
 
     // Pattern parsing for destructuring
     let pattern = patterns::pattern(ws.clone(), ident.clone());

@@ -1,5 +1,5 @@
 use chumsky::prelude::*;
-use crate::ast::Expr;
+use crate::ast::{Expr, TableKey};
 
 /// Creates a parser for number literals (integers, floats, hex, binary, scientific)
 pub fn number<'a, WS>(ws: WS) -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
@@ -85,21 +85,51 @@ where
 }
 
 /// Creates a parser for table literals {key = value, ...}
-pub fn table<'a, WS, I, E>(ws: WS, ident: I, expr: E) -> Boxed<'a, 'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
+/// Supports:
+/// - Identifier keys: key = value
+/// - String literal keys: "key with spaces" = value  
+/// - Computed keys: [expression] = value
+pub fn table<'a, WS, I, E, S>(
+    ws: WS, 
+    ident: I, 
+    expr: E,
+    string_lit: S,
+) -> Boxed<'a, 'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
     I: Parser<'a, &'a str, &'a str, extra::Err<Rich<'a, char>>> + Clone + 'a,
     E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    S: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
-    let table_entry = ident
+    // Identifier key: key = value
+    let identifier_key = ident.clone()
+        .map(|s: &str| TableKey::Identifier(s.to_string()));
+    
+    // String literal key: "key with spaces" = value
+    let string_key = string_lit
+        .try_map(|expr, span| match expr {
+            Expr::String(s) => Ok(TableKey::StringLiteral(s)),
+            _ => Err(Rich::custom(span, "String literal key cannot contain interpolation")),
+        });
+    
+    // Computed key: [expression] = value
+    let computed_key = expr.clone()
+        .delimited_by(
+            just('[').padded_by(ws.clone()),
+            just(']').padded_by(ws.clone())
+        )
+        .map(|e| TableKey::Computed(Box::new(e)));
+    
+    // Any of the three key types followed by = and value
+    let table_entry = choice((computed_key, string_key, identifier_key))
         .then_ignore(just('=').padded_by(ws.clone()))
         .then(expr)
-        .map(|(k, v): (&str, Expr)| (k.to_string(), v));
+        .map(|(k, v)| (k, v));
     
     table_entry
         .separated_by(just(',').padded_by(ws.clone()))
         .allow_trailing()
-        .collect::<Vec<(String, Expr)>>()
+        .collect::<Vec<(TableKey, Expr)>>()
         .delimited_by(just('{').padded_by(ws.clone()), just('}').padded_by(ws.clone()))
         .map(Expr::Table)
         .boxed()

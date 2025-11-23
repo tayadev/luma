@@ -1,10 +1,10 @@
 Program(
   statements: [
     Return(Table([
-      ("a", Number(1.0)),
-      ("b", Boolean(true)),
-      ("c", Table([
-        ("nested", Null),
+      (Identifier("a"), Number(1.0)),
+      (Identifier("b"), Boolean(true)),
+      (Identifier("c"), Table([
+        (Identifier("nested"), Null),
       ])),
     ])),
   ],

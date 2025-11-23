@@ -29,6 +29,13 @@ pub enum CallArgument {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum TableKey {
+    Identifier(String),
+    StringLiteral(String),
+    Computed(Box<Expr>),
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Expr {
     Number(f64),
     Identifier(String),
@@ -41,7 +48,7 @@ pub enum Expr {
     Boolean(bool),
     Null,
     Array(Vec<Expr>),
-    Table(Vec<(String, Expr)>),
+    Table(Vec<(TableKey, Expr)>),
     Binary {
         left: Box<Expr>,
         op: BinaryOp,

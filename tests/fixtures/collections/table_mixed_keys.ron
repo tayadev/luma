@@ -1,0 +1,16 @@
+Program(
+  statements: [
+    Return(Table([
+      (Identifier("simple"), Number(1.0)),
+      (StringLiteral("with spaces"), Number(2.0)),
+      (Computed(Binary(
+        left: String("computed"),
+        op: Add,
+        right: String("Key"),
+      )), Number(3.0)),
+      (Identifier("another"), Table([
+        (Identifier("nested"), Boolean(true)),
+      ])),
+    ])),
+  ],
+)
