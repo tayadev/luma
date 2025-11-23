@@ -271,7 +271,7 @@ impl TypeEnv {
             // This matches the gradual typing philosophy and is_compatible behavior
             TcType::Unknown => true,
             TcType::Table => true,  // dynamic table may provide method at runtime
-            TcType::TableWithFields(fields) => fields.iter().any(|f| f == method_name),
+            TcType::TableWithFields(fields) => fields.contains(&method_name.to_string()),
             _ => false,
         }
     }
