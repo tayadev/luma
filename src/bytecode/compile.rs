@@ -212,9 +212,6 @@ impl Compiler {
                 }
             }
             Stmt::Match { expr, arms } => {
-                // For MVP: Simple pattern matching on identifier patterns
-                // Match statements can produce a value (last expression in matched arm)
-                
                 // Evaluate the match expression once and store in a hidden local
                 self.enter_scope();
                 self.emit_expr(expr);
@@ -222,23 +219,22 @@ impl Compiler {
                 self.scopes.last_mut().unwrap().insert("__match_val".to_string(), match_val_slot);
                 self.local_count += 1;
                 
-                // Push default null result (in case no arms match) 
-                let null_idx = push_const(&mut self.chunk, Constant::Null);
-                self.chunk.instructions.push(Instruction::Const(null_idx));
-                
                 let mut end_jumps = Vec::new();
                 
                 for (i, (pattern, body)) in arms.iter().enumerate() {
                     let is_wildcard = matches!(pattern, Pattern::Wildcard);
+                    // Ident patterns can be catch-all or tag patterns depending on the name
+                    let is_tag_pattern = matches!(pattern, Pattern::Ident(name) if matches!(name.as_str(), "ok" | "err" | "some" | "none"));
+                    let is_catch_all = is_wildcard || (matches!(pattern, Pattern::Ident(_)) && !is_tag_pattern);
                     
-                    if !is_wildcard {
-                        // Check if pattern matches (for now, check if property exists)
+                    if !is_catch_all {
+                        // Check if pattern matches
                         match pattern {
-                            Pattern::Ident(name) => {
-                                // Check if the match value has this property
+                            Pattern::Ident(tag) => {
+                                // Tag pattern: Check if the match value has this tag/property
                                 self.chunk.instructions.push(Instruction::GetLocal(match_val_slot));
-                                let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
-                                self.chunk.instructions.push(Instruction::GetProp(name_idx));
+                                let tag_idx = push_const(&mut self.chunk, Constant::String(tag.clone()));
+                                self.chunk.instructions.push(Instruction::GetProp(tag_idx));
                                 // If property exists (not null), this arm matches
                                 let null_idx = push_const(&mut self.chunk, Constant::Null);
                                 self.chunk.instructions.push(Instruction::Const(null_idx));
@@ -246,11 +242,7 @@ impl Compiler {
                                 
                                 let jf_next_arm = self.emit_jump_if_false();
                                 
-                                // Remove default null before executing arm
-                                self.chunk.instructions.push(Instruction::Pop);
-                                
-                                // Execute this arm's body (no new scope needed, pattern doesn't bind)
-                                // Handle implicit return: convert trailing ExprStmt to Return
+                                // Execute this arm's body
                                 let mut arm_body = body.to_vec();
                                 if let Some(last) = arm_body.pop() {
                                     match last {
@@ -265,28 +257,71 @@ impl Compiler {
                                 
                                 let arm_preserves = block_leaves_value(&arm_body);
                                 if !arm_preserves {
-                                    // Arm didn't produce value, push null
                                     let null_idx = push_const(&mut self.chunk, Constant::Null);
                                     self.chunk.instructions.push(Instruction::Const(null_idx));
                                 }
                                 
-                                // Jump to end after executing this arm
                                 end_jumps.push(self.emit_jump());
                                 
-                                // Patch the jump to next arm
                                 let next_arm_ip = self.current_ip();
                                 self.patch_jump(jf_next_arm, next_arm_ip);
                             }
-                            _ => {
-                                // Complex patterns not yet supported
-                                panic!("Compiler error: Complex patterns in match statements not yet supported");
+                            Pattern::Literal(lit) => {
+                                // Check if the match value equals this literal
+                                self.chunk.instructions.push(Instruction::GetLocal(match_val_slot));
+                                match lit {
+                                    crate::ast::Literal::Number(n) => {
+                                        let idx = push_const(&mut self.chunk, Constant::Number(*n));
+                                        self.chunk.instructions.push(Instruction::Const(idx));
+                                    }
+                                    crate::ast::Literal::String(s) => {
+                                        let idx = push_const(&mut self.chunk, Constant::String(s.clone()));
+                                        self.chunk.instructions.push(Instruction::Const(idx));
+                                    }
+                                    crate::ast::Literal::Boolean(b) => {
+                                        let idx = push_const(&mut self.chunk, Constant::Boolean(*b));
+                                        self.chunk.instructions.push(Instruction::Const(idx));
+                                    }
+                                    crate::ast::Literal::Null => {
+                                        let idx = push_const(&mut self.chunk, Constant::Null);
+                                        self.chunk.instructions.push(Instruction::Const(idx));
+                                    }
+                                }
+                                self.chunk.instructions.push(Instruction::Eq);
+                                
+                                let jf_next_arm = self.emit_jump_if_false();
+                                
+                                let mut arm_body = body.to_vec();
+                                if let Some(last) = arm_body.pop() {
+                                    match last {
+                                        Stmt::ExprStmt(e) => arm_body.push(Stmt::Return(e)),
+                                        other => arm_body.push(other),
+                                    }
+                                }
+                                
+                                for stmt in &arm_body {
+                                    self.emit_stmt(stmt);
+                                }
+                                
+                                let arm_preserves = block_leaves_value(&arm_body);
+                                if !arm_preserves {
+                                    let null_idx = push_const(&mut self.chunk, Constant::Null);
+                                    self.chunk.instructions.push(Instruction::Const(null_idx));
+                                }
+                                
+                                end_jumps.push(self.emit_jump());
+                                
+                                let next_arm_ip = self.current_ip();
+                                self.patch_jump(jf_next_arm, next_arm_ip);
                             }
+                            Pattern::ArrayPattern { .. } | Pattern::TablePattern { .. } => {
+                                // Structural patterns not yet fully supported in match
+                                panic!("Compiler error: Structural patterns in match statements not yet fully supported");
+                            }
+                            _ => {}
                         }
                     } else {
-                        // Wildcard pattern - always matches (default case)
-                        // Remove default null before executing
-                        self.chunk.instructions.push(Instruction::Pop);
-                        
+                        // Wildcard or Ident pattern - always matches (catch-all case)
                         // Handle implicit return
                         let mut arm_body = body.to_vec();
                         if let Some(last) = arm_body.pop() {
@@ -381,13 +416,14 @@ impl Compiler {
                                 self.chunk.instructions.push(Instruction::Pop);
                             }
                         }
-                        Pattern::TablePattern(keys) => {
-                            // Table destructuring: {name, age} = table
-                            for key in keys {
+                        Pattern::TablePattern { fields } => {
+                            // Table destructuring: {name, age: userAge} = table
+                            for field in fields {
                                 self.chunk.instructions.push(Instruction::Dup); // dup table
-                                let key_idx = push_const(&mut self.chunk, Constant::String(key.clone()));
+                                let key_idx = push_const(&mut self.chunk, Constant::String(field.key.clone()));
                                 self.chunk.instructions.push(Instruction::GetProp(key_idx));
-                                let name_idx = push_const(&mut self.chunk, Constant::String(key.clone()));
+                                let binding_name = field.binding.as_ref().unwrap_or(&field.key);
+                                let name_idx = push_const(&mut self.chunk, Constant::String(binding_name.clone()));
                                 self.chunk.instructions.push(Instruction::SetGlobal(name_idx));
                             }
                             self.chunk.instructions.push(Instruction::Pop); // pop table
@@ -399,6 +435,10 @@ impl Compiler {
                         }
                         Pattern::Wildcard => {
                             // Wildcard doesn't bind, just pop the value
+                            self.chunk.instructions.push(Instruction::Pop);
+                        }
+                        Pattern::Literal(_) => {
+                            // Literal patterns don't bind variables in destructuring context
                             self.chunk.instructions.push(Instruction::Pop);
                         }
                     }
@@ -445,18 +485,19 @@ impl Compiler {
                                 self.local_count += 1;
                             }
                         }
-                        Pattern::TablePattern(keys) => {
+                        Pattern::TablePattern { fields } => {
                             let value_slot = self.local_count;
                             self.scopes.last_mut().unwrap().insert("__destructure_val".to_string(), value_slot);
                             self.local_count += 1;
                             
-                            for key in keys {
+                            for field in fields {
                                 self.chunk.instructions.push(Instruction::GetLocal(value_slot));
-                                let key_idx = push_const(&mut self.chunk, Constant::String(key.clone()));
+                                let key_idx = push_const(&mut self.chunk, Constant::String(field.key.clone()));
                                 self.chunk.instructions.push(Instruction::GetProp(key_idx));
                                 
+                                let binding_name = field.binding.as_ref().unwrap_or(&field.key);
                                 let key_slot = self.local_count;
-                                self.scopes.last_mut().unwrap().insert(key.clone(), key_slot);
+                                self.scopes.last_mut().unwrap().insert(binding_name.clone(), key_slot);
                                 self.local_count += 1;
                             }
                         }
@@ -468,6 +509,10 @@ impl Compiler {
                         Pattern::Wildcard => {
                             // Wildcard doesn't bind, the value stays on stack as an unused local
                             // We still need to account for it in local_count
+                            self.local_count += 1;
+                        }
+                        Pattern::Literal(_) => {
+                            // Literal patterns don't bind in destructuring context
                             self.local_count += 1;
                         }
                     }
@@ -887,56 +932,124 @@ impl Compiler {
                 self.chunk.instructions.push(Instruction::Import);
             }
             Expr::Match { expr, arms } => {
-                // Expression form of match; largely mirrors Stmt::Match but leaves value
+                // Expression form of match - produces a single value directly
                 self.enter_scope();
                 self.emit_expr(expr);
                 let match_val_slot = self.local_count;
                 self.scopes.last_mut().unwrap().insert("__match_val".to_string(), match_val_slot);
                 self.local_count += 1;
-                // Default null value
-                let null_idx = push_const(&mut self.chunk, Constant::Null);
-                self.chunk.instructions.push(Instruction::Const(null_idx));
+                
                 let mut end_jumps = Vec::new();
                 for (i, (pattern, body)) in arms.iter().enumerate() {
                     let is_wildcard = matches!(pattern, Pattern::Wildcard);
-                    if !is_wildcard {
+                    // Check for tag patterns
+                    let is_tag_pattern = matches!(pattern, Pattern::Ident(name) if matches!(name.as_str(), "ok" | "err" | "some" | "none"));
+                    let is_catch_all = is_wildcard || (matches!(pattern, Pattern::Ident(_)) && !is_tag_pattern);
+                    
+                    if !is_catch_all {
                         match pattern {
                             Pattern::Ident(name) => {
+                                // Tag pattern matching
                                 self.chunk.instructions.push(Instruction::GetLocal(match_val_slot));
                                 let name_idx = push_const(&mut self.chunk, Constant::String(name.clone()));
                                 self.chunk.instructions.push(Instruction::GetProp(name_idx));
-                                let null_idx2 = push_const(&mut self.chunk, Constant::Null);
-                                self.chunk.instructions.push(Instruction::Const(null_idx2));
+                                let null_idx = push_const(&mut self.chunk, Constant::Null);
+                                self.chunk.instructions.push(Instruction::Const(null_idx));
                                 self.chunk.instructions.push(Instruction::Ne);
                                 let jf_next = self.emit_jump_if_false();
-                                self.chunk.instructions.push(Instruction::Pop); // remove default null
+                                
+                                // Execute arm and produce value
                                 let mut arm_body = body.to_vec();
-                                if let Some(last) = arm_body.pop() { if let Stmt::ExprStmt(e) = last { arm_body.push(Stmt::Return(e)); } else { arm_body.push(last); } }
-                                for st in &arm_body { self.emit_stmt(st); }
+                                if let Some(last) = arm_body.pop() {
+                                    if let Stmt::ExprStmt(e) = last {
+                                        arm_body.push(Stmt::Return(e));
+                                    } else {
+                                        arm_body.push(last);
+                                    }
+                                }
+                                for st in &arm_body {
+                                    self.emit_stmt(st);
+                                }
                                 if !block_leaves_value(&arm_body) {
-                                    let null_idx3 = push_const(&mut self.chunk, Constant::Null);
-                                    self.chunk.instructions.push(Instruction::Const(null_idx3));
+                                    let null_idx = push_const(&mut self.chunk, Constant::Null);
+                                    self.chunk.instructions.push(Instruction::Const(null_idx));
                                 }
                                 end_jumps.push(self.emit_jump());
                                 let next_ip = self.current_ip();
                                 self.patch_jump(jf_next, next_ip);
                             }
-                            _ => panic!("Compiler error: complex patterns for match expr not supported"),
+                            Pattern::Literal(lit) => {
+                                // Literal pattern matching
+                                self.chunk.instructions.push(Instruction::GetLocal(match_val_slot));
+                                match lit {
+                                    crate::ast::Literal::Number(n) => {
+                                        let idx = push_const(&mut self.chunk, Constant::Number(*n));
+                                        self.chunk.instructions.push(Instruction::Const(idx));
+                                    }
+                                    crate::ast::Literal::String(s) => {
+                                        let idx = push_const(&mut self.chunk, Constant::String(s.clone()));
+                                        self.chunk.instructions.push(Instruction::Const(idx));
+                                    }
+                                    crate::ast::Literal::Boolean(b) => {
+                                        let idx = push_const(&mut self.chunk, Constant::Boolean(*b));
+                                        self.chunk.instructions.push(Instruction::Const(idx));
+                                    }
+                                    crate::ast::Literal::Null => {
+                                        let idx = push_const(&mut self.chunk, Constant::Null);
+                                        self.chunk.instructions.push(Instruction::Const(idx));
+                                    }
+                                }
+                                self.chunk.instructions.push(Instruction::Eq);
+                                let jf_next = self.emit_jump_if_false();
+                                
+                                // Execute arm and produce value
+                                let mut arm_body = body.to_vec();
+                                if let Some(last) = arm_body.pop() {
+                                    if let Stmt::ExprStmt(e) = last {
+                                        arm_body.push(Stmt::Return(e));
+                                    } else {
+                                        arm_body.push(last);
+                                    }
+                                }
+                                for st in &arm_body {
+                                    self.emit_stmt(st);
+                                }
+                                if !block_leaves_value(&arm_body) {
+                                    let null_idx = push_const(&mut self.chunk, Constant::Null);
+                                    self.chunk.instructions.push(Instruction::Const(null_idx));
+                                }
+                                end_jumps.push(self.emit_jump());
+                                let next_ip = self.current_ip();
+                                self.patch_jump(jf_next, next_ip);
+                            }
+                            _ => panic!("Compiler error: structural patterns for match expr not yet supported"),
                         }
                     } else {
-                        self.chunk.instructions.push(Instruction::Pop);
+                        // Catch-all pattern
                         let mut arm_body = body.to_vec();
-                        if let Some(last) = arm_body.pop() { if let Stmt::ExprStmt(e) = last { arm_body.push(Stmt::Return(e)); } else { arm_body.push(last); } }
-                        for st in &arm_body { self.emit_stmt(st); }
-                        if !block_leaves_value(&arm_body) {
-                            let null_idx4 = push_const(&mut self.chunk, Constant::Null);
-                            self.chunk.instructions.push(Instruction::Const(null_idx4));
+                        if let Some(last) = arm_body.pop() {
+                            if let Stmt::ExprStmt(e) = last {
+                                arm_body.push(Stmt::Return(e));
+                            } else {
+                                arm_body.push(last);
+                            }
                         }
-                        if i < arms.len() - 1 { end_jumps.push(self.emit_jump()); }
+                        for st in &arm_body {
+                            self.emit_stmt(st);
+                        }
+                        if !block_leaves_value(&arm_body) {
+                            let null_idx = push_const(&mut self.chunk, Constant::Null);
+                            self.chunk.instructions.push(Instruction::Const(null_idx));
+                        }
+                        if i < arms.len() - 1 {
+                            end_jumps.push(self.emit_jump());
+                        }
                     }
                 }
                 let end_ip = self.current_ip();
-                for j in end_jumps { self.patch_jump(j, end_ip); }
+                for j in end_jumps {
+                    self.patch_jump(j, end_ip);
+                }
                 self.exit_scope_with_preserve(true);
             }
             // Other expressions not yet supported

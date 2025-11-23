@@ -1,0 +1,5 @@
+-- Table pattern with field renames
+let person = {name = "Alice", age = 30}
+let {name: userName, age: userAge} = person
+print(userName)
+print(userAge)

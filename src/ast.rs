@@ -131,7 +131,24 @@ pub enum Pattern {
         elements: Vec<Pattern>,
         rest: Option<String>,
     },
-    TablePattern(Vec<String>),
+    TablePattern {
+        fields: Vec<TablePatternField>,
+    },
+    Literal(Literal),
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct TablePatternField {
+    pub key: String,
+    pub binding: Option<String>,  // None means key is also the binding name
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum Literal {
+    Number(f64),
+    String(String),
+    Boolean(bool),
+    Null,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

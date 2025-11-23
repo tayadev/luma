@@ -1,0 +1,7 @@
+-- Literal pattern matching
+let x = "hello"
+match x do
+  "hello" do print("greeting") end
+  "bye" do print("farewell") end
+  _ do print("unknown") end
+end

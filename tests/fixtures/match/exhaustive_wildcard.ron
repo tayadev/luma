@@ -1,0 +1,41 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: false,
+      name: "x",
+      value: Number(5.0),
+    ),
+    Match(
+      expr: Identifier("x"),
+      arms: [
+        (
+          Literal(Number(0.0)),
+          [
+            ExprStmt(Call(
+              callee: Identifier("print"),
+              arguments: [Positional(String("zero"))],
+            )),
+          ],
+        ),
+        (
+          Literal(Number(1.0)),
+          [
+            ExprStmt(Call(
+              callee: Identifier("print"),
+              arguments: [Positional(String("one"))],
+            )),
+          ],
+        ),
+        (
+          Wildcard,
+          [
+            ExprStmt(Call(
+              callee: Identifier("print"),
+              arguments: [Positional(String("other"))],
+            )),
+          ],
+        ),
+      ],
+    ),
+  ],
+)

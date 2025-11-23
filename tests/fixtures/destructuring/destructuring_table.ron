@@ -2,7 +2,12 @@ Program(
   statements: [
     DestructuringVarDecl(
       mutable: false,
-      pattern: TablePattern(["name", "age"]),
+      pattern: TablePattern(
+        fields: [
+          (key: "name", binding: None),
+          (key: "age", binding: None),
+        ],
+      ),
       value: Identifier("person"),
     ),
   ],

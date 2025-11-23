@@ -1,0 +1,37 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: false,
+      name: "arr",
+      value: Array([
+        Array([Number(1.0), Number(2.0)]),
+        Array([Number(3.0), Number(4.0)]),
+      ]),
+    ),
+    DestructuringVarDecl(
+      mutable: false,
+      pattern: ArrayPattern(
+        elements: [
+          ArrayPattern(
+            elements: [Ident("a"), Ident("b")],
+            rest: None,
+          ),
+          ArrayPattern(
+            elements: [Ident("c"), Ident("d")],
+            rest: None,
+          ),
+        ],
+        rest: None,
+      ),
+      value: Identifier("arr"),
+    ),
+    ExprStmt(Call(
+      callee: Identifier("print"),
+      arguments: [Positional(Identifier("a"))],
+    )),
+    Return(Call(
+      callee: Identifier("print"),
+      arguments: [Positional(Identifier("d"))],
+    )),
+  ],
+)

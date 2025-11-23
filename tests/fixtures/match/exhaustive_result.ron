@@ -1,0 +1,47 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: false,
+      name: "result",
+      value: Call(
+        callee: MemberAccess(
+          object: MemberAccess(
+            object: Identifier("Result"),
+            member: "ok",
+          ),
+          member: "new",
+        ),
+        arguments: [Positional(Number(42.0))],
+      ),
+    ),
+    Match(
+      expr: Identifier("result"),
+      arms: [
+        (
+          Ident("ok"),
+          [
+            ExprStmt(Call(
+              callee: Identifier("print"),
+              arguments: [Positional(MemberAccess(
+                object: Identifier("result"),
+                member: "ok",
+              ))],
+            )),
+          ],
+        ),
+        (
+          Ident("err"),
+          [
+            ExprStmt(Call(
+              callee: Identifier("print"),
+              arguments: [Positional(MemberAccess(
+                object: Identifier("result"),
+                member: "err",
+              ))],
+            )),
+          ],
+        ),
+      ],
+    ),
+  ],
+)

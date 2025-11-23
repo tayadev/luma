@@ -219,6 +219,11 @@ let into = fn(value: Any, target: Any) do
   return null
 end
 
+-- iterator over a range of numbers
+let range = fn(start: Number, stop: Number, step: Number) do
+  -- TODO: implement
+end
+
 -- ============================================================================
 -- Export prelude as module (all definitions are now in global scope)
 -- ============================================================================
@@ -231,6 +236,7 @@ end
   File = File,
   print = print,
   Array = Array,
-  String = String
-  , into = into
+  String = String,
+  into = into,
+  range = range
 }

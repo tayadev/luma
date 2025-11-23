@@ -1,0 +1,36 @@
+Program(
+  statements: [
+    VarDecl(
+      mutable: false,
+      name: "person",
+      value: Table([
+        (Identifier("name"), String("Alice")),
+        (Identifier("age"), Number(30.0)),
+      ]),
+    ),
+    DestructuringVarDecl(
+      mutable: false,
+      pattern: TablePattern(
+        fields: [
+          (
+            key: "name",
+            binding: Some("userName"),
+          ),
+          (
+            key: "age",
+            binding: Some("userAge"),
+          ),
+        ],
+      ),
+      value: Identifier("person"),
+    ),
+    ExprStmt(Call(
+      callee: Identifier("print"),
+      arguments: [Positional(Identifier("userName"))],
+    )),
+    Return(Call(
+      callee: Identifier("print"),
+      arguments: [Positional(Identifier("userAge"))],
+    )),
+  ],
+)

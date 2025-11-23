@@ -1,0 +1,7 @@
+-- Exhaustive match with wildcard
+let x = 5
+match x do
+  0 do print("zero") end
+  1 do print("one") end
+  _ do print("other") end
+end
