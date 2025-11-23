@@ -201,6 +201,18 @@ impl TypeEnv {
             annotated: true,
         });
         
+        // Prelude helpers registered as built-ins (MVP: treat as Any to allow flexible arity)
+        env.declare("range".to_string(), VarInfo {
+            ty: TcType::Any,
+            mutable: false,
+            annotated: true,
+        });
+        env.declare("indexed".to_string(), VarInfo {
+            ty: TcType::Any,
+            mutable: false,
+            annotated: true,
+        });
+        
         env
     }
 

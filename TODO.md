@@ -3,18 +3,22 @@
 Ordered by near-term impact on correctness, developer ergonomics, and spec compliance.
 When you complete an item, check it off. If a item is too big, break it down into smaller tasks and then work on those.
 If you realize the priority of an item has changed, feel free to reorder the list.
+If not specified otherwise, work on the tasks in the order they appear.
 
-- [x] Rename Array to List in spec & codebase for clarity.
 - [ ] Mutual recursion across separate function declarations (improve pre-declare mechanism beyond functions in same pass).
 - [ ] Closures & upvalues completeness review (capture semantics, lifetime tests).
 - [ ] Typechecker: concrete generics (`GenericType { name, args }`) and function type validation (params & return). 
 - [ ] Structural typing improvements: table field presence + simple trait/tag matching.
-- [ ] Refine equality/comparison diagnostics (value vs reference semantics, arrays/tables). 
+- [ ] Refine equality/comparison diagnostics (value vs reference semantics, lists/tables). 
 - [ ] Pattern typing inference (bind variable types from pattern shape).
+- [ ] Add a way to set table values in a simpler way when the key is the same as the variable name (e.g. `{ a, b }` instead of `{ a = a, b = b }`).
 - [ ] Enforce named argument semantics (reordering + mixing positional/named, detect duplicates).
 - [ ] Iterator protocol formalization (table iteration, custom iterables). 
-- [ ] Loop pattern destructuring (`for [k,v] in table`, `for [item,index] in array.indexed()`). Also make sure `for` loops only accept iterable expressions, aka objects that implement the iterable trait.
-- [ ] Range iteration helper `range(start,end)` & indexed iteration support (implement in prelude).
+- [ ] Loop pattern destructuring (`for [k,v] in table`, `for [item,index] in list.indexed()`). Also make sure `for` loops only accept iterable expressions, aka objects that implement the iterable trait.
+- [x] Range iteration helper `range(start,end)` & indexed iteration support (implement in prelude).
+	- Implemented `range(start, stop)` (half-open, ascending) and `indexed(arr)` in `prelude.luma`.
+	- Added runtime tests: `range_sum` and `indexed_sum`.
+	- VM now allows list append via `list[len] = value` to enable prelude builders.
 - [ ] Tests expansion: interpolation complex cases; match exhaustiveness success/fail; nested & renamed patterns; loop destructuring; named arg reorder; computed/quoted keys.
 - [ ] Refactor jump patching (eliminate global `Jump(usize::MAX)` scans; track jumps explicitly per construct).
 - [~] Optimize logical short-circuit codegen (avoid superfluous `Dup`). (Investigated: Dup is necessary with current JumpIfFalse instruction; would require new non-consuming jump instruction)

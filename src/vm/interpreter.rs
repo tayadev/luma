@@ -494,10 +494,14 @@ impl VM {
                             if i < 0 { return Err(VmError::Runtime("List index negative".into())); }
                             let i = i as usize;
                             let mut borrowed = arr.borrow_mut();
-                            if i >= borrowed.len() {
+                            if i == borrowed.len() {
+                                // Allow appending at exactly one past the last index
+                                borrowed.push(value);
+                            } else if i < borrowed.len() {
+                                borrowed[i] = value;
+                            } else {
                                 return Err(VmError::Runtime("List index out of bounds".into()));
                             }
-                            borrowed[i] = value;
                         }
                         (Value::Table(map), Value::String(k)) => {
                             let mut borrowed = map.borrow_mut();
