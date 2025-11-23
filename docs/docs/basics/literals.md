@@ -84,8 +84,10 @@ Use `${expression}` for string interpolation:
 
 ```luma
 let name = "World"
-"Hello, ${name}!"        -- "Hello, World!"
-"1 + 1 = ${1 + 1}"      -- "1 + 1 = 2"
+"Hello, ${name}!"                           -- "Hello, World!"
+"1 + 1 = ${1 + 1}"                         -- "1 + 1 = 2"
+"Result: ${calculate(5, 3)}"               -- "Result: 8" (assuming calculate returns 8)
+"Nested: ${if x > 0 do "positive" else do "negative" end}"  -- Depends on x
 ```
 
 ### Escape Sequences

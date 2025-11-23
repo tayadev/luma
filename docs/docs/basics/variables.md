@@ -66,12 +66,16 @@ let [head, ...tail] = [1, 2, 3, 4]
 
 let [a, b, ...] = [10, 20, 30, 40]
 -- a = 10, b = 20, rest ignored
+
+let [x, _, z] = [1, 2, 3]
+-- x = 1, z = 3, second element ignored via wildcard
 ```
 
 **Behavior:**
 - Missing elements assign `null`
 - `...name` captures remaining elements as list
 - `...` without name discards remaining elements
+- `_` wildcard ignores a single element
 
 ### Table Destructuring
 

@@ -8,6 +8,19 @@ Pattern matching allows you to match values against patterns and execute code ba
 
 ## Match Expression
 
+The `match` construct is an expression that evaluates to the value of the selected branch:
+
+```luma
+let status = match response.code do
+  200 do "success" end
+  404 do "not found" end
+  500 do "server error" end
+  _ do "unknown" end
+end
+```
+
+Match can also be used as a statement when the result is not needed:
+
 ```luma
 match value do
   pattern1 do
