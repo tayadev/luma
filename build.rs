@@ -19,7 +19,9 @@ fn main() {
     // Set environment variable for use in main.rs
     println!("cargo:rustc-env=GIT_HASH={}", git_hash);
 
-    // Re-run if git HEAD changes
+    // Re-run if git HEAD changes (this is a file that points to the current ref)
     println!("cargo:rerun-if-changed=.git/HEAD");
-    println!("cargo:rerun-if-changed=.git/refs/heads");
+
+    // Re-run if the git index changes (when commits are made)
+    println!("cargo:rerun-if-changed=.git/index");
 }
