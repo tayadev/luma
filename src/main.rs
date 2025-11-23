@@ -173,10 +173,11 @@ fn run_file(file: &str) {
     };
     
     let mut vm = luma::vm::VM::new_with_file(chunk, absolute_path);
+    vm.set_source(source.clone());
     match vm.run() {
         Ok(val) => println!("{}", val),
         Err(e) => {
-            eprintln!("Runtime error: {:?}", e);
+            eprintln!("{}", e.format(Some(&source)));
             process::exit(1);
         }
     }
@@ -244,13 +245,16 @@ fn run_repl() {
         // Compile the AST
         let chunk = luma::bytecode::compile::compile_program(&ast);
         
+        // Set source for error reporting
+        vm.set_source(input.clone());
+        
         // Execute in the existing VM context
         match vm.eval(chunk) {
             Ok(val) => {
                 println!("{}", val);
             }
             Err(e) => {
-                eprintln!("Runtime error: {:?}", e);
+                eprintln!("{}", e.format(Some(&input)));
             }
         }
     }
