@@ -6,6 +6,7 @@ license = "MIT"
 description = "Taya's Scripting Language"
 homepage = "https://github.com/tayadev/luma"
 repository = "https://github.com/tayadev/luma"
+publish = false
 
 [lib]
 name = "luma"
