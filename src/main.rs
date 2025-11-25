@@ -374,9 +374,9 @@ fn upgrade_luma(version: Option<&str>) {
         Some(v) => {
             // Normalize version format
             if v.starts_with("v") {
-                format!("luma-{}", v)
+                format!("{}", v)
             } else if v.chars().next().unwrap().is_ascii_digit() {
-                format!("luma-v{}", v)
+                format!("v{}", v)
             } else {
                 v.to_string()
             }
@@ -417,7 +417,7 @@ fn upgrade_luma(version: Option<&str>) {
 
     // Construct download URL
     let arch = "x64";
-    let target = format!("luma-windows-{}", arch);
+    let target = format!("windows-{}", arch);
     let base_url = "https://github.com/tayadev/luma/releases";
     let url = if version_tag == "latest" {
         format!("{}/latest/download/{}.zip", base_url, target)

@@ -80,12 +80,12 @@ function Install-Luma {
     [string]$Version
   );
 
-  # if a semver is given, we need to adjust it to this format: luma-v0.0.0
+  # if a semver is given, we need to adjust it to this format: v0.0.0
   if ($Version -match "^\d+\.\d+\.\d+$") {
-    $Version = "luma-v$Version"
+    $Version = "v$Version"
   }
   elseif ($Version -match "^v\d+\.\d+\.\d+$") {
-    $Version = "luma-$Version"
+    $Version = "$Version"
   }
 
   $Arch = "x64"
@@ -112,7 +112,7 @@ function Install-Luma {
     return 1
   }
 
-  $Target = "luma-windows-${Arch}"
+  $Target = "windows-${Arch}"
   $BaseURL = "https://github.com/tayadev/luma/releases"
   $URL = "$BaseURL/$(if ($Version -eq "latest") { "latest/download" } else { "download/$Version" })/$Target.zip"
 
@@ -120,7 +120,7 @@ function Install-Luma {
 
   $DisplayVersion = $(
     if ($Version -eq "latest") { "Luma" }
-    elseif ($Version -match "^luma-v\d+\.\d+\.\d+$") { "Luma $($Version.Substring(7))" }
+    elseif ($Version -match "^v\d+\.\d+\.\d+$") { "Luma $($Version.Substring(7))" }
     else { "Luma tag='${Version}'" }
   )
 
