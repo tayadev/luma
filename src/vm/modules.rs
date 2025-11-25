@@ -62,7 +62,17 @@ pub fn resolve_import_path(path: &str, current_file: Option<&String>) -> Result<
             .map_err(|e| VmError::runtime(format!("Failed to get current directory: {}", e)))?
     };
 
-    let full_path = base_dir.join(path);
+    let mut full_path = base_dir.join(path);
+
+    // If the given path doesn't exist and has no extension, try appending .luma
+    if !full_path.exists() {
+        if full_path.extension().is_none() {
+            let with_ext = full_path.with_extension("luma");
+            if with_ext.exists() {
+                full_path = with_ext;
+            }
+        }
+    }
 
     // Canonicalize to get absolute path and resolve .. and .
     let canonical = full_path.canonicalize().map_err(|e| {
