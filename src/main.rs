@@ -219,7 +219,7 @@ fn run_file(file: &str) {
     let mut vm = luma::vm::VM::new_with_file(chunk, absolute_path);
     vm.set_source(source.clone());
     match vm.run() {
-        Ok(val) => println!("{}", val),
+        Ok(_val) => {}
         Err(e) => {
             eprintln!("{}", e.format(Some(&source)));
             process::exit(1);

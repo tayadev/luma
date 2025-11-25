@@ -29,7 +29,7 @@ fn test_stdin_default_run() {
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "30");
+    assert_eq!(stdout.trim(), "");
 }
 
 #[test]
@@ -150,5 +150,5 @@ fn test_stdin_multiline_program() {
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), "30");
+    assert_eq!(stdout.trim(), "");
 }
