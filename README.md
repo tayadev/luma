@@ -13,9 +13,23 @@ Reference implementation of the Luma programming language.
 - [MacOS x86_64](https://nightly.link/tayadev/luma/workflows/build/main/luma-macos-x86_64)
 - [Windows x86_64](https://nightly.link/tayadev/luma/workflows/build/main/luma-windows-x86_64.exe)
 
-## Architecture
+## Installation
 
-Source --[Lexer]--> Tokens --[Parser]--> AST --[Type Checker]--> Typed AST --[Compiler]--> Bytecode
+### Windows
+```
+> powershell -c "irm https://raw.githubusercontent.com/tayadev/luma/refs/heads/main/scripts/install.ps1 | iex"
+```
 
-Bytecode --[VM]--> Output
-Bytecode --[JIT Compiler]--> Native Code --[Execution]--> Output
+## CLI
+
+```
+Usage: luma <command> [...flags] [...args]
+
+Commands:
+  run       ./my-script.luma     Execute a file with Luma
+  repl                           Start a REPL session with Luma
+
+  upgrade                        Upgrade to latest version of Luma.
+
+  <command> --help               Print help text for command.
+```
