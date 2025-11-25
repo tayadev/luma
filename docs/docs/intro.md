@@ -82,10 +82,7 @@ Source → Lexer → Parser → AST → Type Checker → Typed AST → Compiler 
 ```
 
 **Current Status:**
-- ✅ Lexer — Complete
-- ✅ Parser — Complete  
-- 🚧 Type Checker — In development
-- 🚧 Compiler — In development
-- 🚧 VM — In development
+- Works, but is very much a work in progress.
+- Some features may be incomplete, missing, untested and misbehaving.
 
 The current implementation includes the Lexer, Parser, and AST phases. Type checking, bytecode compilation, and VM execution are under active development.

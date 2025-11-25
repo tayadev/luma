@@ -36,9 +36,6 @@ export default function Home(): ReactNode {
       title={`${siteConfig.title}`}
       description="A typed scripting language designed for simplicity, safety, and expressiveness">
       <HomepageHeader />
-      <main>
-        <HomepageFeatures />
-      </main>
     </Layout>
   );
 }

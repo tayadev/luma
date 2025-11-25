@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, CommandFactory};
 use std::fs;
 use std::io::{self, Read};
 use std::process;
@@ -161,14 +161,14 @@ fn main() {
             println!("{:#?}", chunk);
         }
         None => {
-            // Default: run the file if provided
+            // Default: run the file if provided, otherwise print help
             let file = match &cli.file {
                 Some(f) => f,
                 None => {
-                    eprintln!(
-                        "No file provided. Usage: luma <file.luma> or luma <SUBCOMMAND> <file.luma>"
-                    );
-                    process::exit(1);
+                    // No file and no subcommand - print help
+                    Cli::command().print_help().unwrap();
+                    println!();
+                    process::exit(0);
                 }
             };
             run_file(file);
