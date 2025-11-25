@@ -583,7 +583,7 @@ fn download_nightly_artifact() -> bytes::Bytes {
     // Use nightly.link service to download artifacts from the latest successful build workflow
     let artifact_name = "luma-windows-x64";
     let url = format!(
-        "https://nightly.link/tayadev/luma/workflows/build/main/{}",
+        "https://nightly.link/tayadev/luma/workflows/build/main/{}.zip",
         artifact_name
     );
 
