@@ -9,7 +9,13 @@ fn version() -> &'static str {
 }
 
 #[derive(Parser)]
-#[command(author, version = version(), about, long_about = None)]
+#[command(
+    author,
+    version = version(),
+    about = "Luma programming language",
+    long_about = None,
+    disable_help_subcommand = true
+)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -19,28 +25,43 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Print the parsed AST
-    Ast {
-        /// The file to parse
+    /// Execute a file with Luma
+    Run {
+        /// The file to execute
         file: String,
     },
-    /// Typecheck the file
+    /// Start a REPL session with Luma
+    Repl,
+    /// Typecheck a Luma script without executing it
     Check {
         /// The file to typecheck
         file: String,
     },
-    /// Print the compiled bytecode
-    Bytecode {
+    /// Compile a Luma script to a .lumac bytecode file
+    Compile {
         /// The file to compile
         file: String,
+        /// Output file (defaults to input.lumac)
+        #[arg(short, long)]
+        output: Option<String>,
     },
-    /// Start an interactive REPL session
-    Repl,
-    /// Upgrade Luma to the latest version or a specific version
+    /// Upgrade to latest version of Luma
     Upgrade {
         /// Specific version to upgrade to (e.g., "0.2.0" or "v0.2.0")
         #[arg(long)]
         version: Option<String>,
+    },
+    /// Print the parsed AST (debug)
+    #[command(hide = true)]
+    Ast {
+        /// The file to parse
+        file: String,
+    },
+    /// Print the compiled bytecode (debug)
+    #[command(hide = true)]
+    Bytecode {
+        /// The file to compile
+        file: String,
     },
 }
 
@@ -60,24 +81,11 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::Ast { file }) => {
-            let source = match read_source(file) {
-                Ok(content) => content,
-                Err(err) => {
-                    eprintln!("Error reading file '{}': {}", file, err);
-                    process::exit(1);
-                }
-            };
-            let ast = match luma::parser::parse(&source, file) {
-                Ok(ast) => ast,
-                Err(errors) => {
-                    for error in &errors {
-                        eprintln!("{}", error.format(&source));
-                    }
-                    process::exit(1);
-                }
-            };
-            println!("{:#?}", ast);
+        Some(Commands::Run { file }) => {
+            run_file(file);
+        }
+        Some(Commands::Repl) => {
+            run_repl();
         }
         Some(Commands::Check { file }) => {
             let source = match read_source(file) {
@@ -107,6 +115,31 @@ fn main() {
                 }
             }
         }
+        Some(Commands::Compile { file, output }) => {
+            compile_file(file, output.as_deref());
+        }
+        Some(Commands::Upgrade { version }) => {
+            upgrade_luma(version.as_deref());
+        }
+        Some(Commands::Ast { file }) => {
+            let source = match read_source(file) {
+                Ok(content) => content,
+                Err(err) => {
+                    eprintln!("Error reading file '{}': {}", file, err);
+                    process::exit(1);
+                }
+            };
+            let ast = match luma::parser::parse(&source, file) {
+                Ok(ast) => ast,
+                Err(errors) => {
+                    for error in &errors {
+                        eprintln!("{}", error.format(&source));
+                    }
+                    process::exit(1);
+                }
+            };
+            println!("{:#?}", ast);
+        }
         Some(Commands::Bytecode { file }) => {
             let source = match read_source(file) {
                 Ok(content) => content,
@@ -126,12 +159,6 @@ fn main() {
             };
             let chunk = luma::bytecode::compile::compile_program(&ast);
             println!("{:#?}", chunk);
-        }
-        Some(Commands::Repl) => {
-            run_repl();
-        }
-        Some(Commands::Upgrade { version }) => {
-            upgrade_luma(version.as_deref());
         }
         None => {
             // Default: run the file if provided
@@ -198,6 +225,64 @@ fn run_file(file: &str) {
             process::exit(1);
         }
     }
+}
+
+fn compile_file(file: &str, output: Option<&str>) {
+    let source = match read_source(file) {
+        Ok(content) => content,
+        Err(err) => {
+            eprintln!("Error reading file '{}': {}", file, err);
+            process::exit(1);
+        }
+    };
+    let ast = match luma::parser::parse(&source, file) {
+        Ok(ast) => ast,
+        Err(errors) => {
+            for error in &errors {
+                eprintln!("{}", error.format(&source));
+            }
+            process::exit(1);
+        }
+    };
+    if let Err(errs) = luma::typecheck::typecheck_program(&ast) {
+        eprintln!("Typecheck failed:");
+        for e in errs {
+            eprintln!("- {}", e.message);
+        }
+        process::exit(1);
+    }
+    let chunk = luma::bytecode::compile::compile_program(&ast);
+
+    // Determine output filename
+    let output_file = match output {
+        Some(o) => o.to_string(),
+        None => {
+            if file == "-" {
+                eprintln!("Error: Cannot compile from stdin without --output flag");
+                process::exit(1);
+            }
+            // Replace extension with .lumac
+            let path = std::path::Path::new(file);
+            path.with_extension("lumac").to_string_lossy().to_string()
+        }
+    };
+
+    // Serialize the bytecode chunk
+    let serialized = match ron::ser::to_string_pretty(&chunk, ron::ser::PrettyConfig::default()) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error serializing bytecode: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // Write to file
+    if let Err(e) = fs::write(&output_file, serialized) {
+        eprintln!("Error writing to '{}': {}", output_file, e);
+        process::exit(1);
+    }
+
+    println!("Compiled '{}' to '{}'", file, output_file);
 }
 
 fn run_repl() {

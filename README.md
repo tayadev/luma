@@ -17,10 +17,12 @@ Reference implementation of the Luma programming language.
 
 ### Windows
 ```
-> powershell -c "irm https://raw.githubusercontent.com/tayadev/luma/refs/heads/main/scripts/install.ps1 | iex"
+powershell -c "irm https://raw.githubusercontent.com/tayadev/luma/refs/heads/main/scripts/install.ps1 | iex"
 ```
 
 ## CLI
+
+Running `luma` or `luma --help` will print the following usage information:
 
 ```
 Usage: luma <command> [...flags] [...args]
@@ -28,8 +30,12 @@ Usage: luma <command> [...flags] [...args]
 Commands:
   run       ./my-script.luma     Execute a file with Luma
   repl                           Start a REPL session with Luma
+  check     ./my-script.luma     Typecheck a Luma script without executing it
+  compile   ./my-script.luma     Compile a Luma script to a .lumac bytecode file
 
   upgrade                        Upgrade to latest version of Luma.
 
   <command> --help               Print help text for command.
 ```
+
+> `run` can be omitted to execute a script directly: `luma ./my-script.luma` is equivalent to `luma run ./my-script.luma`
