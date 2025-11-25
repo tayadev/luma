@@ -369,21 +369,6 @@ fn upgrade_luma(version: Option<&str>) {
 
     println!("Upgrading Luma...");
 
-    // Determine version string
-    let version_tag = match version {
-        Some(v) => {
-            // Normalize version format
-            if v.starts_with("v") {
-                format!("{}", v)
-            } else if v.chars().next().unwrap().is_ascii_digit() {
-                format!("v{}", v)
-            } else {
-                v.to_string()
-            }
-        }
-        None => "latest".to_string(),
-    };
-
     // Determine installation directory
     let luma_root = if let Ok(install_dir) = env::var("LUMA_INSTALL") {
         PathBuf::from(install_dir)
@@ -415,46 +400,13 @@ fn upgrade_luma(version: Option<&str>) {
         );
     }
 
-    // Construct download URL
-    let arch = "x64";
-    let target = format!("windows-{}", arch);
-    let base_url = "https://github.com/tayadev/luma/releases";
-    let url = if version_tag == "latest" {
-        format!("{}/latest/download/{}.zip", base_url, target)
+    // Determine if we're upgrading to nightly or a release
+    let is_nightly = version == Some("nightly");
+
+    let zip_bytes = if is_nightly {
+        download_nightly_artifact()
     } else {
-        format!("{}/download/{}/{}.zip", base_url, version_tag, target)
-    };
-
-    println!("Downloading from: {}", url);
-
-    // Download the release
-    let client = reqwest::blocking::Client::builder()
-        .user_agent("luma-upgrade")
-        .build()
-        .expect("Failed to create HTTP client");
-
-    let response = match client.get(&url).send() {
-        Ok(resp) => resp,
-        Err(e) => {
-            eprintln!("Error: Failed to download release: {}", e);
-            process::exit(1);
-        }
-    };
-
-    if !response.status().is_success() {
-        eprintln!(
-            "Error: Failed to download release (HTTP {})",
-            response.status()
-        );
-        process::exit(1);
-    }
-
-    let zip_bytes = match response.bytes() {
-        Ok(bytes) => bytes,
-        Err(e) => {
-            eprintln!("Error: Failed to read download: {}", e);
-            process::exit(1);
-        }
+        download_release_artifact(version)
     };
 
     println!("Download complete. Extracting...");
@@ -556,6 +508,111 @@ fn upgrade_luma(version: Option<&str>) {
     } else {
         eprintln!("Warning: New installation may not be working correctly");
         println!("\nUpgrade complete!");
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn download_release_artifact(version: Option<&str>) -> bytes::Bytes {
+    // Determine version string
+    let version_tag = match version {
+        Some(v) => {
+            // Normalize version format
+            if v.starts_with("v") {
+                format!("{}", v)
+            } else if v.chars().next().unwrap().is_ascii_digit() {
+                format!("v{}", v)
+            } else {
+                v.to_string()
+            }
+        }
+        None => "latest".to_string(),
+    };
+
+    // Construct download URL
+    let arch = "x64";
+    let target = format!("luma-windows-{}", arch);
+    let base_url = "https://github.com/tayadev/luma/releases";
+    let url = if version_tag == "latest" {
+        format!("{}/latest/download/{}.zip", base_url, target)
+    } else {
+        format!("{}/download/{}/{}.zip", base_url, version_tag, target)
+    };
+
+    println!("Downloading from: {}", url);
+
+    // Download the release
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("luma-upgrade")
+        .build()
+        .expect("Failed to create HTTP client");
+
+    let response = match client.get(&url).send() {
+        Ok(resp) => resp,
+        Err(e) => {
+            eprintln!("Error: Failed to download release: {}", e);
+            process::exit(1);
+        }
+    };
+
+    if !response.status().is_success() {
+        eprintln!(
+            "Error: Failed to download release (HTTP {})",
+            response.status()
+        );
+        process::exit(1);
+    }
+
+    match response.bytes() {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            eprintln!("Error: Failed to read download: {}", e);
+            process::exit(1);
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn download_nightly_artifact() -> bytes::Bytes {
+    println!("Fetching latest nightly build from CI...");
+
+    let client = reqwest::blocking::Client::builder()
+        .user_agent("luma-upgrade")
+        .build()
+        .expect("Failed to create HTTP client");
+
+    // Use nightly.link service to download artifacts from the latest successful build workflow
+    let artifact_name = "luma-windows-x64";
+    let url = format!(
+        "https://nightly.link/tayadev/luma/workflows/build/main/{}",
+        artifact_name
+    );
+
+    println!("Downloading from: {}", url);
+
+    let response = match client.get(&url).send() {
+        Ok(resp) => resp,
+        Err(e) => {
+            eprintln!("Error: Failed to download nightly build: {}", e);
+            eprintln!("Make sure there is a successful build on the main branch.");
+            process::exit(1);
+        }
+    };
+
+    if !response.status().is_success() {
+        eprintln!(
+            "Error: Failed to download nightly build (HTTP {})",
+            response.status()
+        );
+        eprintln!("Make sure there is a successful build on the main branch.");
+        process::exit(1);
+    }
+
+    match response.bytes() {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            eprintln!("Error: Failed to read download: {}", e);
+            process::exit(1);
+        }
     }
 }
 
