@@ -65,12 +65,10 @@ pub fn resolve_import_path(path: &str, current_file: Option<&String>) -> Result<
     let mut full_path = base_dir.join(path);
 
     // If the given path doesn't exist and has no extension, try appending .luma
-    if !full_path.exists() {
-        if full_path.extension().is_none() {
-            let with_ext = full_path.with_extension("luma");
-            if with_ext.exists() {
-                full_path = with_ext;
-            }
+    if !full_path.exists() && full_path.extension().is_none() {
+        let with_ext = full_path.with_extension("luma");
+        if with_ext.exists() {
+            full_path = with_ext;
         }
     }
 
