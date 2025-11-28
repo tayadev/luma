@@ -84,14 +84,15 @@ impl LumaLanguageServer {
                 // Try to typecheck the AST
                 if let Err(type_errors) = crate::typecheck::typecheck_program(&ast) {
                     for err in type_errors {
-                        let (start_line, start_col, end_line, end_col) = if let Some(span) = err.span {
-                            let line_index = LineIndex::new(content);
-                            let (start_line, start_col) = line_index.line_col(span.start);
-                            let (end_line, end_col) = line_index.line_col(span.end);
-                            (start_line - 1, start_col - 1, end_line - 1, end_col - 1)
-                        } else {
-                            (0, 0, 0, 0)
-                        };
+                        let (start_line, start_col, end_line, end_col) =
+                            if let Some(span) = err.span {
+                                let line_index = LineIndex::new(content);
+                                let (start_line, start_col) = line_index.line_col(span.start);
+                                let (end_line, end_col) = line_index.line_col(span.end);
+                                (start_line - 1, start_col - 1, end_line - 1, end_col - 1)
+                            } else {
+                                (0, 0, 0, 0)
+                            };
 
                         diagnostics.push(Diagnostic {
                             range: Range {

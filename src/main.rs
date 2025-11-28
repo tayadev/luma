@@ -118,7 +118,7 @@ fn main() {
                             luma::diagnostics::DiagnosticKind::Type,
                             e.message,
                             e.span.unwrap_or_else(|| luma::ast::Span::new(0, 0)),
-                            file.to_string()
+                            file.to_string(),
                         );
                         eprintln!("{}", diag.format(&source));
                     }
@@ -211,7 +211,7 @@ fn run_file(file: &str) {
                 luma::diagnostics::DiagnosticKind::Type,
                 e.message,
                 e.span.unwrap_or_else(|| luma::ast::Span::new(0, 0)),
-                file.to_string()
+                file.to_string(),
             );
             eprintln!("{}", diag.format(&source));
         }

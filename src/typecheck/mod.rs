@@ -375,7 +375,10 @@ impl TypeEnv {
     fn expect_type(&mut self, expr: &Expr, expected: &TcType, context: &str) -> TcType {
         let ty = self.check_expr(expr);
         if !ty.is_compatible(expected) {
-            self.error(format!("{}: expected {}, got {}", context, expected, ty), expr.span());
+            self.error(
+                format!("{}: expected {}, got {}", context, expected, ty),
+                expr.span(),
+            );
         }
         ty
     }
@@ -418,10 +421,13 @@ impl TypeEnv {
                     for elem in &elements[1..] {
                         let ty = self.check_expr(elem);
                         if !ty.is_compatible(&first_ty) {
-                            self.error(format!(
-                                "List elements have inconsistent types: {} vs {}",
-                                first_ty, ty
-                            ), elem.span());
+                            self.error(
+                                format!(
+                                    "List elements have inconsistent types: {} vs {}",
+                                    first_ty, ty
+                                ),
+                                elem.span(),
+                            );
                         }
                     }
                     TcType::List(Box::new(first_ty))
@@ -451,7 +457,10 @@ impl TypeEnv {
             }
 
             Expr::Binary {
-                left, op, right, span
+                left,
+                op,
+                right,
+                span,
             } => {
                 let left_ty = self.check_expr(left);
                 let right_ty = self.check_expr(right);
@@ -542,26 +551,28 @@ impl TypeEnv {
                 }
             }
 
-            Expr::Unary { op, operand, span } => match op {
-                UnaryOp::Neg => {
-                    let ty = self.check_expr(operand);
-                    if ty.is_compatible(&TcType::Number) {
-                        TcType::Number
-                    } else if Self::has_operator_method(&ty, "__neg") {
-                        TcType::Unknown // Return type depends on implementation
-                    } else {
-                        self.error(format!(
+            Expr::Unary { op, operand, span } => {
+                match op {
+                    UnaryOp::Neg => {
+                        let ty = self.check_expr(operand);
+                        if ty.is_compatible(&TcType::Number) {
+                            TcType::Number
+                        } else if Self::has_operator_method(&ty, "__neg") {
+                            TcType::Unknown // Return type depends on implementation
+                        } else {
+                            self.error(format!(
                             "Unary negation requires Number or type with __neg method, got {}",
                             ty
                         ), *span);
-                        TcType::Unknown
+                            TcType::Unknown
+                        }
+                    }
+                    UnaryOp::Not => {
+                        self.expect_type(operand, &TcType::Boolean, "Logical not");
+                        TcType::Boolean
                     }
                 }
-                UnaryOp::Not => {
-                    self.expect_type(operand, &TcType::Boolean, "Logical not");
-                    TcType::Boolean
-                }
-            },
+            }
 
             Expr::Logical {
                 left, op: _, right, ..
@@ -572,17 +583,22 @@ impl TypeEnv {
             }
 
             Expr::Call {
-                callee, arguments, span
+                callee,
+                arguments,
+                span,
             } => {
                 let callee_ty = self.check_expr(callee);
                 match callee_ty {
                     TcType::Function { params, ret } => {
                         if arguments.len() != params.len() {
-                            self.error(format!(
-                                "Function call: expected {} arguments, got {}",
-                                params.len(),
-                                arguments.len()
-                            ), *span);
+                            self.error(
+                                format!(
+                                    "Function call: expected {} arguments, got {}",
+                                    params.len(),
+                                    arguments.len()
+                                ),
+                                *span,
+                            );
                         } else {
                             for (i, (arg, param_ty)) in
                                 arguments.iter().zip(params.iter()).enumerate()
@@ -594,10 +610,13 @@ impl TypeEnv {
                                 };
                                 let arg_ty = self.check_expr(arg_expr);
                                 if !arg_ty.is_compatible(param_ty) {
-                                    self.error(format!(
-                                        "Function call: argument {} expected {}, got {}",
-                                        i, param_ty, arg_ty
-                                    ), arg_expr.span());
+                                    self.error(
+                                        format!(
+                                            "Function call: argument {} expected {}, got {}",
+                                            i, param_ty, arg_ty
+                                        ),
+                                        arg_expr.span(),
+                                    );
                                 }
                             }
                         }
@@ -615,16 +634,20 @@ impl TypeEnv {
                         TcType::Unknown
                     }
                     _ => {
-                        self.error(format!(
-                            "Call expression requires a function, got {}",
-                            callee_ty
-                        ), *span);
+                        self.error(
+                            format!("Call expression requires a function, got {}", callee_ty),
+                            *span,
+                        );
                         TcType::Unknown
                     }
                 }
             }
 
-            Expr::MemberAccess { object, member, span } => {
+            Expr::MemberAccess {
+                object,
+                member,
+                span,
+            } => {
                 let obj_ty = self.check_expr(object);
                 match obj_ty {
                     TcType::Table => TcType::Unknown, // dynamic tables allowed
@@ -636,35 +659,48 @@ impl TypeEnv {
                     }
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
-                        self.error(format!("Member access requires a table, got {}", obj_ty), *span);
+                        self.error(
+                            format!("Member access requires a table, got {}", obj_ty),
+                            *span,
+                        );
                         TcType::Unknown
                     }
                 }
             }
 
-            Expr::Index { object, index, span } => {
+            Expr::Index {
+                object,
+                index,
+                span,
+            } => {
                 let obj_ty = self.check_expr(object);
                 let idx_ty = self.check_expr(index);
 
                 match obj_ty {
                     TcType::List(elem_ty) => {
                         if !idx_ty.is_compatible(&TcType::Number) {
-                            self.error(format!("List index requires Number, got {}", idx_ty), *span);
+                            self.error(
+                                format!("List index requires Number, got {}", idx_ty),
+                                *span,
+                            );
                         }
                         (*elem_ty).clone()
                     }
                     TcType::Table | TcType::TableWithFields(_) => {
                         if !idx_ty.is_compatible(&TcType::String) {
-                            self.error(format!("Table index requires String, got {}", idx_ty), *span);
+                            self.error(
+                                format!("Table index requires String, got {}", idx_ty),
+                                *span,
+                            );
                         }
                         TcType::Unknown
                     }
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
-                        self.error(format!(
-                            "Index operation requires List or Table, got {}",
-                            obj_ty
-                        ), *span);
+                        self.error(
+                            format!("Index operation requires List or Table, got {}", obj_ty),
+                            *span,
+                        );
                         TcType::Unknown
                     }
                 }
@@ -674,7 +710,7 @@ impl TypeEnv {
                 arguments,
                 return_type,
                 body,
-                span
+                span,
             } => {
                 self.push_scope();
 
@@ -701,10 +737,13 @@ impl TypeEnv {
                 let actual_ret = self.check_block(body, &expected_ret);
 
                 if !actual_ret.is_compatible(&expected_ret) && expected_ret != TcType::Unknown {
-                    self.error(format!(
-                        "Function return type mismatch: declared {}, got {}",
-                        expected_ret, actual_ret
-                    ), *span);
+                    self.error(
+                        format!(
+                            "Function return type mismatch: declared {}, got {}",
+                            expected_ret, actual_ret
+                        ),
+                        *span,
+                    );
                 }
 
                 self.pop_scope();
@@ -735,12 +774,15 @@ impl TypeEnv {
                 condition,
                 then_block,
                 else_block,
-                span
+                span,
             } => {
                 // Check condition
                 let cond_ty = self.check_expr(condition);
                 if !cond_ty.is_compatible(&TcType::Boolean) && cond_ty != TcType::Unknown {
-                    self.error(format!("If condition should be Boolean, got {}", cond_ty), *span);
+                    self.error(
+                        format!("If condition should be Boolean, got {}", cond_ty),
+                        *span,
+                    );
                 }
 
                 // Check then block
@@ -760,10 +802,13 @@ impl TypeEnv {
                     } else if else_ty.is_compatible(&then_ty) {
                         else_ty
                     } else {
-                        self.error(format!(
-                            "If branches have incompatible types: {} vs {}",
-                            then_ty, else_ty
-                        ), *span);
+                        self.error(
+                            format!(
+                                "If branches have incompatible types: {} vs {}",
+                                then_ty, else_ty
+                            ),
+                            *span,
+                        );
                         TcType::Unknown
                     }
                 } else {
@@ -776,7 +821,10 @@ impl TypeEnv {
                 // Check that path is a string expression
                 let path_ty = self.check_expr(path);
                 if !path_ty.is_compatible(&TcType::String) && path_ty != TcType::Unknown {
-                    self.error(format!("Import path should be a String, got {}", path_ty), *span);
+                    self.error(
+                        format!("Import path should be a String, got {}", path_ty),
+                        *span,
+                    );
                 }
                 // Import returns the module's exported value
                 // For now, we type it as Unknown (proper typing would require module analysis)
@@ -808,10 +856,13 @@ impl TypeEnv {
                         } else if arm_ret.is_compatible(current) {
                             unified_ret = Some(arm_ret);
                         } else {
-                            self.error(format!(
-                                "Match arms have incompatible types: {} vs {}",
-                                current, arm_ret
-                            ), *span);
+                            self.error(
+                                format!(
+                                    "Match arms have incompatible types: {} vs {}",
+                                    current, arm_ret
+                                ),
+                                *span,
+                            );
                             unified_ret = Some(TcType::Unknown);
                         }
                     } else {
@@ -872,10 +923,13 @@ impl TypeEnv {
                 Stmt::Return { value: expr, span } => {
                     ret_ty = self.check_expr(expr);
                     if !ret_ty.is_compatible(expected_ret) && *expected_ret != TcType::Unknown {
-                        self.error(format!(
-                            "Return type mismatch: expected {}, got {}",
-                            expected_ret, ret_ty
-                        ), *span);
+                        self.error(
+                            format!(
+                                "Return type mismatch: expected {}, got {}",
+                                expected_ret, ret_ty
+                            ),
+                            *span,
+                        );
                     }
                 }
                 _ => self.check_stmt(stmt),
@@ -917,7 +971,7 @@ impl TypeEnv {
                 name,
                 r#type,
                 value,
-                span
+                span,
             } => {
                 // For function values, we already pre-declared them in typecheck_program
                 // Just check the function body here
@@ -933,10 +987,13 @@ impl TypeEnv {
                         let declared_ty = if let Some(ty) = r#type {
                             let t = Self::type_from_ast(ty);
                             if !val_ty.is_compatible(&t) {
-                                self.error(format!(
-                                    "Variable {}: declared type {}, got {}",
-                                    name, t, val_ty
-                                ), *span);
+                                self.error(
+                                    format!(
+                                        "Variable {}: declared type {}, got {}",
+                                        name, t, val_ty
+                                    ),
+                                    *span,
+                                );
                             }
                             t
                         } else {
@@ -962,10 +1019,13 @@ impl TypeEnv {
                 {
                     let declared = Self::type_from_ast(ty);
                     if !value_ty.is_compatible(&declared) {
-                        self.error(format!(
-                            "Variable {}: declared type {}, got {}",
-                            name, declared, value_ty
-                        ), *span);
+                        self.error(
+                            format!(
+                                "Variable {}: declared type {}, got {}",
+                                name, declared, value_ty
+                            ),
+                            *span,
+                        );
                     }
                 }
             }
@@ -984,16 +1044,19 @@ impl TypeEnv {
                 target,
                 op: _,
                 value,
-                span
+                span,
             } => {
                 let target_ty = self.check_assignment_target(target);
                 let value_ty = self.check_expr(value);
 
                 if !value_ty.is_compatible(&target_ty) {
-                    self.error(format!(
-                        "Assignment type mismatch: target {}, value {}",
-                        target_ty, value_ty
-                    ), *span);
+                    self.error(
+                        format!(
+                            "Assignment type mismatch: target {}, value {}",
+                            target_ty, value_ty
+                        ),
+                        *span,
+                    );
                 }
             }
 
@@ -1056,7 +1119,7 @@ impl TypeEnv {
                 pattern,
                 iterator,
                 body,
-                span
+                span,
             } => {
                 let iter_ty = self.check_expr(iterator);
 
@@ -1074,10 +1137,10 @@ impl TypeEnv {
                         self.check_pattern(pattern, &TcType::Unknown, true, false);
                     }
                     _ => {
-                        self.error(format!(
-                            "For loop requires List or Table iterator, got {}",
-                            iter_ty
-                        ), *span);
+                        self.error(
+                            format!("For loop requires List or Table iterator, got {}", iter_ty),
+                            *span,
+                        );
                         self.check_pattern(pattern, &TcType::Unknown, true, false);
                     }
                 }
@@ -1109,7 +1172,10 @@ impl TypeEnv {
                     let ty = info.ty.clone();
                     let mutable = info.mutable;
                     if !mutable {
-                        self.error(format!("Cannot assign to immutable variable: {}", name), *span);
+                        self.error(
+                            format!("Cannot assign to immutable variable: {}", name),
+                            *span,
+                        );
                     }
                     ty
                 } else {
@@ -1118,44 +1184,56 @@ impl TypeEnv {
                 }
             }
             Expr::MemberAccess {
-                object, member: _, span
+                object,
+                member: _,
+                span,
             } => {
                 let obj_ty = self.check_expr(object);
                 match obj_ty {
                     TcType::Table | TcType::TableWithFields(_) => TcType::Unknown,
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
-                        self.error(format!(
-                            "Member assignment requires a table, got {}",
-                            obj_ty
-                        ), *span);
+                        self.error(
+                            format!("Member assignment requires a table, got {}", obj_ty),
+                            *span,
+                        );
                         TcType::Unknown
                     }
                 }
             }
-            Expr::Index { object, index, span } => {
+            Expr::Index {
+                object,
+                index,
+                span,
+            } => {
                 let obj_ty = self.check_expr(object);
                 let idx_ty = self.check_expr(index);
 
                 match obj_ty {
                     TcType::List(elem_ty) => {
                         if !idx_ty.is_compatible(&TcType::Number) {
-                            self.error(format!("List index requires Number, got {}", idx_ty), *span);
+                            self.error(
+                                format!("List index requires Number, got {}", idx_ty),
+                                *span,
+                            );
                         }
                         (*elem_ty).clone()
                     }
                     TcType::Table => {
                         if !idx_ty.is_compatible(&TcType::String) {
-                            self.error(format!("Table index requires String, got {}", idx_ty), *span);
+                            self.error(
+                                format!("Table index requires String, got {}", idx_ty),
+                                *span,
+                            );
                         }
                         TcType::Unknown
                     }
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
-                        self.error(format!(
-                            "Index assignment requires List or Table, got {}",
-                            obj_ty
-                        ), *span);
+                        self.error(
+                            format!("Index assignment requires List or Table, got {}", obj_ty),
+                            *span,
+                        );
                         TcType::Unknown
                     }
                 }
@@ -1215,7 +1293,10 @@ impl TypeEnv {
                     }
                 }
                 _ => {
-                    self.error(format!("List pattern requires List type, got {}", ty), pattern.span());
+                    self.error(
+                        format!("List pattern requires List type, got {}", ty),
+                        pattern.span(),
+                    );
                 }
             },
             Pattern::TablePattern { fields, .. } => {
@@ -1224,10 +1305,13 @@ impl TypeEnv {
                         // Validate required fields exist by name
                         for f in fields {
                             if !present.contains(&f.key) {
-                                self.error(format!(
-                                    "Table pattern requires field '{}' not present on value",
-                                    f.key
-                                ), pattern.span());
+                                self.error(
+                                    format!(
+                                        "Table pattern requires field '{}' not present on value",
+                                        f.key
+                                    ),
+                                    pattern.span(),
+                                );
                             }
                         }
                         // Bind variables with Unknown type (no per-field typing yet)
@@ -1270,7 +1354,10 @@ impl TypeEnv {
                         }
                     }
                     _ => {
-                        self.error(format!("Table pattern requires Table type, got {}", ty), pattern.span());
+                        self.error(
+                            format!("Table pattern requires Table type, got {}", ty),
+                            pattern.span(),
+                        );
                     }
                 }
             }
@@ -1409,10 +1496,10 @@ impl TypeEnv {
         {
             for &tag in &tags {
                 if !fields.contains(&tag.to_string()) {
-                    self.error(format!(
-                        "Match tag '{}' not present on matched table type",
-                        tag
-                    ), match_span);
+                    self.error(
+                        format!("Match tag '{}' not present on matched table type", tag),
+                        match_span,
+                    );
                 }
             }
         }
@@ -1450,7 +1537,7 @@ impl TypeEnv {
         self.error(
             "Match expression is not exhaustive: add a wildcard (_) pattern or cover all cases"
                 .to_string(),
-            match_span
+            match_span,
         );
     }
 }
