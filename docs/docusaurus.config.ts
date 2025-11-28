@@ -90,7 +90,7 @@ const config: Config = {
           items: [
             {
               label: 'Documentation',
-              to: '/luma/intro',
+              to: '/intro',
             },
           ],
         },
