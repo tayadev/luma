@@ -32,6 +32,8 @@ enum Commands {
     },
     /// Start a REPL session with Luma
     Repl,
+    /// Start the Language Server Protocol server
+    Lsp,
     /// Typecheck a Luma script without executing it
     Check {
         /// The file to typecheck
@@ -86,6 +88,9 @@ fn main() {
         }
         Some(Commands::Repl) => {
             run_repl();
+        }
+        Some(Commands::Lsp) => {
+            run_lsp();
         }
         Some(Commands::Check { file }) => {
             let source = match read_source(file) {
@@ -225,6 +230,14 @@ fn run_file(file: &str) {
             process::exit(1);
         }
     }
+}
+
+fn run_lsp() {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create Tokio runtime")
+        .block_on(luma::lsp::run_server());
 }
 
 fn compile_file(file: &str, output: Option<&str>) {

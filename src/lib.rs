@@ -1,6 +1,7 @@
 pub mod ast;
 pub mod bytecode;
 pub mod diagnostics;
+pub mod lsp;
 pub mod parser;
 pub mod typecheck;
 pub mod vm;
