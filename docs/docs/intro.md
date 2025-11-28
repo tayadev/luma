@@ -50,3 +50,7 @@ Run this command in your terminal:
 ```
 curl -fsSL https://raw.githubusercontent.com/tayadev/luma/refs/heads/main/scripts/install.sh | sh
 ```
+
+## Language Specification
+
+The full language specification is available in the [Luma Language Specification](https://github.com/tayadev/luma/blob/main/SPEC.md) document.
