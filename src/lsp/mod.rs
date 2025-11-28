@@ -14,6 +14,10 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 use crate::diagnostics::{Diagnostic as LumaDiagnostic, LineIndex};
 
 /// Document state tracked by the language server
+///
+/// Fields are stored for future features like:
+/// - content: For incremental updates, goto definition, completion
+/// - version: For document versioning in incremental sync mode
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 struct Document {
