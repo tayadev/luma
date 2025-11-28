@@ -2,102 +2,162 @@
 sidebar_position: 2
 ---
 
-# Variables and Constants
+# Variables and Bindings
 
-Luma provides two ways to declare variables: immutable bindings (`let`) and mutable variables (`var`).
+Luma provides two ways to declare variables: **immutable bindings** with `let` and **mutable variables** with `var`. Immutability is the default, encouraging safer, more predictable code.
 
 ## Immutable Bindings with `let`
 
-Use `let` to declare immutable bindings that cannot be reassigned:
+Use `let` to declare immutable bindings. Once assigned, they cannot be changed:
 
 ```luma
 let name = "Luma"
--- name = "Other"  -- Error! name is immutable
+let pi = 3.14159
+let items = [1, 2, 3]
 
-let pi: Number = 3.14
+-- name = "Other"  -- ❌ Error! let bindings are immutable
 ```
 
-`let` bindings cannot be reassigned after initialization.
+### Benefits of Immutability
+- **Predictability** — Variables don't change unexpectedly
+- **Concurrency safety** — Safe to share across async operations
+- **Debugging** — Easier to reason about program state
+- **Functional patterns** — Enables higher-order functions and transformations
 
 ## Mutable Variables with `var`
 
-Use `var` to declare mutable variables that can be reassigned:
+Use `var` when you need to reassign a variable:
 
 ```luma
-var x = 42
-x = 50  -- OK, x is mutable
+var counter = 0
+counter = counter + 1          -- ✅ Allowed
+counter = 42                   -- ✅ Can reassign anytime
 
-var count: Number = 10
+var count = 10
 count = count + 1
+print(count)                   -- Output: 11
 ```
 
-`var` variables can be reassigned multiple times.
-
-## Type Inference
-
-Types are inferred when annotations are omitted:
-
-```luma
-let x = 42                         -- inferred as Number
-let name = "Alice"                 -- inferred as String
-let items = [1, 2, 3]              -- inferred as List(Number)
-```
+### When to Use `var`
+- Loop counters and accumulators
+- State that changes over time
+- When reassignment is essential to your algorithm
 
 ## Type Annotations
 
-Type annotations are optional but can be provided explicitly:
+### Explicit Type Annotations
+
+Provide explicit types with the `:` syntax:
 
 ```luma
-let x: Number = 42
-let name: String = "Luma"
+let name: String = "Alice"
+let age: Number = 30
 let items: List(String) = ["a", "b", "c"]
-let value: Any = "flexible"            -- explicit Any
+let data: Any = someUnknownValue
 ```
 
-## Destructuring
+### Type Inference
 
-### List Destructuring
+When you omit the type, Luma infers it from the value:
 
 ```luma
-let [first, second, third] = [1, 2, 3]
+let x = 42                     -- inferred as Number
+let greeting = "Hello"         -- inferred as String  
+let flags = [true, false]      -- inferred as List(Boolean)
+let mixed = [1, "two"]         -- inferred as List(Any)
+```
+
+### When to Annotate
+- **For clarity** — When the type isn't obvious
+- **For documentation** — Help readers understand intent
+- **For API boundaries** — Function parameters and returns
+- **For complex types** — Nested generics like `Result(List(Number), String)`
+
+## Scope
+
+Variables are scoped to the block they're declared in:
+
+```luma
+let outer = "visible"
+do
+  let inner = "only here"
+  print(outer)          -- ✅ Can access outer
+end
+print(inner)            -- ❌ Error! inner is out of scope
+```
+
+Closures capture variables from their enclosing scope:
+
+```luma
+let makeCounter = fn() do
+  var count = 0
+  fn() do
+    count = count + 1
+    count
+  end
+end
+
+let counter = makeCounter()
+print(counter())        -- 1
+print(counter())        -- 2
+print(counter())        -- 3
+```
+
+## Destructuring Assignment
+
+Destructuring lets you extract values from collections into separate variables.
+
+### Array Destructuring
+
+```luma
+let [first, second, third] = [10, 20, 30]
+-- first = 10, second = 20, third = 30
+
+let [a, b] = [1, 2, 3, 4]  -- Only take first two
+-- a = 1, b = 2
 
 let [head, ...tail] = [1, 2, 3, 4]
 -- head = 1, tail = [2, 3, 4]
 
-let [a, b, ...] = [10, 20, 30, 40]
--- a = 10, b = 20, rest ignored
-
-let [x, _, z] = [1, 2, 3]
--- x = 1, z = 3, second element ignored via wildcard
+let [x, _, z] = [10, 20, 30]  -- Use _ to skip elements
+-- x = 10, z = 30
 ```
 
-**Behavior:**
-- Missing elements assign `null`
-- `...name` captures remaining elements as list
-- `...` without name discards remaining elements
-- `_` wildcard ignores a single element
-
-### Table Destructuring
+### Table (Record) Destructuring
 
 ```luma
 let person = { name = "Alice", age = 30, city = "NYC" }
+
+-- Extract specific fields
 let { name, age } = person
 -- name = "Alice", age = 30
 
-let { name: userName, age: userAge } = person
+-- Rename during extraction
+let { name: userName, age: userAge } = person  
 -- userName = "Alice", userAge = 30
+
+-- Nested destructuring
+let { user = { name } } = { user = { name = "Bob", age = 25 } }
+-- name = "Bob"
 ```
 
-## Assignment
+## Variable Shadowing
 
-Only `var` variables can be reassigned:
+You can declare a new variable with the same name, shadowing the outer one:
 
 ```luma
-var counter = 0
-counter = counter + 1              -- valid
-
-let constant = 100
--- constant = 200                  -- Error! let bindings are immutable
+let x = 10
+do
+  let x = 20        -- Shadows outer x
+  print(x)          -- Output: 20
+end
+print(x)            -- Output: 10 (outer x still exists)
 ```
+
+## Constants (Compile-Time)
+
+:::info
+True compile-time constants are a planned feature. Currently, `let` bindings are immutable at runtime.
+:::
 
 Attempting to reassign a `let` binding is a compile error.

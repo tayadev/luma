@@ -2,198 +2,303 @@
 sidebar_position: 3
 ---
 
-# Operator Overloading
+# Operators Reference
 
-Luma allows you to define custom behavior for operators on your types.
+This is a complete reference of all operators in Luma, their precedence, and usage examples.
 
 ## Operator Precedence
 
-Operators are listed from highest to lowest precedence:
+Operators are evaluated in order from highest to lowest precedence. Use parentheses to override precedence.
 
-| Precedence | Operator | Description | Associativity |
-|------------|----------|-------------|---------------|
-| 1 | `()` `[]` `.` | Call, index, member access | Left |
-| 2 | `-` `!` | Unary minus, logical not | Right |
-| 3 | `*` `/` `%` | Multiplication, division, modulo | Left |
-| 4 | `+` `-` | Addition, subtraction | Left |
-| 5 | `<` `<=` `>` `>=` | Comparison | Left |
-| 6 | `==` `!=` | Equality | Left |
-| 7 | `&&` | Logical and | Left |
-| 8 | `||` | Logical or | Left |
+| Level | Operators | Name | Associativity |
+|-------|-----------|------|---------------|
+| 1 | `()` `[]` `.` | Postfix (call, index, member) | Left |
+| 2 | `-` `not` | Unary (negation, logical NOT) | Right |
+| 3 | `^` | Exponentiation | Right |
+| 4 | `*` `/` `%` | Multiplication/division | Left |
+| 5 | `+` `-` | Addition/subtraction | Left |
+| 6 | `<` `<=` `>` `>=` | Comparison | Left |
+| 7 | `==` `!=` | Equality | Left |
+| 8 | `and` | Logical AND | Left |
+| 9 | `or` | Logical OR | Left |
+| 10 | `=` | Assignment | Right |
 
-## Overloadable Operators
+## Arithmetic Operators
 
-You can overload the following operators by defining special methods:
-
-| Operator | Method | Signature |
-|----------|--------|-----------|
-| `+` | `__add` | `fn(T, T): T` |
-| `-` | `__sub` | `fn(T, T): T` |
-| `*` | `__mul` | `fn(T, T): T` |
-| `/` | `__div` | `fn(T, T): T` |
-| `%` | `__mod` | `fn(T, T): T` |
-| unary `-` | `__neg` | `fn(T): T` |
-| `==` | `__eq` | `fn(T, T): Boolean` |
-| `<` | `__lt` | `fn(T, T): Boolean` |
-| `<=` | `__le` | `fn(T, T): Boolean` |
-| `>` | `__gt` | `fn(T, T): Boolean` |
-| `>=` | `__ge` | `fn(T, T): Boolean` |
-
-**Auto-derived:**
-- `!=` is automatically derived from `__eq`
-
-## Defining Operator Overloads
-
-Define operator overloads as methods on your type:
+### Addition `+`
 
 ```luma
-let Vector2 = {
-  x = Number,
-  y = Number,
-  
-  __add = fn(a: Vector2, b: Vector2): Vector2 do
-    return Vector2.new(a.x + b.x, a.y + b.y)
-  end,
-  
-  __eq = fn(a: Vector2, b: Vector2): Boolean do
-    return a.x == b.x && a.y == b.y
-  end,
-  
-  new = fn(x: Number, y: Number): Vector2 do
-    return cast(Vector2, { x = x, y = y })
-  end
-}
-
-let v1 = Vector2.new(1, 2)
-let v2 = Vector2.new(3, 4)
-let v3 = v1 + v2                   -- Vector2(4, 6)
+10 + 5            -- 15
+"Hello" + " World"  -- "Hello World"
+[1, 2] + [3, 4]   -- [1, 2, 3, 4] (list concatenation)
 ```
 
-## Arithmetic Examples
-
-### Addition
+### Subtraction `-`
 
 ```luma
-let Complex = {
-  real = Number,
-  imag = Number,
-  
-  __add = fn(a: Complex, b: Complex): Complex do
-    return Complex.new(a.real + b.real, a.imag + b.imag)
-  end,
-  
-  new = fn(real: Number, imag: Number): Complex do
-    return cast(Complex, { real = real, imag = imag })
-  end
-}
-
-let c1 = Complex.new(1, 2)
-let c2 = Complex.new(3, 4)
-let c3 = c1 + c2  -- Complex(4, 6)
+10 - 3            -- 7
+-5                -- Unary negation
 ```
 
-### Unary Negation
+### Multiplication `*`
 
 ```luma
-let Vector2 = {
-  x = Number,
-  y = Number,
-  
-  __neg = fn(self: Vector2): Vector2 do
-    return Vector2.new(-self.x, -self.y)
-  end
-}
-
-let v = Vector2.new(3, 4)
-let negV = -v  -- Vector2(-3, -4)
+4 * 5             -- 20
+3 * 2.5           -- 7.5
+[1, 2] * 3        -- [1, 2, 1, 2, 1, 2] (list repetition)
 ```
 
-## Comparison Examples
-
-### Equality
+### Division `/`
 
 ```luma
-let Point = {
-  x = Number,
-  y = Number,
-  
-  __eq = fn(a: Point, b: Point): Boolean do
-    return a.x == b.x && a.y == b.y
-  end
-}
-
-let p1 = Point.new(1, 2)
-let p2 = Point.new(1, 2)
-let p3 = Point.new(3, 4)
-
-p1 == p2  -- true
-p1 == p3  -- false
-p1 != p3  -- true (auto-derived from __eq)
+10 / 2            -- 5
+10 / 3            -- 3.333...
 ```
 
-### Ordering
+### Modulo `%`
+
+Returns the remainder after division:
 
 ```luma
-let Version = {
-  major = Number,
-  minor = Number,
-  patch = Number,
-  
-  __lt = fn(a: Version, b: Version): Boolean do
-    if a.major != b.major do return a.major < b.major end
-    if a.minor != b.minor do return a.minor < b.minor end
-    return a.patch < b.patch
-  end,
-  
-  __eq = fn(a: Version, b: Version): Boolean do
-    return a.major == b.major && 
-           a.minor == b.minor && 
-           a.patch == b.patch
-  end
-}
-
-let v1 = Version.new(1, 2, 3)
-let v2 = Version.new(1, 3, 0)
-
-v1 < v2   -- true
-v1 <= v2  -- true
-v2 > v1   -- true
-v2 >= v1  -- true
+10 % 3            -- 1
+-10 % 3           -- -1
 ```
 
-## Non-Overloadable Operators
+### Exponentiation `^`
 
-These operators **cannot** be overloaded:
-- `&&` — Logical AND
-- `||` — Logical OR  
-- `!` — Logical NOT
-- `[]` — List/table indexing
-- `in` — Membership test
-- `.` — Field access
+```luma
+2 ^ 3             -- 8
+2 ^ 0.5           -- 1.414... (square root)
+10 ^ -1           -- 0.1
+```
 
-## Best Practices
+## Comparison Operators
 
-1. **Follow mathematical conventions**
-   - `+` should be commutative when appropriate
-   - Operators should behave intuitively
+All comparison operators return `true` or `false`.
 
-2. **Maintain consistency**
-   - If you define `__add`, consider defining `__sub`
-   - If you define `__lt`, consider defining `__le`, `__gt`, `__ge`
+### Less Than `<`
 
-3. **Return appropriate types**
-   ```luma
-   __add = fn(a: Vector, b: Vector): Vector  -- same type
-   __lt = fn(a: Version, b: Version): Boolean  -- comparison returns bool
-   ```
+```luma
+5 < 10            -- true
+10 < 5            -- false
+"a" < "b"         -- true (lexicographic)
+```
 
-4. **Document behavior**
-   ```luma
-   --[[
-   Defines vector addition.
-   Returns a new vector with component-wise sum.
-   ]]
-   __add = fn(a: Vector, b: Vector): Vector do
-     -- implementation
-   end
-   ```
+### Less Than or Equal `<=`
+
+```luma
+5 <= 5            -- true
+5 <= 4            -- false
+```
+
+### Greater Than `>`
+
+```luma
+10 > 5            -- true
+5 > 10            -- false
+```
+
+### Greater Than or Equal `>=`
+
+```luma
+5 >= 5            -- true
+5 >= 6            -- false
+```
+
+### Equality `==`
+
+```luma
+5 == 5            -- true
+5 == 5.0          -- true
+"hello" == "hello" -- true
+```
+
+### Inequality `!=`
+
+```luma
+5 != 5            -- false
+5 != 6            -- true
+"a" != "b"        -- true
+```
+
+## Logical Operators
+
+### Logical AND `and`
+
+```luma
+true and true     -- true
+true and false    -- false
+false and true    -- false
+
+if x > 0 and x < 10 do
+  print("Between 0 and 10")
+end
+```
+
+### Logical OR `or`
+
+```luma
+true or false     -- true
+false or false    -- false
+
+if x < 0 or x > 100 do
+  print("Out of range")
+end
+```
+
+### Logical NOT `not`
+
+```luma
+not true          -- false
+not false         -- true
+
+if not isReady do
+  print("Not ready")
+end
+```
+
+## Assignment Operators
+
+### Assignment `=`
+
+Assigns a value to a variable (only for `var`):
+
+```luma
+var x = 10
+x = 20            -- Valid
+x = x + 5         -- 25
+
+let y = 10
+y = 20            -- Error! let bindings are immutable
+```
+
+## String Operators
+
+### String Concatenation `+`
+
+```luma
+"Hello" + " " + "World"  -- "Hello World"
+"Number: " + 42          -- "Number: 42"
+```
+
+### String Interpolation
+
+Use `${}` inside strings:
+
+```luma
+let name = "Alice"
+let age = 30
+"My name is ${name} and I'm ${age} years old"
+```
+
+## Collection Operators
+
+### Indexing `[]`
+
+Access elements by index (0-based):
+
+```luma
+let arr = [10, 20, 30]
+arr[0]            -- 10
+arr[2]            -- 30
+arr[-1]           -- null (out of bounds)
+
+let obj = { name = "Alice", age = 30 }
+obj["name"]       -- "Alice"
+```
+
+### Member Access `.`
+
+Access fields of tables/objects:
+
+```luma
+let person = { name = "Bob", age = 25 }
+person.name       -- "Bob"
+person.age        -- 25
+```
+
+### Membership Test `in`
+
+Check if a key exists in a table:
+
+```luma
+let user = { name = "Charlie", email = "charlie@example.com" }
+"name" in user    -- true
+"age" in user     -- false
+
+let items = [1, 2, 3]
+-- Note: 'in' works with for loops, not direct membership
+```
+
+## Operator Combinations
+
+### Compound Operations
+
+While Luma doesn't have compound assignment operators (`+=`, `-=`, etc.), you can write:
+
+```luma
+var x = 10
+x = x + 5         -- instead of x += 5
+
+var count = 0
+count = count + 1 -- instead of count++
+```
+
+## Type Coercion
+
+Luma has **no implicit type coercion**. Operations require compatible types:
+
+```luma
+5 + "5"           -- Error! Can't add number and string
+true + 1          -- Error! Can't add boolean and number
+```
+
+## Operator Overloading
+
+:::info
+Operator overloading is a planned feature for custom types. It's not yet available in the current implementation.
+:::
+
+## Truthiness in Conditions
+
+Values are evaluated for truthiness in boolean contexts:
+
+- **Truthy:** Everything except `false` and `null`
+- **Falsy:** `false` and `null`
+
+```luma
+if 0 do print("0 is truthy") end         -- Prints (0 ≠ false)
+if "" do print("empty string is truthy") end  -- Prints
+if null do print("This won't print") end -- null is falsy
+if false do print("This won't print") end -- false is falsy
+```
+
+## Operator Parsing Tips
+
+### Parentheses for Clarity
+
+```luma
+-- Without parentheses (follows precedence)
+2 + 3 * 4         -- 14 (multiply first)
+
+-- With parentheses
+(2 + 3) * 4       -- 20 (addition first)
+```
+
+### String Operators
+
+```luma
+-- These work:
+"a" + "b"         -- "ab"
+"test" + 123      -- "test123"
+
+-- These don't:
+"test" * 2        -- Error! Can't multiply strings
+"a" - "b"         -- Error! Can't subtract strings
+```
+
+## Related Documentation
+
+- [Functions](../basics/functions.md) — Function calls (highest precedence)
+- [Control Flow](../basics/control-flow.md) — Using operators in conditions
+- [Pattern Matching](../advanced/pattern-matching.md) — Match on values using operators

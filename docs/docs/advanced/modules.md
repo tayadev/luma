@@ -4,7 +4,11 @@ sidebar_position: 3
 
 # Modules and Imports
 
-Luma has built-in dependency management through URL-based imports.
+:::caution Work in Progress
+The module system is currently under development. This documentation describes the planned design.
+:::
+
+Luma has a modern, URL-based module system for flexible dependency management. Modules are loaded on-demand and cached locally.
 
 ## Import Syntax
 
@@ -12,136 +16,256 @@ Luma has built-in dependency management through URL-based imports.
 let module = import("source")
 ```
 
-`import()` is a built-in function that loads and evaluates a module, returning its exported value.
+`import()` is a built-in function that loads a module and returns its exported value.
 
 ## Import Sources
 
 ### Local Files
 
+Use relative paths for local modules:
+
 ```luma
 let utils = import("./utils.luma")
-let lib = import("../lib/helpers.luma")
+let helpers = import("../lib/helpers.luma")
+let config = import("./config/app.luma")
 ```
 
-### HTTP/HTTPS URLs
+### Remote URLs
+
+Import modules from HTTP(S) URLs:
 
 ```luma
 let http = import("https://example.com/http.luma")
+let json = import("https://cdn.example.org/json.luma")
 ```
 
-### Git Repositories
+### GitHub Repositories
+
+Use the shorthand `gh:` prefix for GitHub repos:
 
 ```luma
-let lib = import("git@github.com:user/repo.git")
-let tagged = import("gh:user/repo@1.2.3")
+-- Specific version
+let lib = import("gh:user/repo@1.2.3")
+
+-- Latest version
+let lib = import("gh:user/repo@latest")
+
+-- Specific branch
+let lib = import("gh:user/repo@main")
+```
+
+### Other Git Sources
+
+```luma
+let lib = import("git@github.com:user/repo.git@main")
+let lib = import("https://git.example.com/user/repo.git@v1.0.0")
 ```
 
 ## Module Resolution
 
-**For URLs:**
-1. Download file to local cache (`~/.luma/cache`)
-2. Verify integrity (if lockfile exists)
-3. Parse and evaluate module
-4. Return module's exported value
+When you import a module, Luma:
 
-**For directories:**
-- If path is directory, look for `main.luma`
+1. **Checks the cache** — Is this module already loaded?
+2. **Downloads (if needed)** — Fetch from the source URL
+3. **Verifies integrity** — Check SHA256 hash against lock file (if present)
+4. **Parses** — Load and parse the source code
+5. **Evaluates** — Execute the module in an isolated scope
+6. **Returns** — Exports the module's value
 
-## Module Exports
+### Cache Location
 
-Modules export the value of their last expression:
+Module cache is stored in: `~/.luma/cache/modules/`
+
+## Exporting from Modules
+
+Modules export the value of their **last expression**:
 
 ```luma
 -- math.luma
-let pi = 3.14159
+let PI = 3.14159
+let E = 2.71828
 
-let add = fn(a: Number, b: Number): Number do
-  return a + b
-end
+let add = fn(a, b) do a + b end
+let multiply = fn(a, b) do a * b end
 
 {
-  pi = pi,
-  add = add
+  PI = PI,
+  E = E,
+  add = add,
+  multiply = multiply
 }
 ```
+
+Usage:
 
 ```luma
 -- main.luma
 let math = import("./math.luma")
-print(math.pi)                     -- 3.14159
-print(math.add(2, 3))              -- 5
+print(math.PI)                  -- 3.14159
+print(math.add(2, 3))           -- 5
+print(math.multiply(4, 5))      -- 20
+```
+
+### Exporting a Single Function
+
+Modules can export a single value:
+
+```luma
+-- utils.luma
+fn transform(data) do
+  -- transformation logic
+end
+
+transform
+```
+
+Usage:
+
+```luma
+let transform = import("./utils.luma")
+let result = transform(myData)
 ```
 
 ## Dependency Locking
 
-Dependencies are locked in `luma.lock`:
+Create a `luma.lock` file to lock dependency versions and ensure reproducibility:
 
 ```json
 {
-  "https://example.com/http.luma": {
-    "version": "1.2.3",
-    "integrity": "sha256-...",
-    "resolved": "2024-01-15T10:30:00Z"
+  "dependencies": {
+    "https://example.com/http.luma": {
+      "version": "1.2.3",
+      "integrity": "sha256-abc123...",
+      "resolved": "2024-01-15T10:30:00Z"
+    },
+    "gh:user/repo@1.0.0": {
+      "url": "https://github.com/user/repo/archive/refs/tags/v1.0.0.tar.gz",
+      "integrity": "sha256-def456...",
+      "resolved": "2024-01-15T10:30:00Z"
+    }
   }
 }
 ```
 
+**Best practice:** Commit `luma.lock` to version control to ensure all developers use the same versions.
+
 ## Circular Dependencies
 
-Circular imports are detected and result in an error:
+Circular imports are detected and reported as errors:
+
+```luma
+-- a.luma
+let b = import("./b.luma")
+
+-- b.luma
+let a = import("./a.luma")  -- Error! Circular dependency
+
+--
+-- Error: Circular dependency detected:
+--   a.luma -> b.luma -> a.luma
+```
+
+## Module Properties
+
+- **Synchronous** — `import()` blocks until loaded
+- **Cached** — Modules are evaluated once and results are reused
+- **Isolated** — Each module has its own scope
+- **Deterministic** — Lock file ensures reproducible builds
+
+## Project Structure
+
+Example project layout:
 
 ```
-Error: Circular dependency detected:
-  a.luma -> b.luma -> a.luma
+myapp/
+├── main.luma           # Entry point
+├── luma.lock           # Dependency lock file
+├── src/
+│   ├── config.luma     # Configuration
+│   ├── db.luma         # Database module
+│   └── utils/
+│       ├── string.luma
+│       └── array.luma
+└── lib/
+    └── types.luma      # Type definitions
 ```
 
-## Import Properties
+## Example: Modular Application
 
-- `import()` is **synchronous** - it blocks until the module is loaded
-- Modules are evaluated once and cached
-- Circular imports are detected and reported as errors
-
-## Best Practices
-
-1. **Pin versions** for remote dependencies:
-   ```luma
-   let lib = import("gh:user/repo@1.2.3")
-   ```
-
-2. **Use relative imports** for local modules:
-   ```luma
-   let utils = import("./utils.luma")
-   ```
-
-3. **Export a single value** from modules (usually a table):
-   ```luma
-   let MyModule = {
-     func1 = ...,
-     func2 = ...
-   }
-   MyModule  -- exported value
-   ```
-
-4. **Document public APIs** in module files
-
-## Example Project Structure
-
+```luma
+-- config.luma
+{
+  debug = true,
+  port = 3000,
+  database = "postgres://localhost/myapp"
+}
 ```
-project/
-├── main.luma
-├── luma.lock
-├── lib/
-│   ├── utils.luma
-│   └── types.luma
-└── config.luma
+
+```luma
+-- src/db.luma
+let config = import("../config.luma")
+
+{
+  connect = fn() do
+    -- Connect using config.database
+  end,
+  
+  query = fn(sql) do
+    -- Execute query
+  end
+}
+```
+
+```luma
+-- src/utils/string.luma
+{
+  uppercase = fn(s) do s.toUpperCase() end,
+  lowercase = fn(s) do s.toLowerCase() end,
+  reverse = fn(s) do s.split("").reverse().join("") end
+}
 ```
 
 ```luma
 -- main.luma
-let utils = import("./lib/utils.luma")
 let config = import("./config.luma")
-let http = import("gh:luma-lang/http@1.0.0")
+let db = import("./src/db.luma")
+let string = import("./src/utils/string.luma")
 
--- Use imported modules
-let result = utils.process(config.settings)
+-- Use the modules
+db.connect()
+print(string.uppercase("hello"))
 ```
+
+## Best Practices
+
+1. **Pin versions for stability:**
+   ```luma
+   let lib = import("gh:user/repo@1.2.3")  -- ✅ Good
+   let lib = import("gh:user/repo@main")   -- ⚠️ Risky
+   ```
+
+2. **Use relative imports locally:**
+   ```luma
+   let utils = import("./utils.luma")
+   let types = import("../types/common.luma")
+   ```
+
+3. **Create table exports for multiple items:**
+   ```luma
+   {
+     func1 = fn() do ... end,
+     func2 = fn() do ... end,
+     Type = { ... }
+   }
+   ```
+
+4. **Document public APIs in modules**
+
+5. **Commit lock files** to version control
+
+## Planned Features
+
+- **Namespace aliasing** — `import("module.luma") as mod`
+- **Selective imports** — `import({ func1, func2 } from "module.luma")`
+- **Re-exports** — Pass through imports from other modules
+- **Package manager** — Registry for publishing and discovering modules

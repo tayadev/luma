@@ -6,25 +6,62 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
+  --ifm-color-primary: #ff9900;
+  --ifm-color-primary-dark: #e68a00;
+  --ifm-color-primary-darker: #d97d00;
+  --ifm-color-primary-darkest: #b36400;
+  --ifm-color-primary-light: #ffaa19;
+  --ifm-color-primary-lighter: #ffb332;
+  --ifm-color-primary-lightest: #ffc64d;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
+  --ifm-color-primary: #ffb84d;
+  --ifm-color-primary-dark: #ff9900;
+  --ifm-color-primary-darker: #e68a00;
+  --ifm-color-primary-darkest: #cc7a00;
+  --ifm-color-primary-light: #ffcc99;
+  --ifm-color-primary-lighter: #ffd9b3;
+  --ifm-color-primary-lightest: #ffe6cc;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Luma icon styling */
+.navbar__logo {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* Subtle glow animation for the icon */
+@keyframes glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgba(255, 153, 0, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(255, 153, 0, 0.6));
+  }
+}
+
+/* Icon specific styling for light mode */
+[data-theme='light'] .navbar__logo {
+  filter: drop-shadow(0 0 2px rgba(255, 153, 0, 0.3));
+}
+
+/* Icon specific styling for dark mode */
+[data-theme='dark'] .navbar__logo {
+  filter: drop-shadow(0 0 3px rgba(255, 180, 77, 0.5));
+}
+
+/* Docusaurus hero styling with Luma branding */
+.hero {
+  background: linear-gradient(135deg, 
+    rgba(255, 153, 0, 0.05) 0%, 
+    rgba(255, 200, 0, 0.02) 100%);
+}
+
+/* Highlight Luma icon in headings */
+.markdown h1:has(+ *) {
+  color: var(--ifm-color-primary);
 }

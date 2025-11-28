@@ -4,99 +4,298 @@ sidebar_position: 1
 
 # Async and Await
 
-Luma has first-class support for asynchronous programming with native async/await.
+:::caution Work in Progress
+Async/await is planned for implementation. This documentation describes the target design.
+:::
+
+Luma has **first-class support for asynchronous programming** with native async/await syntax. Asynchronous operations are represented as `Promise` types.
 
 ## Promises
 
-Asynchronous operations return `Promise(T)`:
+A `Promise(T)` represents a value that will eventually become available:
 
 ```luma
-let fetchData = fn(url: String): Promise(String) do
-  -- returns promise
+fn fetchData(url: String): Promise(String) do
+  -- returns a promise that resolves to a String
 end
 ```
 
+Promises allow **non-blocking operations** — your program continues running while waiting for results.
+
 ## The await Keyword
 
-`await` suspends execution until a promise resolves:
+`await` suspends execution until a promise resolves, then returns its value:
 
 ```luma
-let fetchUser = fn(id: String): Result(User, Error) do
+fn fetchUser(id: String): Result(User, Error) do
   let response = await http.get("/users/${id}")
-  return parseUser(response)
+  parseUser(response)
 end
 ```
 
 **Type transformation:**
 - `await Promise(T)` → `T`
+- The promise is unwrapped to get the actual value
 
-## Async Function Inference
+## Async Functions
 
-Functions are automatically async if they:
-1. Contain `await` expressions
-2. Return a `Promise` type
+Functions that use `await` are implicitly async and return `Promise`:
 
 ```luma
 fn fetchAndProcess(id: String): Promise(Result(Data, Error)) do
   let raw = await fetchData(id)
-  return process(raw)
+  process(raw)
 end
 ```
 
-When called, this function returns `Promise(Result(Data, Error))`.
+When called, this function returns `Promise(Result(Data, Error))` immediately, not the result itself.
 
 ## Sequential vs Concurrent Execution
 
 ### Sequential Execution
 
+Operations wait for each other (slower):
+
 ```luma
-let data1 = await fetch("/api/data1")
-let data2 = await fetch("/api/data2")
+let user = await fetchUser("/users/123")    -- waits
+let posts = await fetchPosts(user.id)       -- then waits
 -- Total time: time1 + time2
 ```
 
 ### Concurrent Execution
 
+Start operations in parallel (faster):
+
 ```luma
-let promise1 = fetch("/api/data1")
-let promise2 = fetch("/api/data2")
-let data1 = await promise1
-let data2 = await promise2
+let userPromise = fetchUser("/users/123")   -- starts now
+let postsPromise = fetchPosts("123")        -- starts now (doesn't wait)
+let user = await userPromise                -- wait for first
+let posts = await postsPromise              -- wait for second
 -- Total time: max(time1, time2)
+```
+
+### Parallel Execution with all()
+
+```luma
+let results = await all([
+  fetchUser("/users/1"),
+  fetchUser("/users/2"),
+  fetchUser("/users/3")
+])
+-- Results waits for ALL promises to complete
+```
+
+### Race Conditions with race()
+
+```luma
+let first = await race([
+  fetchFromServer1(data),
+  fetchFromServer2(data),
+  fetchFromServer3(data)
+])
+-- Returns the FIRST promise to complete
 ```
 
 ## Error Handling with Async
 
-Combine async/await with Result types for robust error handling:
+Combine `Result` types with async for robust error handling:
 
 ```luma
 fn fetchUser(id: String): Promise(Result(User, Error)) do
   let response = await http.get("/users/${id}")
+  
   if response.err != null do
     return { ok = null, err = response.err }
   end
-  return parseUser(response.ok)
+  
+  parseUser(response.ok)
+end
+
+-- Usage
+let result = await fetchUser("123")
+match result do
+  ok do
+    print("User: ${result.ok.name}")
+  end
+  err do
+    print("Error: ${result.err}")
+  end
 end
 ```
 
-## Example: Parallel Execution
+## Async Loops
 
-Execute multiple async operations concurrently:
+Loop through async operations:
 
 ```luma
-let fetchUser = fn(id: String): Promise(User) do
-  await http.get("/users/${id}")
+let userIds = ["1", "2", "3"]
+let users = []
+
+for id in userIds do
+  let user = await fetchUser(id)
+  if user.err == null do
+    users.push(user.ok)
+  end
+end
+```
+
+### Parallel Loops with Promise.all()
+
+```luma
+let userIds = ["1", "2", "3"]
+let promises = []
+
+for id in userIds do
+  promises.push(fetchUser(id))
 end
 
-let fetchPosts = fn(userId: String): Promise(List(Post)) do
-  await http.get("/posts?user=${userId}")
+let results = await all(promises)
+```
+
+## Cancellation
+
+Cancel a promise before it completes (planned):
+
+```luma
+let task = fetchData(url)
+
+if userCancelled do
+  task.cancel()
+end
+```
+
+## Timeouts
+
+Set a timeout for a promise:
+
+```luma
+let result = await timeout(fetchData(url), 5000)
+-- Rejects if not completed within 5 seconds
+```
+
+## Example: Data Fetching
+
+```luma
+let fetchUserWithPosts = fn(userId: String) do
+  -- Fetch user and posts in parallel
+  let userPromise = http.get("/users/${userId}")
+  let postsPromise = http.get("/posts?user=${userId}")
+  
+  -- Wait for both
+  let user = await userPromise
+  let posts = await postsPromise
+  
+  -- Check for errors
+  if user.err != null do
+    return { ok = null, err = user.err }
+  end
+  
+  if posts.err != null do
+    return { ok = null, err = posts.err }
+  end
+  
+  -- Return combined result
+  {
+    ok = {
+      user = parseUser(user.ok),
+      posts = parsePosts(posts.ok)
+    },
+    err = null
+  }
 end
 
--- Start both operations
-let userPromise = fetchUser("123")
-let postsPromise = fetchPosts("123")
+-- Usage
+let result = await fetchUserWithPosts("user-123")
+match result do
+  ok do
+    print("User: ${result.ok.user.name}")
+    print("Posts: ${result.ok.posts.length()}")
+  end
+  err do
+    print("Error: ${result.err}")
+  end
+end
+```
 
--- Wait for both
-let user = await userPromise
+## Example: Retry Logic
+
+```luma
+let retryAsync = fn(operation: fn(): Promise(Any), maxAttempts: Number) do
+  var attempt = 0
+  var lastError = null
+  
+  while attempt < maxAttempts do
+    let result = await operation()
+    
+    if result.err == null do
+      return result
+    end
+    
+    lastError = result.err
+    attempt = attempt + 1
+  end
+  
+  { ok = null, err = "Max attempts reached: ${lastError}" }
+end
+
+-- Usage
+let result = await retryAsync(fn() do
+  fetchData(url)
+end, 3)
+```
+
+## Async Best Practices
+
+1. **Start parallel operations early:**
+   ```luma
+   let p1 = operation1()       -- Start now
+   let p2 = operation2()       -- Start now
+   let r1 = await p1           -- Wait for results
+   let r2 = await p2
+   ```
+
+2. **Always handle errors:**
+   ```luma
+   let result = await operation()
+   if result.err != null do
+     -- Handle error
+   end
+   ```
+
+3. **Use Result types with async:**
+   ```luma
+   fn asyncOp(): Promise(Result(T, E)) do
+     -- Combine async with explicit error handling
+   end
+   ```
+
+4. **Avoid callback hell — use await:**
+   ```luma
+   -- Instead of nested callbacks, use await
+   let user = await fetchUser(id)
+   let posts = await fetchPosts(user.id)
+   let comments = await fetchComments(posts[0].id)
+   ```
+
+5. **Consider timeouts for slow operations:**
+   ```luma
+   let result = await timeout(slowOperation(), 30000)
+   ```
+
+## Runtime Considerations
+
+:::info
+The async runtime is currently under development. When available, Luma will use:
+- **Event loop** for managing promises
+- **Microtasks** for await continuations
+- **Work stealing** for efficient concurrency
+- **Cancellation tokens** for cleanup
+:::
+
+## Related Documentation
+
+- [Error Handling](./error-handling.md) — Combine with Result types
+- [Functions](../basics/functions.md) — Function syntax and types
+- [Control Flow](../basics/control-flow.md) — Loops with await
 let posts = await postsPromise
 ```

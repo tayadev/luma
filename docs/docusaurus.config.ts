@@ -64,7 +64,8 @@ const config: Config = {
       title: 'Luma',
       logo: {
         alt: 'Luma Logo',
-        src: 'img/logo.svg',
+        src: 'img/luma-icon.svg',
+        style: { height: '2rem', marginRight: '0.5rem' },
       },
       items: [
         {
