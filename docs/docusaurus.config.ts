@@ -41,7 +41,6 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          routeBasePath: '/luma/',
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
@@ -90,7 +89,7 @@ const config: Config = {
           items: [
             {
               label: 'Documentation',
-              to: '/intro',
+              to: '/docs/intro',
             },
           ],
         },
