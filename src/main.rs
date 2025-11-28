@@ -114,7 +114,13 @@ fn main() {
                 Err(errs) => {
                     eprintln!("Typecheck failed:");
                     for e in errs {
-                        eprintln!("- {}", e.message);
+                        let diag = luma::diagnostics::Diagnostic::error(
+                            luma::diagnostics::DiagnosticKind::Type,
+                            e.message,
+                            e.span.unwrap_or_else(|| luma::ast::Span::new(0, 0)),
+                            file.to_string()
+                        );
+                        eprintln!("{}", diag.format(&source));
                     }
                     process::exit(1);
                 }
@@ -201,7 +207,13 @@ fn run_file(file: &str) {
     if let Err(errs) = luma::typecheck::typecheck_program(&ast) {
         eprintln!("Typecheck failed:");
         for e in errs {
-            eprintln!("- {}", e.message);
+            let diag = luma::diagnostics::Diagnostic::error(
+                luma::diagnostics::DiagnosticKind::Type,
+                e.message,
+                e.span.unwrap_or_else(|| luma::ast::Span::new(0, 0)),
+                file.to_string()
+            );
+            eprintln!("{}", diag.format(&source));
         }
         process::exit(1);
     }

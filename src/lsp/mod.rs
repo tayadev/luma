@@ -82,19 +82,26 @@ impl LumaLanguageServer {
         match crate::parser::parse(content, &filename) {
             Ok(ast) => {
                 // Try to typecheck the AST
-                // Note: TypeError currently only has a message without span information,
-                // so we report them as document-level diagnostics at position (0, 0)
                 if let Err(type_errors) = crate::typecheck::typecheck_program(&ast) {
                     for err in type_errors {
+                        let (start_line, start_col, end_line, end_col) = if let Some(span) = err.span {
+                            let line_index = LineIndex::new(content);
+                            let (start_line, start_col) = line_index.line_col(span.start);
+                            let (end_line, end_col) = line_index.line_col(span.end);
+                            (start_line - 1, start_col - 1, end_line - 1, end_col - 1)
+                        } else {
+                            (0, 0, 0, 0)
+                        };
+
                         diagnostics.push(Diagnostic {
                             range: Range {
                                 start: Position {
-                                    line: 0,
-                                    character: 0,
+                                    line: start_line as u32,
+                                    character: start_col as u32,
                                 },
                                 end: Position {
-                                    line: 0,
-                                    character: 0,
+                                    line: end_line as u32,
+                                    character: end_col as u32,
                                 },
                             },
                             severity: Some(DiagnosticSeverity::ERROR),
