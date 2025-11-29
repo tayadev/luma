@@ -4,4 +4,4 @@ let c_def = ffi.def("
 ")
 
 let result = c_def.puts("FFI puts works!")
-result > 0
+result >= 0

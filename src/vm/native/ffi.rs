@@ -27,6 +27,9 @@ use std::rc::Rc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+#[cfg(windows)]
+use libloading::Library;
+
 /// Global counter for generating unique external handles
 static NEXT_EXTERNAL_HANDLE: AtomicUsize = AtomicUsize::new(1);
 
@@ -150,7 +153,31 @@ fn get_libc_symbol(name: &str) -> Option<*const c_void> {
         let ptr = unsafe { libc::dlsym(libc::RTLD_DEFAULT, name_cstr.as_ptr()) };
         if ptr.is_null() { None } else { Some(ptr) }
     }
-    #[cfg(not(unix))]
+
+    // On Windows, try to load symbols from common C runtime libraries
+    #[cfg(windows)]
+    {
+        // List of C runtime libraries to try on Windows
+        let lib_names = [
+            "ucrtbase.dll",
+            "msvcrt.dll",
+            "api-ms-win-crt-stdio-l1-1-0.dll",
+        ];
+
+        for lib_name in &lib_names {
+            if let Ok(lib) = unsafe { Library::new(lib_name) } {
+                if let Ok(symbol) = unsafe { lib.get::<*const c_void>(name.as_bytes()) } {
+                    let ptr = *symbol;
+                    // Leak the library to keep it loaded (similar to dlopen without dlclose)
+                    std::mem::forget(lib);
+                    return Some(ptr);
+                }
+            }
+        }
+        None
+    }
+
+    #[cfg(not(any(unix, windows)))]
     {
         let _ = name;
         None
