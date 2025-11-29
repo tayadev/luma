@@ -294,9 +294,10 @@ pub fn native_ffi_dispatch(func_name: &str, args: &[Value]) -> Result<Value, Str
 
     // Convert Luma values to C arguments
     // We need to keep the data alive until after the call
-    let mut ptr_storage: Vec<*const c_void> = Vec::new();
-    let mut int_storage: Vec<libc::c_int> = Vec::new();
-    let mut cstring_storage: Vec<CString> = Vec::new();
+    // Pre-allocate with sufficient capacity to avoid reallocations
+    let mut ptr_storage: Vec<*const c_void> = Vec::with_capacity(args.len());
+    let mut int_storage: Vec<libc::c_int> = Vec::with_capacity(args.len());
+    let mut cstring_storage: Vec<CString> = Vec::with_capacity(args.len());
 
     for (i, (arg_val, param_type)) in args.iter().zip(func_def.param_types.iter()).enumerate() {
         match (arg_val, param_type) {
@@ -310,11 +311,13 @@ pub fn native_ffi_dispatch(func_name: &str, args: &[Value]) -> Result<Value, Str
                     if let Some(cstr) = cstring_reg.get(handle) {
                         ptr_storage.push(cstr.as_ptr() as *const c_void);
                     } else {
+                        drop(cstring_reg); // Explicitly drop to release lock
                         // Check if it's allocated memory from ffi.new()
                         let alloc_reg = ALLOCATED_MEMORY.lock().unwrap();
                         if let Some((ptr_addr, _size)) = alloc_reg.get(handle) {
                             ptr_storage.push(*ptr_addr as *const c_void);
                         } else {
+                            drop(alloc_reg); // Explicitly drop lock
                             // Use handle as raw pointer
                             ptr_storage.push(*handle as *const c_void);
                         }
@@ -345,8 +348,11 @@ pub fn native_ffi_dispatch(func_name: &str, args: &[Value]) -> Result<Value, Str
         }
     }
 
-    // Build the argument list using indices
-    let mut ffi_args: Vec<Arg> = Vec::new();
+    // Build the argument list from the stable storage vectors
+    // The arg() function takes a reference that must be valid during cif.call()
+    // Since ptr_storage and int_storage are not moved after this point, their
+    // addresses remain stable through the FFI call.
+    let mut ffi_args: Vec<Arg> = Vec::with_capacity(func_def.param_types.len());
     let mut ptr_idx = 0usize;
     let mut int_idx = 0usize;
 

@@ -1,0 +1,44 @@
+let c_def = ffi.def("typedef struct FILE FILE;
+FILE *fopen(const char *path, const char *mode);
+int fclose(FILE *stream);
+char *fgets(char *str, int n, FILE *stream);
+int fputs(const char *str, FILE *stream);
+")
+
+
+let File = {
+  c_file = External,
+
+  close = fn(self: File) do
+    c_def.fclose(self.c_file)
+  end,
+
+  read = fn(self: File, size: Number): String do
+    let buffer = ffi.new("char[${size}]")
+    let result = c_def.fgets(buffer, size, self.c_file)
+    if result == null do
+        return ""
+    end
+    return result
+  end,
+
+  write = fn(self: File, data: String): Number do
+    let strptr = ffi.new_cstr(data)
+    return c_def.fputs(strptr, self.c_file)
+  end,
+
+  __gc = fn(self: File) do
+    self.close()
+  end,
+
+  open = fn(path: String): File do
+    let c_file = c_def.fopen(path, "w+")
+    if c_file == null do
+      panic("Failed to open file: " + path)
+    end
+
+    return cast(File, {c_file})
+  end
+}
+
+File.open("example.txt"):write("Hello, Luma!\n")
