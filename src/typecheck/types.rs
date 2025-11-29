@@ -62,7 +62,7 @@ impl std::fmt::Display for TcType {
             TcType::String => write!(f, "String"),
             TcType::Boolean => write!(f, "Boolean"),
             TcType::Null => write!(f, "Null"),
-            TcType::List(inner) => write!(f, "List({})", inner),
+            TcType::List(inner) => write!(f, "List({inner})"),
             TcType::Table => write!(f, "Table"),
             TcType::TableWithFields(fields) => {
                 write!(f, "Table({})", fields.join(", "))
@@ -73,9 +73,9 @@ impl std::fmt::Display for TcType {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", param)?;
+                    write!(f, "{param}")?;
                 }
-                write!(f, ") -> {}", ret)
+                write!(f, ") -> {ret}")
             }
         }
     }

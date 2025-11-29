@@ -18,7 +18,7 @@ impl TypeEnv {
                 if let Some(info) = self.lookup(name) {
                     info.ty.clone()
                 } else {
-                    self.error(format!("Undefined variable: {}", name), *span);
+                    self.error(format!("Undefined variable: {name}"), *span);
                     TcType::Unknown
                 }
             }
@@ -33,8 +33,7 @@ impl TypeEnv {
                         if !ty.is_compatible(&first_ty) {
                             self.error(
                                 format!(
-                                    "List elements have inconsistent types: {} vs {}",
-                                    first_ty, ty
+                                    "List elements have inconsistent types: {first_ty} vs {ty}"
                                 ),
                                 elem.span(),
                             );
@@ -129,7 +128,7 @@ impl TypeEnv {
                 let path_ty = self.check_expr(path);
                 if !path_ty.is_compatible(&TcType::String) && path_ty != TcType::Unknown {
                     self.error(
-                        format!("Import path should be a String, got {}", path_ty),
+                        format!("Import path should be a String, got {path_ty}"),
                         *span,
                     );
                 }
@@ -165,8 +164,7 @@ impl TypeEnv {
                 } else {
                     self.error(
                         format!(
-                            "ADD requires (Number, Number) or (String, String), got ({}, {})",
-                            left_ty, right_ty
+                            "ADD requires (Number, Number) or (String, String), got ({left_ty}, {right_ty})"
                         ),
                         span,
                     );
@@ -196,8 +194,7 @@ impl TypeEnv {
                     } else {
                         self.error(
                             format!(
-                                "Arithmetic op {:?} requires Number operands or type with {} method, got ({}, {})",
-                                op, method_name, left_ty, right_ty
+                                "Arithmetic op {op:?} requires Number operands or type with {method_name} method, got ({left_ty}, {right_ty})"
                             ),
                             span,
                         );
@@ -232,8 +229,7 @@ impl TypeEnv {
                     } else {
                         self.error(
                             format!(
-                                "Comparison op {:?} requires Number operands or type with {} method, got ({}, {})",
-                                op, method_name, left_ty, right_ty
+                                "Comparison op {op:?} requires Number operands or type with {method_name} method, got ({left_ty}, {right_ty})"
                             ),
                             span,
                         );
@@ -255,8 +251,7 @@ impl TypeEnv {
                 } else {
                     self.error(
                         format!(
-                            "Unary negation requires Number or type with __neg method, got {}",
-                            ty
+                            "Unary negation requires Number or type with __neg method, got {ty}"
                         ),
                         span,
                     );
@@ -299,8 +294,7 @@ impl TypeEnv {
                         if !arg_ty.is_compatible(param_ty) {
                             self.error(
                                 format!(
-                                    "Function call: argument {} expected {}, got {}",
-                                    i, param_ty, arg_ty
+                                    "Function call: argument {i} expected {param_ty}, got {arg_ty}"
                                 ),
                                 arg_expr.span(),
                             );
@@ -322,7 +316,7 @@ impl TypeEnv {
             }
             _ => {
                 self.error(
-                    format!("Call expression requires a function, got {}", callee_ty),
+                    format!("Call expression requires a function, got {callee_ty}"),
                     span,
                 );
                 TcType::Unknown
@@ -336,14 +330,14 @@ impl TypeEnv {
             TcType::Table => TcType::Unknown, // dynamic tables allowed
             TcType::TableWithFields(ref fields) => {
                 if !fields.contains(&member.to_string()) && self.in_match_arm_depth == 0 {
-                    self.error(format!("Unknown field '{}' on table", member), span);
+                    self.error(format!("Unknown field '{member}' on table"), span);
                 }
                 TcType::Unknown
             }
             TcType::Unknown | TcType::Any => TcType::Unknown,
             _ => {
                 self.error(
-                    format!("Member access requires a table, got {}", obj_ty),
+                    format!("Member access requires a table, got {obj_ty}"),
                     span,
                 );
                 TcType::Unknown
@@ -358,20 +352,20 @@ impl TypeEnv {
         match obj_ty {
             TcType::List(elem_ty) => {
                 if !idx_ty.is_compatible(&TcType::Number) {
-                    self.error(format!("List index requires Number, got {}", idx_ty), span);
+                    self.error(format!("List index requires Number, got {idx_ty}"), span);
                 }
                 (*elem_ty).clone()
             }
             TcType::Table | TcType::TableWithFields(_) => {
                 if !idx_ty.is_compatible(&TcType::String) {
-                    self.error(format!("Table index requires String, got {}", idx_ty), span);
+                    self.error(format!("Table index requires String, got {idx_ty}"), span);
                 }
                 TcType::Unknown
             }
             TcType::Unknown | TcType::Any => TcType::Unknown,
             _ => {
                 self.error(
-                    format!("Index operation requires List or Table, got {}", obj_ty),
+                    format!("Index operation requires List or Table, got {obj_ty}"),
                     span,
                 );
                 TcType::Unknown
@@ -412,10 +406,7 @@ impl TypeEnv {
 
         if !actual_ret.is_compatible(&expected_ret) && expected_ret != TcType::Unknown {
             self.error(
-                format!(
-                    "Function return type mismatch: declared {}, got {}",
-                    expected_ret, actual_ret
-                ),
+                format!("Function return type mismatch: declared {expected_ret}, got {actual_ret}"),
                 span,
             );
         }
@@ -446,7 +437,7 @@ impl TypeEnv {
         let cond_ty = self.check_expr(condition);
         if !cond_ty.is_compatible(&TcType::Boolean) && cond_ty != TcType::Unknown {
             self.error(
-                format!("If condition should be Boolean, got {}", cond_ty),
+                format!("If condition should be Boolean, got {cond_ty}"),
                 span,
             );
         }
@@ -469,10 +460,7 @@ impl TypeEnv {
                 else_ty
             } else {
                 self.error(
-                    format!(
-                        "If branches have incompatible types: {} vs {}",
-                        then_ty, else_ty
-                    ),
+                    format!("If branches have incompatible types: {then_ty} vs {else_ty}"),
                     span,
                 );
                 TcType::Unknown
@@ -515,10 +503,7 @@ impl TypeEnv {
                     unified_ret = Some(arm_ret);
                 } else {
                     self.error(
-                        format!(
-                            "Match arms have incompatible types: {} vs {}",
-                            current, arm_ret
-                        ),
+                        format!("Match arms have incompatible types: {current} vs {arm_ret}"),
                         span,
                     );
                     unified_ret = Some(TcType::Unknown);

@@ -61,7 +61,7 @@ impl TypeEnv {
                 }
                 _ => {
                     self.error(
-                        format!("List pattern requires List type, got {}", ty),
+                        format!("List pattern requires List type, got {ty}"),
                         pattern.span(),
                     );
                 }
@@ -122,7 +122,7 @@ impl TypeEnv {
                     }
                     _ => {
                         self.error(
-                            format!("Table pattern requires Table type, got {}", ty),
+                            format!("Table pattern requires Table type, got {ty}"),
                             pattern.span(),
                         );
                     }
@@ -218,7 +218,7 @@ impl TypeEnv {
             for &tag in &tags {
                 if !fields.contains(&tag.to_string()) {
                     self.error(
-                        format!("Match tag '{}' not present on matched table type", tag),
+                        format!("Match tag '{tag}' not present on matched table type"),
                         match_span,
                     );
                 }
@@ -248,8 +248,7 @@ impl TypeEnv {
         // If we have tags but not all variants, not exhaustive
         if !tags.is_empty() {
             self.error(format!(
-                "Match expression is not exhaustive: found tags {:?} but missing wildcard or all variants (e.g., ok/err or some/none)",
-                tags
+                "Match expression is not exhaustive: found tags {tags:?} but missing wildcard or all variants (e.g., ok/err or some/none)"
             ), match_span);
             return;
         }

@@ -57,10 +57,7 @@ impl TypeEnv {
                     ret_ty = self.check_expr(expr);
                     if !ret_ty.is_compatible(expected_ret) && *expected_ret != TcType::Unknown {
                         self.error(
-                            format!(
-                                "Return type mismatch: expected {}, got {}",
-                                expected_ret, ret_ty
-                            ),
+                            format!("Return type mismatch: expected {expected_ret}, got {ret_ty}"),
                             *span,
                         );
                     }
@@ -122,10 +119,7 @@ impl TypeEnv {
                             let t = Self::type_from_ast(ty);
                             if !val_ty.is_compatible(&t) {
                                 self.error(
-                                    format!(
-                                        "Variable {}: declared type {}, got {}",
-                                        name, t, val_ty
-                                    ),
+                                    format!("Variable {name}: declared type {t}, got {val_ty}"),
                                     *span,
                                 );
                             }
@@ -154,10 +148,7 @@ impl TypeEnv {
                     let declared = Self::type_from_ast(ty);
                     if !value_ty.is_compatible(&declared) {
                         self.error(
-                            format!(
-                                "Variable {}: declared type {}, got {}",
-                                name, declared, value_ty
-                            ),
+                            format!("Variable {name}: declared type {declared}, got {value_ty}"),
                             *span,
                         );
                     }
@@ -185,10 +176,7 @@ impl TypeEnv {
 
                 if !value_ty.is_compatible(&target_ty) {
                     self.error(
-                        format!(
-                            "Assignment type mismatch: target {}, value {}",
-                            target_ty, value_ty
-                        ),
+                        format!("Assignment type mismatch: target {target_ty}, value {value_ty}"),
                         *span,
                     );
                 }
@@ -272,7 +260,7 @@ impl TypeEnv {
                     }
                     _ => {
                         self.error(
-                            format!("For loop requires List or Table iterator, got {}", iter_ty),
+                            format!("For loop requires List or Table iterator, got {iter_ty}"),
                             *span,
                         );
                         self.check_pattern(pattern, &TcType::Unknown, true, false);
@@ -308,13 +296,13 @@ impl TypeEnv {
                     let mutable = info.mutable;
                     if !mutable {
                         self.error(
-                            format!("Cannot assign to immutable variable: {}", name),
+                            format!("Cannot assign to immutable variable: {name}"),
                             *span,
                         );
                     }
                     ty
                 } else {
-                    self.error(format!("Undefined variable: {}", name), *span);
+                    self.error(format!("Undefined variable: {name}"), *span);
                     TcType::Unknown
                 }
             }
@@ -329,7 +317,7 @@ impl TypeEnv {
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
                         self.error(
-                            format!("Member assignment requires a table, got {}", obj_ty),
+                            format!("Member assignment requires a table, got {obj_ty}"),
                             *span,
                         );
                         TcType::Unknown
@@ -347,26 +335,20 @@ impl TypeEnv {
                 match obj_ty {
                     TcType::List(elem_ty) => {
                         if !idx_ty.is_compatible(&TcType::Number) {
-                            self.error(
-                                format!("List index requires Number, got {}", idx_ty),
-                                *span,
-                            );
+                            self.error(format!("List index requires Number, got {idx_ty}"), *span);
                         }
                         (*elem_ty).clone()
                     }
                     TcType::Table => {
                         if !idx_ty.is_compatible(&TcType::String) {
-                            self.error(
-                                format!("Table index requires String, got {}", idx_ty),
-                                *span,
-                            );
+                            self.error(format!("Table index requires String, got {idx_ty}"), *span);
                         }
                         TcType::Unknown
                     }
                     TcType::Unknown | TcType::Any => TcType::Unknown,
                     _ => {
                         self.error(
-                            format!("Index assignment requires List or Table, got {}", obj_ty),
+                            format!("Index assignment requires List or Table, got {obj_ty}"),
                             *span,
                         );
                         TcType::Unknown

@@ -269,7 +269,7 @@ impl TypeEnv {
         let ty = self.check_expr(expr);
         if !ty.is_compatible(expected) {
             self.error(
-                format!("{}: expected {}, got {}", context, expected, ty),
+                format!("{context}: expected {expected}, got {ty}"),
                 expr.span(),
             );
         }
