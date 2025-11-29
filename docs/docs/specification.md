@@ -814,7 +814,7 @@ Pattern matching must be exhaustive. If not all cases are covered, a `_` wildcar
 
 ### 9. Modules and Imports
 
-### 11.1 Import Syntax
+### 9.1 Import Syntax
 
 ```luma
 let module = import("source")
@@ -822,29 +822,29 @@ let module = import("source")
 
 `import()` is a built-in function that loads and evaluates a module, returning its exported value.
 
-### 11.2 Import Sources
+### 9.2 Import Sources
 
-#### 11.2.1 Local Files
+#### 9.2.1 Local Files
 
 ```luma
 let utils = import("./utils.luma")
 let lib = import("../lib/helpers.luma")
 ```
 
-#### 11.2.2 HTTP/HTTPS URLs
+#### 9.2.2 HTTP/HTTPS URLs
 
 ```luma
 let http = import("https://example.com/http.luma")
 ```
 
-#### 11.2.3 Git Repositories
+#### 9.2.3 Git Repositories
 
 ```luma
 let lib = import("git@github.com:user/repo.git")
 let tagged = import("gh:user/repo@1.2.3")
 ```
 
-### 11.3 Module Resolution
+### 9.3 Module Resolution
 
 **For URLs:**
 1. Download file to local cache (`~/.luma/cache`)
@@ -855,7 +855,7 @@ let tagged = import("gh:user/repo@1.2.3")
 **For directories:**
 - If path is directory, look for `main.luma`
 
-### 11.4 Module Exports
+### 9.4 Module Exports
 
 Modules export the value of their last expression:
 
@@ -880,7 +880,7 @@ print(math.pi)                     -- 3.14159
 print(math.add(2, 3))              -- 5
 ```
 
-### 11.5 Dependency Locking
+### 9.5 Dependency Locking
 
 Dependencies are locked by adding a second argument to `import()`:
 
@@ -888,7 +888,7 @@ Dependencies are locked by adding a second argument to `import()`:
 let lib = import("https://example.com/lib.luma", "sha256:abcdef1234567890...")
 ```
 
-### 11.6 Circular Dependencies
+### 9.6 Circular Dependencies
 
 Circular imports are detected and result in an error:
 

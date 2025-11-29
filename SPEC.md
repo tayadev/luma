@@ -1,3 +1,5 @@
+I AM MOVING THE SPEC TO /docs/specification.md, THIS FILE WILL BE DEPRECATED.
+
 # The Luma Language Specification
 
 **Version:** 0.1.0  
