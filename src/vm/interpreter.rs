@@ -98,6 +98,7 @@ impl VM {
         vm.register_native_function("ffi.new_cstr", 1, native_ffi_new_cstr);
         vm.register_native_function("ffi.nullptr", 0, native_ffi_nullptr);
         vm.register_native_function("ffi.is_null", 1, native_ffi_is_null);
+        vm.register_native_function("ffi.free_cstr", 1, native_ffi_free_cstr);
         vm.register_native_function("ffi.call", 0, native_ffi_call);
 
         // Expose file descriptor constants

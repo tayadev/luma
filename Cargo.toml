@@ -24,6 +24,9 @@ zip = "2.1"
 bytes = "1.0"
 tower-lsp = "0.20"
 tokio = { version = "1", features = ["full"] }
+libffi = "5.0.0"
+libc = "0.2"
+libloading = "0.8"
 
 [dev-dependencies.cargo-husky]
 version = "1"

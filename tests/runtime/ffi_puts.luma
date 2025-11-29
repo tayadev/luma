@@ -1,0 +1,7 @@
+-- Test FFI puts function
+let c_def = ffi.def("
+  int puts(const char *s);
+")
+
+let result = c_def.puts("FFI puts works!")
+result > 0
