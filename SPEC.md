@@ -460,6 +460,75 @@ func(a = 1, b = 2)         -- named arguments
 
 **Parentheses are required** for all function calls.
 
+### 4.8.1 Method Dispatch with `:`
+
+Luma supports method dispatch using the colon operator `:`, similar to Lua. This provides convenient syntax for calling methods on objects where the object is automatically passed as the first argument (`self`).
+
+**Syntax:**
+```luma
+object:method()
+object:method(arg1, arg2)
+object:method(name = value)
+```
+
+**Semantics:**
+
+The `:` operator is syntactic sugar that automatically inserts the object as the first positional argument. These two calls are equivalent:
+
+```luma
+let dog = { name = "Rex", speak = fn(self, greeting): String do
+  return "${greeting}, I'm ${self.name}"
+end }
+
+dog:speak("Woof")                -- method call with :
+dog.speak(dog, "Woof")           -- equivalent regular call
+```
+
+**Key features:**
+- The object before `:` is implicitly passed as the first argument
+- All other arguments are passed normally after the object
+- Named arguments work as expected
+- The method must be a function stored in the object
+
+**Example:**
+```luma
+let Vector2 = {
+  x = 0,
+  y = 0,
+  
+  magnitude = fn(self): Number do
+    return (self.x * self.x + self.y * self.y).sqrt()
+  end,
+  
+  add = fn(self, other: Table): Table do
+    return {
+      x = self.x + other.x,
+      y = self.y + other.y
+    }
+  end
+}
+
+let v1 = Vector2
+let v2 = { x = 3, y = 4 }
+
+-- Method dispatch with :
+let mag = v1:magnitude()              -- calls magnitude(v1)
+let result = v1:add(v2)               -- calls add(v1, v2)
+
+-- Equivalent to:
+let mag2 = v1.magnitude(v1)
+let result2 = v1.add(v1, v2)
+```
+
+**Operator precedence:**
+
+The `:` operator has the same precedence as `.` and `[]`, forming left-associative postfix operations:
+
+```luma
+object:method(arg1):field[0]        -- valid chaining
+obj:method1():method2()              -- chaining method calls
+```
+
 ### 4.9 Block Expressions
 
 Blocks evaluate to the value of their last expression:

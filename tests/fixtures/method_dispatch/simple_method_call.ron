@@ -1,0 +1,82 @@
+#![enable(implicit_some)]
+(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "obj",
+            value: Table(
+                fields: [
+                    (Identifier("greet"), Function(
+                        arguments: [
+                            (
+                                name: "self",
+                                type: Any(
+                                    span: (
+                                        start: 29,
+                                        end: 32,
+                                    ),
+                                ),
+                                default: None,
+                            ),
+                        ],
+                        return_type: TypeIdent(
+                            name: "String",
+                            span: (
+                                start: 35,
+                                end: 41,
+                            ),
+                        ),
+                        body: [
+                            Return(
+                                value: String(
+                                    value: "Hello",
+                                    span: (
+                                        start: 54,
+                                        end: 61,
+                                    ),
+                                ),
+                                span: (
+                                    start: 47,
+                                    end: 62,
+                                ),
+                            ),
+                        ],
+                        span: (
+                            start: 20,
+                            end: 66,
+                        ),
+                    )),
+                ],
+                span: (
+                    start: 10,
+                    end: 69,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 69,
+            ),
+        ),
+        Return(
+            value: MethodCall(
+                object: Identifier(
+                    name: "obj",
+                    span: (
+                        start: 69,
+                        end: 72,
+                    ),
+                ),
+                method: "greet",
+                arguments: [],
+                span: (
+                    start: 69,
+                    end: 81,
+                ),
+            ),
+            span: (
+                start: 69,
+                end: 81,
+            ),
+        ),
+    ],
+)

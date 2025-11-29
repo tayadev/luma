@@ -88,6 +88,28 @@ impl TypeEnv {
                 span,
             } => self.check_call_expr(callee, arguments, *span),
 
+            Expr::MethodCall {
+                object,
+                method,
+                arguments,
+                span,
+            } => {
+                // Type check the object
+                let obj_ty = self.check_expr(object);
+
+                // Check that the object has the method (similar to member access)
+                let _ = self.check_member_access(object, method, *span);
+
+                // Check all the arguments
+                for arg in arguments {
+                    self.check_expr(match arg {
+                        CallArgument::Positional(e) => e,
+                        CallArgument::Named { value, .. } => value,
+                    });
+                }
+                obj_ty
+            }
+
             Expr::MemberAccess {
                 object,
                 member,

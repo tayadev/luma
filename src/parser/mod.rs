@@ -158,6 +158,11 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
 
     let member_access = just('.').padded_by(ws.clone()).ignore_then(ident.clone());
 
+    let method_call = just(':')
+        .padded_by(ws.clone())
+        .ignore_then(ident.clone())
+        .then(call_args.clone());
+
     let index = expr_ref.clone().delimited_by(
         just('[').padded_by(ws.clone()),
         just(']').padded_by(ws.clone()),
@@ -167,10 +172,14 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     enum PostfixOp {
         Call(Vec<CallArgument>),
         Member(String),
+        MethodCall(String, Vec<CallArgument>),
         Index(Box<Expr>),
     }
 
     let postfix_op = choice((
+        method_call.map(|(method, args): (&str, Vec<CallArgument>)| {
+            PostfixOp::MethodCall(method.to_string(), args)
+        }),
         call_args.map(PostfixOp::Call),
         member_access.map(|m: &str| PostfixOp::Member(m.to_string())),
         index.map(|e| PostfixOp::Index(Box::new(e))),
@@ -192,6 +201,12 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
                     PostfixOp::Member(member) => Expr::MemberAccess {
                         object: Box::new(expr),
                         member,
+                        span: Some(crate::ast::Span::new(expr_span, span.end)),
+                    },
+                    PostfixOp::MethodCall(method, arguments) => Expr::MethodCall {
+                        object: Box::new(expr),
+                        method,
+                        arguments,
                         span: Some(crate::ast::Span::new(expr_span, span.end)),
                     },
                     PostfixOp::Index(index) => Expr::Index {

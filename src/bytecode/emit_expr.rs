@@ -224,6 +224,29 @@ impl Compiler {
                         .push(Instruction::Call(param_names.len()));
                 }
             }
+            Expr::MethodCall {
+                object,
+                method,
+                arguments,
+                ..
+            } => {
+                // Desugar: object:method(args) to object.method(object, args)
+                self.emit_expr(object);
+                let method_idx = self.push_const(Constant::String(method.clone()));
+                self.chunk
+                    .instructions
+                    .push(Instruction::GetProp(method_idx));
+                self.emit_expr(object); // Insert object as first argument
+                for arg in arguments {
+                    match arg {
+                        CallArgument::Positional(expr) => self.emit_expr(expr),
+                        CallArgument::Named { value, .. } => self.emit_expr(value),
+                    }
+                }
+                self.chunk
+                    .instructions
+                    .push(Instruction::Call(arguments.len() + 1));
+            }
             Expr::Block {
                 statements: stmts, ..
             } => {

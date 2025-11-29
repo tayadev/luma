@@ -1,0 +1,5 @@
+let point = { x = 0, y = 0, add = fn(self: Any, dx: Number, dy: Number) do
+  self.x + dx + dy
+end }
+
+point:add(5, 3)

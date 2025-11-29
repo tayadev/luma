@@ -109,6 +109,16 @@ pub enum Expr {
         #[serde(default)]
         span: Option<Span>,
     },
+    /// Method call with colon operator: object:method(args)
+    /// Desugars to: object.method(object, args)
+    MethodCall {
+        object: Box<Expr>,
+        method: String,
+        arguments: Vec<CallArgument>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
     MemberAccess {
         object: Box<Expr>,
         member: String,
@@ -169,6 +179,7 @@ impl Expr {
             Expr::Unary { span, .. } => *span,
             Expr::Logical { span, .. } => *span,
             Expr::Call { span, .. } => *span,
+            Expr::MethodCall { span, .. } => *span,
             Expr::MemberAccess { span, .. } => *span,
             Expr::Index { span, .. } => *span,
             Expr::If { span, .. } => *span,

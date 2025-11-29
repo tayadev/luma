@@ -1,0 +1,5 @@
+let obj = { calc = fn(self: Any, a: Number, b: Number) do
+  self.value + a + b
+end, value = 10 }
+
+obj:calc(a = 5, b = 3)

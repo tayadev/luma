@@ -133,6 +133,17 @@ fn verify_expr_spans(expr: &Expr) -> Result<(), String> {
                 }
             }
         }
+        Expr::MethodCall {
+            object, arguments, ..
+        } => {
+            verify_expr_spans(object)?;
+            for arg in arguments {
+                match arg {
+                    luma::ast::CallArgument::Positional(e) => verify_expr_spans(e)?,
+                    luma::ast::CallArgument::Named { value, .. } => verify_expr_spans(value)?,
+                }
+            }
+        }
         Expr::MemberAccess { object, .. } => verify_expr_spans(object)?,
         Expr::Index { object, index, .. } => {
             verify_expr_spans(object)?;

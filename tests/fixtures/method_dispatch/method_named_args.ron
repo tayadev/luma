@@ -1,0 +1,161 @@
+#![enable(implicit_some)]
+(
+    statements: [
+        VarDecl(
+            mutable: false,
+            name: "obj",
+            value: Table(
+                fields: [
+                    (Identifier("calc"), Function(
+                        arguments: [
+                            (
+                                name: "self",
+                                type: Any(
+                                    span: (
+                                        start: 28,
+                                        end: 31,
+                                    ),
+                                ),
+                                default: None,
+                            ),
+                            (
+                                name: "a",
+                                type: TypeIdent(
+                                    name: "Number",
+                                    span: (
+                                        start: 36,
+                                        end: 42,
+                                    ),
+                                ),
+                                default: None,
+                            ),
+                            (
+                                name: "b",
+                                type: TypeIdent(
+                                    name: "Number",
+                                    span: (
+                                        start: 47,
+                                        end: 53,
+                                    ),
+                                ),
+                                default: None,
+                            ),
+                        ],
+                        return_type: None,
+                        body: [
+                            Return(
+                                value: Binary(
+                                    left: Binary(
+                                        left: MemberAccess(
+                                            object: Identifier(
+                                                name: "self",
+                                                span: (
+                                                    start: 60,
+                                                    end: 64,
+                                                ),
+                                            ),
+                                            member: "value",
+                                            span: (
+                                                start: 60,
+                                                end: 71,
+                                            ),
+                                        ),
+                                        op: Add,
+                                        right: Identifier(
+                                            name: "a",
+                                            span: (
+                                                start: 73,
+                                                end: 75,
+                                            ),
+                                        ),
+                                        span: (
+                                            start: 60,
+                                            end: 79,
+                                        ),
+                                    ),
+                                    op: Add,
+                                    right: Identifier(
+                                        name: "b",
+                                        span: (
+                                            start: 77,
+                                            end: 79,
+                                        ),
+                                    ),
+                                    span: (
+                                        start: 60,
+                                        end: 79,
+                                    ),
+                                ),
+                                span: (
+                                    start: 60,
+                                    end: 79,
+                                ),
+                            ),
+                        ],
+                        span: (
+                            start: 19,
+                            end: 82,
+                        ),
+                    )),
+                    (Identifier("value"), Number(
+                        value: 10.0,
+                        span: (
+                            start: 92,
+                            end: 94,
+                        ),
+                    )),
+                ],
+                span: (
+                    start: 10,
+                    end: 98,
+                ),
+            ),
+            span: (
+                start: 0,
+                end: 98,
+            ),
+        ),
+        Return(
+            value: MethodCall(
+                object: Identifier(
+                    name: "obj",
+                    span: (
+                        start: 98,
+                        end: 101,
+                    ),
+                ),
+                method: "calc",
+                arguments: [
+                    Named(
+                        name: "a",
+                        value: Number(
+                            value: 5.0,
+                            span: (
+                                start: 111,
+                                end: 112,
+                            ),
+                        ),
+                    ),
+                    Named(
+                        name: "b",
+                        value: Number(
+                            value: 3.0,
+                            span: (
+                                start: 118,
+                                end: 119,
+                            ),
+                        ),
+                    ),
+                ],
+                span: (
+                    start: 98,
+                    end: 121,
+                ),
+            ),
+            span: (
+                start: 98,
+                end: 121,
+            ),
+        ),
+    ],
+)
