@@ -8,6 +8,7 @@ mod lexer;
 mod literals;
 mod operators;
 mod patterns;
+pub mod recovery;
 mod statements;
 mod string;
 mod types;
@@ -377,11 +378,22 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         expr_stmt,
     ))
     .boxed();
+
+    // For nested statements (inside blocks), don't use recovery
+    // to preserve block structure integrity
     stmt_ref.define(stmt.clone());
+
+    // At the top level, add error recovery to statement parsing.
+    // When parsing fails, skip to the next statement boundary and continue.
+    let stmt_with_recovery = stmt
+        .clone()
+        .recover_with(via_parser(recovery::statement_recovery()))
+        .boxed();
 
     // Program: statements with optional trailing expression -> Return
     ws.clone().ignore_then(
-        stmt.clone()
+        stmt_with_recovery
+            .clone()
             .repeated()
             .collect::<Vec<Stmt>>()
             .then(expr_ref.clone().or_not())
@@ -394,8 +406,13 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
 }
 
 pub fn parse(source: &str, filename: &str) -> Result<Program, Vec<Diagnostic>> {
-    match parser().parse(source).into_result() {
-        Ok(program) => Ok(program),
-        Err(errs) => Err(errors::errors_to_diagnostics(errs, filename)),
+    let (output, errs) = parser().parse(source).into_output_errors();
+
+    if errs.is_empty() {
+        // No errors, return the parsed program
+        Ok(output.expect("Parser should produce output when no errors"))
+    } else {
+        // Errors occurred - return all accumulated errors
+        Err(errors::errors_to_diagnostics(errs, filename))
     }
 }
