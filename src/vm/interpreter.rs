@@ -93,9 +93,28 @@ impl VM {
         // Register panic function
         vm.register_native_function("panic", 1, native_panic);
 
+        // Register FFI functions
+        vm.register_native_function("ffi.def", 1, native_ffi_def);
+        vm.register_native_function("ffi.new_cstr", 1, native_ffi_new_cstr);
+        vm.register_native_function("ffi.nullptr", 0, native_ffi_nullptr);
+        vm.register_native_function("ffi.is_null", 1, native_ffi_is_null);
+        vm.register_native_function("ffi.call", 0, native_ffi_call);
+
         // Expose file descriptor constants
         vm.globals.insert("STDOUT".to_string(), Value::Number(1.0));
         vm.globals.insert("STDERR".to_string(), Value::Number(2.0));
+
+        // Expose ffi module
+        vm.globals.insert("ffi".to_string(), create_ffi_module());
+
+        // Expose External type marker
+        vm.globals.insert(
+            "External".to_string(),
+            Value::External {
+                handle: 0,
+                type_name: "External".to_string(),
+            },
+        );
 
         // Load prelude
         if let Err(e) = vm.load_prelude() {

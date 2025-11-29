@@ -1,0 +1,9 @@
+-- Test ffi.def() function
+let c_def = ffi.def("
+  typedef struct FILE FILE;
+  FILE *fopen(const char *path, const char *mode);
+  int fclose(FILE *stream);
+")
+
+-- The result should be a table with the defined function names
+c_def.__ffi_def
