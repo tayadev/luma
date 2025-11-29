@@ -4,7 +4,7 @@ Reference implementation of the Luma programming language.
 
 ## Quick Links
 
-- **[Language Specification (SPEC.md)](SPEC.md)** - Complete language reference with syntax, semantics, and examples
+- **[Language Specification](https://tayadev.github.io/luma/specification)** - Complete language reference with syntax, semantics, and examples
 
 ## Installation
 
