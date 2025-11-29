@@ -704,8 +704,9 @@ impl VM {
                 arity: fn_arity,
             } => {
                 if arity != fn_arity {
+                    let fn_name = &fn_chunk.name;
                     return Err(
-                        self._error(format!("Arity mismatch: expected {fn_arity}, got {arity}"))
+                        self._error(format!("Arity mismatch in function '{fn_name}': expected {fn_arity} argument(s), got {arity}"))
                     );
                 }
                 let frame = CallFrame {
@@ -730,8 +731,9 @@ impl VM {
                 upvalues: fn_upvalues,
             } => {
                 if arity != fn_arity {
+                    let fn_name = &fn_chunk.name;
                     return Err(
-                        self._error(format!("Arity mismatch: expected {fn_arity}, got {arity}"))
+                        self._error(format!("Arity mismatch in function '{fn_name}': expected {fn_arity} argument(s), got {arity}"))
                     );
                 }
                 let frame = CallFrame {
@@ -767,10 +769,9 @@ impl VM {
                         "ffi.free_cstr",
                     ]
                     .contains(&name.as_str());
-
                 if name != "print" && !is_ffi_dispatch && arity != fn_arity {
                     return Err(
-                        self._error(format!("Arity mismatch: expected {fn_arity}, got {arity}"))
+                        self._error(format!("Arity mismatch in function '{name}': expected {fn_arity} argument(s), got {arity}"))
                     );
                 }
                 let args: Vec<Value> = self.stack.drain(callee_idx + 1..).collect();
