@@ -103,12 +103,19 @@ impl VM {
         vm.register_native_function("ffi.free_cstr", 1, native_ffi_free_cstr);
         vm.register_native_function("ffi.call", 0, native_ffi_call);
 
+        // Register process functions
+        vm.register_native_function("process.exit", 1, native_process_exit);
+
         // Expose file descriptor constants
         vm.globals.insert("STDOUT".to_string(), Value::Number(1.0));
         vm.globals.insert("STDERR".to_string(), Value::Number(2.0));
 
         // Expose ffi module
         vm.globals.insert("ffi".to_string(), create_ffi_module());
+
+        // Expose process module
+        vm.globals
+            .insert("process".to_string(), create_process_module());
 
         // Expose type markers for into() conversions
         vm.globals.insert(
@@ -120,6 +127,7 @@ impl VM {
             }))),
         );
 
+        // Expose External type marker
         vm.globals.insert(
             "External".to_string(),
             Value::External {
