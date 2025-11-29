@@ -29,3 +29,14 @@ tokio = { version = "1", features = ["full"] }
 version = "1"
 default-features = false
 features = ["precommit-hook", "user-hooks"]
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "parser_bench"
+harness = false
+
+[[bench]]
+name = "vm_bench"
+harness = false
