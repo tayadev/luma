@@ -96,6 +96,8 @@ impl VM {
         // Register FFI functions
         vm.register_native_function("ffi.def", 1, native_ffi_def);
         vm.register_native_function("ffi.new_cstr", 1, native_ffi_new_cstr);
+        vm.register_native_function("ffi.new", 1, native_ffi_new);
+        vm.register_native_function("ffi.free", 1, native_ffi_free);
         vm.register_native_function("ffi.nullptr", 0, native_ffi_nullptr);
         vm.register_native_function("ffi.is_null", 1, native_ffi_is_null);
         vm.register_native_function("ffi.free_cstr", 1, native_ffi_free_cstr);
@@ -108,7 +110,16 @@ impl VM {
         // Expose ffi module
         vm.globals.insert("ffi".to_string(), create_ffi_module());
 
-        // Expose External type marker
+        // Expose type markers for into() conversions
+        vm.globals.insert(
+            "String".to_string(),
+            Value::Type(Rc::new(RefCell::new({
+                let mut t = HashMap::new();
+                t.insert("String".to_string(), Value::Boolean(true));
+                t
+            }))),
+        );
+
         vm.globals.insert(
             "External".to_string(),
             Value::External {

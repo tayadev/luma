@@ -332,6 +332,19 @@ impl VM {
             .stack
             .pop()
             .ok_or_else(|| self._error("GET_PROP obj underflow".into()))?;
+
+        // Handle built-in methods on all types
+        if name == "into" {
+            // Push the object back and the method as a bound function
+            // We'll use a special marker to indicate this is a method call
+            self.stack.push(obj);
+            self.stack.push(Value::NativeFunction {
+                name: "__method_into".to_string(),
+                arity: 1,
+            });
+            return Ok(());
+        }
+
         match obj {
             Value::Table(map) => {
                 let borrowed = map.borrow();
@@ -746,6 +759,8 @@ impl VM {
                     && ![
                         "ffi.def",
                         "ffi.new_cstr",
+                        "ffi.new",
+                        "ffi.free",
                         "ffi.nullptr",
                         "ffi.is_null",
                         "ffi.call",
@@ -763,6 +778,23 @@ impl VM {
 
                 if name == "into" {
                     self.exec_native_into(args)
+                } else if name == "__method_into" {
+                    // Method call: object.into(Type)
+                    // Stack has: [object, target_type]
+                    // We need to call into(object, target_type)
+                    if args.len() != 1 {
+                        return Err(self._error(format!(
+                            ".into() method expects 1 argument, got {}",
+                            args.len()
+                        )));
+                    }
+                    // Get the object (pushed back onto stack by exec_get_prop)
+                    let obj = self
+                        .stack
+                        .pop()
+                        .ok_or_else(|| self._error("Method call: missing object".into()))?;
+                    let target_type = &args[0];
+                    self.exec_native_into(vec![obj, target_type.clone()])
                 } else if is_ffi_dispatch {
                     // Dispatch to FFI function handler
                     let result = super::native::native_ffi_dispatch(&name, &args)
@@ -793,12 +825,19 @@ impl VM {
             operators::call_overload_method(self, method, vec![value, target_type], 2, "__into")
         } else {
             match target_type {
-                Value::Type(tmap) | Value::Table(tmap) => {
+                Value::Type(tmap) => {
                     let tb = tmap.borrow();
-                    let is_string_target = tb.contains_key("String") || tb.is_empty();
+                    let is_string_target = tb.contains_key("String");
                     if is_string_target {
                         let converted = match value {
-                            Value::Number(n) => Value::String(n.to_string()),
+                            Value::Number(n) => {
+                                // Format numbers nicely - remove .0 for whole numbers
+                                if n.fract() == 0.0 && n.is_finite() {
+                                    Value::String(format!("{}", n as i64))
+                                } else {
+                                    Value::String(n.to_string())
+                                }
+                            }
                             Value::String(s) => Value::String(s),
                             Value::Boolean(b) => Value::String(b.to_string()),
                             Value::Null => Value::String("null".to_string()),
@@ -811,6 +850,25 @@ impl VM {
                             "Type does not support conversion (no __into method)".to_string(),
                         ))
                     }
+                }
+                Value::Table(_) => {
+                    // For now, treat tables as potential type markers
+                    // Just convert to string using Display
+                    let converted = match value {
+                        Value::Number(n) => {
+                            if n.fract() == 0.0 && n.is_finite() {
+                                Value::String(format!("{}", n as i64))
+                            } else {
+                                Value::String(n.to_string())
+                            }
+                        }
+                        Value::String(s) => Value::String(s),
+                        Value::Boolean(b) => Value::String(b.to_string()),
+                        Value::Null => Value::String("null".to_string()),
+                        other => Value::String(format!("{other}")),
+                    };
+                    self.stack.push(converted);
+                    Ok(())
                 }
                 _ => Err(self._error("Second argument to into() must be a type".to_string())),
             }

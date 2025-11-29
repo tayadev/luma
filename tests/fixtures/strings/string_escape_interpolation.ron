@@ -8,12 +8,22 @@
                         value: "Value \\",
                     ),
                     op: Add,
-                    right: Identifier(
-                        name: "x",
-                        span: (
-                            start: 11,
-                            end: 12,
+                    right: Call(
+                        callee: MemberAccess(
+                            object: Identifier(
+                                name: "x",
+                                span: (
+                                    start: 11,
+                                    end: 12,
+                                ),
+                            ),
+                            member: "into",
                         ),
+                        arguments: [
+                            Positional(Identifier(
+                                name: "String",
+                            )),
+                        ],
                     ),
                 ),
                 op: Add,

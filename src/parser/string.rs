@@ -61,7 +61,25 @@ where
                             });
                             buf.clear();
                         }
-                        parts.push(e);
+                        // Wrap non-string expressions with .into(String) method call
+                        let expr_to_add = match &e {
+                            Expr::String { .. } => e,
+                            _ => Expr::Call {
+                                callee: Box::new(Expr::MemberAccess {
+                                    object: Box::new(e),
+                                    member: "into".to_string(),
+                                    span: None,
+                                }),
+                                arguments: vec![crate::ast::CallArgument::Positional(
+                                    Expr::Identifier {
+                                        name: "String".to_string(),
+                                        span: None,
+                                    },
+                                )],
+                                span: None,
+                            },
+                        };
+                        parts.push(expr_to_add);
                     }
                 }
             }

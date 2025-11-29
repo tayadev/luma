@@ -46,7 +46,7 @@ fn bench_vm(c: &mut Criterion) {
         group.bench_function(format!("execute/{}", sanitize(&name)), |b| {
             b.iter(|| {
                 let program =
-                    luma::parser::parse(&src, &format!("<bench:{}>", name)).expect("parse ok");
+                    luma::parser::parse(&src, &format!("<bench:{name}>")).expect("parse ok");
                 let bytecode = luma::bytecode::compile::compile_program(&program);
                 let mut vm = luma::vm::VM::new(bytecode);
                 let result = vm.run().expect("vm ok");

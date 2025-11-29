@@ -38,6 +38,12 @@ static NEXT_EXTERNAL_HANDLE: AtomicUsize = AtomicUsize::new(1);
 static CSTRING_REGISTRY: std::sync::LazyLock<Mutex<HashMap<usize, CString>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// Global registry for allocated C memory created via ffi.new()
+/// Maps handle -> (pointer address as usize, size in bytes)
+/// We store the pointer as usize because raw pointers aren't Send+Sync
+static ALLOCATED_MEMORY: std::sync::LazyLock<Mutex<HashMap<usize, (usize, usize)>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
 /// Global registry for FFI function definitions
 /// Maps function name -> FfiFunctionDef
 static FFI_FUNCTIONS: std::sync::LazyLock<Mutex<HashMap<String, FfiFunctionDef>>> =
@@ -270,7 +276,7 @@ pub fn native_ffi_dispatch(func_name: &str, args: &[Value]) -> Result<Value, Str
         ffi_funcs.get(func_name).cloned()
     };
 
-    let func_def = func_def.ok_or_else(|| format!("FFI function '{}' not found", func_name))?;
+    let func_def = func_def.ok_or_else(|| format!("FFI function '{func_name}' not found"))?;
 
     // Get the symbol from libc
     let symbol_ptr = get_libc_symbol(&func_def.symbol_name)
@@ -304,8 +310,14 @@ pub fn native_ffi_dispatch(func_name: &str, args: &[Value]) -> Result<Value, Str
                     if let Some(cstr) = cstring_reg.get(handle) {
                         ptr_storage.push(cstr.as_ptr() as *const c_void);
                     } else {
-                        // Use handle as raw pointer
-                        ptr_storage.push(*handle as *const c_void);
+                        // Check if it's allocated memory from ffi.new()
+                        let alloc_reg = ALLOCATED_MEMORY.lock().unwrap();
+                        if let Some((ptr_addr, _size)) = alloc_reg.get(handle) {
+                            ptr_storage.push(*ptr_addr as *const c_void);
+                        } else {
+                            // Use handle as raw pointer
+                            ptr_storage.push(*handle as *const c_void);
+                        }
                     }
                 }
             }
@@ -327,8 +339,7 @@ pub fn native_ffi_dispatch(func_name: &str, args: &[Value]) -> Result<Value, Str
             }
             _ => {
                 return Err(format!(
-                    "Type mismatch for argument {}: cannot convert {:?} to {:?}",
-                    i, arg_val, param_type
+                    "Type mismatch for argument {i}: cannot convert {arg_val:?} to {param_type:?}"
                 ));
             }
         }
@@ -439,6 +450,112 @@ pub fn native_ffi_nullptr(_args: &[Value]) -> Result<Value, String> {
     })
 }
 
+/// Parse a C type specification and return the size in bytes
+/// Supports simple types like "char[N]", "int[N]", "void*[N]", etc.
+fn parse_type_size(type_spec: &str) -> Result<usize, String> {
+    let type_spec = type_spec.trim();
+
+    // Check for array syntax: type[size]
+    if let Some(bracket_pos) = type_spec.find('[') {
+        let close_bracket = type_spec
+            .rfind(']')
+            .ok_or_else(|| "Missing closing bracket in type specification".to_string())?;
+
+        let base_type = type_spec[..bracket_pos].trim();
+        let size_str = type_spec[bracket_pos + 1..close_bracket].trim();
+        let array_len = size_str
+            .parse::<usize>()
+            .map_err(|_| format!("Invalid array size: {size_str}"))?;
+
+        // Determine the base type size
+        let base_size = match base_type {
+            "char" | "int8_t" | "uint8_t" => 1,
+            "short" | "int16_t" | "uint16_t" => 2,
+            "int" | "int32_t" | "uint32_t" | "float" => 4,
+            "long" | "int64_t" | "uint64_t" | "double" => 8,
+            t if t.contains('*') => std::mem::size_of::<*const c_void>(), // pointer size
+            _ => return Err(format!("Unknown C type: {base_type}")),
+        };
+
+        Ok(base_size * array_len)
+    } else {
+        // Single value (not array)
+        match type_spec {
+            "char" | "int8_t" | "uint8_t" => Ok(1),
+            "short" | "int16_t" | "uint16_t" => Ok(2),
+            "int" | "int32_t" | "uint32_t" | "float" => Ok(4),
+            "long" | "int64_t" | "uint64_t" | "double" => Ok(8),
+            t if t.contains('*') => Ok(std::mem::size_of::<*const c_void>()),
+            _ => Err(format!("Unknown C type: {type_spec}")),
+        }
+    }
+}
+
+/// Native function: ffi.new(type_spec: String) -> External
+///
+/// Allocates memory for a C type and returns an External handle.
+/// Supports array types like "char[256]", "int[10]", etc.
+///
+/// The allocated memory is zero-initialized and tracked by the FFI system.
+/// Memory can be freed explicitly with ffi.free() or will be leaked if not freed.
+pub fn native_ffi_new(args: &[Value]) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!("ffi.new() expects 1 argument, got {}", args.len()));
+    }
+
+    let type_spec = match &args[0] {
+        Value::String(s) => s.clone(),
+        _ => return Err("ffi.new() argument must be a string type specification".to_string()),
+    };
+
+    let size = parse_type_size(&type_spec)?;
+
+    // Allocate zero-initialized memory
+    let layout = std::alloc::Layout::from_size_align(size, 8)
+        .map_err(|_| "Invalid memory layout".to_string())?;
+
+    let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
+
+    if ptr.is_null() {
+        return Err("Memory allocation failed".to_string());
+    }
+
+    let handle = new_external_handle();
+
+    {
+        let mut registry = ALLOCATED_MEMORY.lock().unwrap();
+        registry.insert(handle, (ptr as usize, size));
+    }
+
+    Ok(Value::External {
+        handle,
+        type_name: type_spec,
+    })
+}
+
+/// Native function: ffi.free(ptr: External) -> Null
+///
+/// Frees memory allocated by ffi.new()
+pub fn native_ffi_free(args: &[Value]) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!("ffi.free() expects 1 argument, got {}", args.len()));
+    }
+
+    match &args[0] {
+        Value::External { handle, .. } => {
+            let mut registry = ALLOCATED_MEMORY.lock().unwrap();
+            if let Some((ptr_addr, size)) = registry.remove(handle) {
+                unsafe {
+                    let layout = std::alloc::Layout::from_size_align_unchecked(size, 8);
+                    std::alloc::dealloc(ptr_addr as *mut u8, layout);
+                }
+            }
+            Ok(Value::Null)
+        }
+        _ => Err("ffi.free() argument must be an External".to_string()),
+    }
+}
+
 /// Native function: ffi.is_null(ptr: External) -> Boolean
 ///
 /// Checks if an External value represents a null pointer.
@@ -493,7 +610,7 @@ pub fn native_ffi_call(args: &[Value]) -> Result<Value, String> {
     };
 
     let func_name = match &args[1] {
-        Value::String(s) => format!("ffi.{}", s),
+        Value::String(s) => format!("ffi.{s}"),
         _ => return Err("ffi.call() second argument must be a function name string".to_string()),
     };
 
@@ -533,6 +650,22 @@ pub fn create_ffi_module() -> Value {
         "is_null".to_string(),
         Value::NativeFunction {
             name: "ffi.is_null".to_string(),
+            arity: 1,
+        },
+    );
+
+    ffi_table.insert(
+        "new".to_string(),
+        Value::NativeFunction {
+            name: "ffi.new".to_string(),
+            arity: 1,
+        },
+    );
+
+    ffi_table.insert(
+        "free".to_string(),
+        Value::NativeFunction {
+            name: "ffi.free".to_string(),
             arity: 1,
         },
     );

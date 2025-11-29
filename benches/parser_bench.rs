@@ -55,7 +55,7 @@ fn bench_parser(c: &mut Criterion) {
             b.iter(|| {
                 for (name, src) in &entries {
                     let program =
-                        luma::parser::parse(src, &format!("<bench:{}>", name)).expect("parse ok");
+                        luma::parser::parse(src, &format!("<bench:{name}>")).expect("parse ok");
                     black_box(&program);
                 }
             });

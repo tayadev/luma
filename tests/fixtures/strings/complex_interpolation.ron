@@ -40,26 +40,36 @@
                                 value: "sum=",
                             ),
                             op: Add,
-                            right: Binary(
-                                left: Identifier(
-                                    name: "x",
-                                    span: (
-                                        start: 29,
-                                        end: 31,
+                            right: Call(
+                                callee: MemberAccess(
+                                    object: Binary(
+                                        left: Identifier(
+                                            name: "x",
+                                            span: (
+                                                start: 29,
+                                                end: 31,
+                                            ),
+                                        ),
+                                        op: Add,
+                                        right: Identifier(
+                                            name: "y",
+                                            span: (
+                                                start: 33,
+                                                end: 34,
+                                            ),
+                                        ),
+                                        span: (
+                                            start: 29,
+                                            end: 34,
+                                        ),
                                     ),
+                                    member: "into",
                                 ),
-                                op: Add,
-                                right: Identifier(
-                                    name: "y",
-                                    span: (
-                                        start: 33,
-                                        end: 34,
-                                    ),
-                                ),
-                                span: (
-                                    start: 29,
-                                    end: 34,
-                                ),
+                                arguments: [
+                                    Positional(Identifier(
+                                        name: "String",
+                                    )),
+                                ],
                             ),
                         ),
                         op: Add,
@@ -69,74 +79,84 @@
                     ),
                     op: Add,
                     right: Call(
-                        callee: Function(
-                            arguments: [
-                                (
-                                    name: "a",
-                                    type: TypeIdent(
+                        callee: MemberAccess(
+                            object: Call(
+                                callee: Function(
+                                    arguments: [
+                                        (
+                                            name: "a",
+                                            type: TypeIdent(
+                                                name: "Number",
+                                                span: (
+                                                    start: 51,
+                                                    end: 57,
+                                                ),
+                                            ),
+                                            default: None,
+                                        ),
+                                    ],
+                                    return_type: TypeIdent(
                                         name: "Number",
                                         span: (
-                                            start: 51,
-                                            end: 57,
+                                            start: 60,
+                                            end: 66,
                                         ),
                                     ),
-                                    default: None,
-                                ),
-                            ],
-                            return_type: TypeIdent(
-                                name: "Number",
-                                span: (
-                                    start: 60,
-                                    end: 66,
-                                ),
-                            ),
-                            body: [
-                                Return(
-                                    value: Binary(
-                                        left: Identifier(
-                                            name: "a",
+                                    body: [
+                                        Return(
+                                            value: Binary(
+                                                left: Identifier(
+                                                    name: "a",
+                                                    span: (
+                                                        start: 70,
+                                                        end: 72,
+                                                    ),
+                                                ),
+                                                op: Mul,
+                                                right: Number(
+                                                    value: 2.0,
+                                                    span: (
+                                                        start: 74,
+                                                        end: 75,
+                                                    ),
+                                                ),
+                                                span: (
+                                                    start: 70,
+                                                    end: 76,
+                                                ),
+                                            ),
                                             span: (
                                                 start: 70,
-                                                end: 72,
+                                                end: 76,
                                             ),
                                         ),
-                                        op: Mul,
-                                        right: Number(
-                                            value: 2.0,
-                                            span: (
-                                                start: 74,
-                                                end: 75,
-                                            ),
-                                        ),
-                                        span: (
-                                            start: 70,
-                                            end: 76,
-                                        ),
-                                    ),
+                                    ],
                                     span: (
-                                        start: 70,
-                                        end: 76,
+                                        start: 45,
+                                        end: 79,
                                     ),
                                 ),
-                            ],
-                            span: (
-                                start: 45,
-                                end: 79,
+                                arguments: [
+                                    Positional(Number(
+                                        value: 3.0,
+                                        span: (
+                                            start: 80,
+                                            end: 81,
+                                        ),
+                                    )),
+                                ],
+                                span: (
+                                    start: 45,
+                                    end: 82,
+                                ),
                             ),
+                            member: "into",
                         ),
                         arguments: [
-                            Positional(Number(
-                                value: 3.0,
-                                span: (
-                                    start: 80,
-                                    end: 81,
-                                ),
+                            Positional(Identifier(
+                                name: "String",
                             )),
                         ],
-                        span: (
-                            start: 45,
-                            end: 82,
-                        ),
                     ),
                 ),
                 op: Add,

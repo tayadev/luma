@@ -16,8 +16,9 @@ pub mod io;
 // Re-export all native functions for convenience
 pub use core::{native_cast, native_into, native_is_instance_of, native_iter, native_typeof};
 pub use ffi::{
-    create_ffi_module, native_ffi_call, native_ffi_def, native_ffi_dispatch, native_ffi_free_cstr,
-    native_ffi_is_null, native_ffi_new_cstr, native_ffi_nullptr,
+    create_ffi_module, native_ffi_call, native_ffi_def, native_ffi_dispatch, native_ffi_free,
+    native_ffi_free_cstr, native_ffi_is_null, native_ffi_new, native_ffi_new_cstr,
+    native_ffi_nullptr,
 };
 pub use io::{
     native_file_exists, native_panic, native_print, native_read_file, native_write,

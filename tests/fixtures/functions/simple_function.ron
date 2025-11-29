@@ -32,12 +32,22 @@
                                 value: "Hello ",
                             ),
                             op: Add,
-                            right: Identifier(
-                                name: "name",
-                                span: (
-                                    start: 51,
-                                    end: 55,
+                            right: Call(
+                                callee: MemberAccess(
+                                    object: Identifier(
+                                        name: "name",
+                                        span: (
+                                            start: 51,
+                                            end: 55,
+                                        ),
+                                    ),
+                                    member: "into",
                                 ),
+                                arguments: [
+                                    Positional(Identifier(
+                                        name: "String",
+                                    )),
+                                ],
                             ),
                         ),
                     ),

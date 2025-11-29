@@ -326,6 +326,17 @@ impl TypeEnv {
 
     fn check_member_access(&mut self, object: &Expr, member: &str, span: Option<Span>) -> TcType {
         let obj_ty = self.check_expr(object);
+
+        // Allow built-in methods on all types
+        if member == "into" {
+            // .into() is available on all types and returns a function
+            // The actual return type depends on the target type argument
+            return TcType::Function {
+                params: vec![TcType::Any], // Target type
+                ret: Box::new(TcType::Any),
+            };
+        }
+
         match obj_ty {
             TcType::Table => TcType::Unknown, // dynamic tables allowed
             TcType::TableWithFields(ref fields) => {
