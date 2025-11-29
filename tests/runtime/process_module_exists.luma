@@ -1,0 +1,5 @@
+-- Test basic process module access
+let proc = process
+
+-- Check that process module exists
+typeof(proc)

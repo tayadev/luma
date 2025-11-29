@@ -1,0 +1,7 @@
+let module_var = 42
+
+let get_var = fn() do
+  module_var
+end
+
+get_var()

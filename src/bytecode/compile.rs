@@ -21,6 +21,16 @@ use crate::ast::{Argument, Expr, Program, Stmt};
 use std::collections::HashMap;
 
 pub fn compile_program(program: &Program) -> Chunk {
+    compile_program_impl(program, false)
+}
+
+/// Compile a program for REPL mode where variables should be globals
+/// to persist across evaluations
+pub fn compile_repl_program(program: &Program) -> Chunk {
+    compile_program_impl(program, true)
+}
+
+fn compile_program_impl(program: &Program, repl_mode: bool) -> Chunk {
     let mut c = Compiler::new("<program>");
 
     // Pre-scan: record top-level function parameter names for named-arg reordering
@@ -35,20 +45,47 @@ pub fn compile_program(program: &Program) -> Chunk {
     }
     c.global_fn_params = global_fn_params;
 
-    // First pass: Pre-register all top-level let/var declarations with null placeholders
-    for stmt in &program.statements {
-        if let Stmt::VarDecl { name, .. } = stmt {
-            let null_idx = push_const(&mut c.chunk, Constant::Null);
-            c.chunk.instructions.push(Instruction::Const(null_idx));
-            let name_idx = push_const(&mut c.chunk, Constant::String(name.clone()));
-            c.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+    if !repl_mode {
+        // Enter a scope for modules so top-level variables become locals
+        // This allows closures to capture them as upvalues
+        c.enter_scope();
+
+        // Pre-register all top-level let/var declarations with null placeholders
+        for stmt in &program.statements {
+            if let Stmt::VarDecl { name, .. } = stmt {
+                let null_idx = push_const(&mut c.chunk, Constant::Null);
+                c.chunk.instructions.push(Instruction::Const(null_idx));
+                let slot = c.local_count;
+                c.scopes.last_mut().unwrap().insert(name.clone(), slot);
+                c.local_count += 1;
+            }
+        }
+    } else {
+        // In REPL mode, pre-register globals with null placeholders like before
+        for stmt in &program.statements {
+            if let Stmt::VarDecl { name, .. } = stmt {
+                let null_idx = push_const(&mut c.chunk, Constant::Null);
+                c.chunk.instructions.push(Instruction::Const(null_idx));
+                let name_idx = push_const(&mut c.chunk, Constant::String(name.clone()));
+                c.chunk.instructions.push(Instruction::SetGlobal(name_idx));
+            }
         }
     }
 
-    // Second pass: compile and initialize all statements
+    // Compile all statements
     for stmt in &program.statements {
         c.emit_stmt(stmt);
     }
+
+    // In REPL mode, pop locals. In module mode, leave them on stack to preserve
+    // upvalue references in closures (the return value stays on top).
+    if repl_mode {
+        // No cleanup needed for REPL—variables are globals
+    } else {
+        // For modules: don't pop locals; keep them on stack for closure upvalues.
+        // The last statement's value (implicit return) stays on top.
+    }
+
     c.chunk.instructions.push(Instruction::Halt);
     c.chunk.clone()
 }

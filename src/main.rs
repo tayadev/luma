@@ -369,8 +369,8 @@ fn run_repl() {
         // The typechecker doesn't have visibility into variables defined in previous REPL statements
         // Runtime errors will still be caught during execution
 
-        // Compile the AST
-        let chunk = luma::bytecode::compile::compile_program(&ast);
+        // Compile the AST using REPL mode (variables are globals)
+        let chunk = luma::bytecode::compile::compile_repl_program(&ast);
 
         // Set source for error reporting
         vm.set_source(input.clone());

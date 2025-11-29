@@ -103,12 +103,19 @@ impl VM {
         vm.register_native_function("ffi.free_cstr", 1, native_ffi_free_cstr);
         vm.register_native_function("ffi.call", 0, native_ffi_call);
 
+        // Register process functions
+        vm.register_native_function("process.exit", 1, native_process_exit);
+
         // Expose file descriptor constants
         vm.globals.insert("STDOUT".to_string(), Value::Number(1.0));
         vm.globals.insert("STDERR".to_string(), Value::Number(2.0));
 
         // Expose ffi module
         vm.globals.insert("ffi".to_string(), create_ffi_module());
+
+        // Expose process module
+        vm.globals
+            .insert("process".to_string(), create_process_module());
 
         // Expose type markers for into() conversions
         vm.globals.insert(
@@ -120,6 +127,7 @@ impl VM {
             }))),
         );
 
+        // Expose External type marker
         vm.globals.insert(
             "External".to_string(),
             Value::External {
@@ -179,7 +187,10 @@ impl VM {
             }
         };
 
-        let prelude_chunk = crate::bytecode::compile::compile_program(&ast);
+        // Compile prelude in REPL mode so variables become globals.
+        // This ensures closures in the prelude (like those in iterator functions)
+        // capture globals that persist for the lifetime of the VM.
+        let prelude_chunk = crate::bytecode::compile::compile_repl_program(&ast);
 
         let saved_chunk = self.chunk.clone();
         let saved_ip = self.ip;
@@ -197,7 +208,17 @@ impl VM {
 
         match result {
             Ok(prelude_exports) => {
-                self.globals.insert("prelude".to_string(), prelude_exports);
+                // Store the prelude exports table itself as 'prelude'
+                self.globals
+                    .insert("prelude".to_string(), prelude_exports.clone());
+
+                // Load all exported values into global scope for direct access
+                if let Value::Table(table_ref) = prelude_exports {
+                    let table = table_ref.borrow();
+                    for (name, value) in table.iter() {
+                        self.globals.insert(name.clone(), value.clone());
+                    }
+                }
                 Ok(())
             }
             Err(e) => Err(VmError::runtime(format!(

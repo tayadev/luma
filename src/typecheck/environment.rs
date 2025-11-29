@@ -239,6 +239,16 @@ impl TypeEnv {
             },
         );
 
+        // Register process module
+        env.declare(
+            "process".to_string(),
+            VarInfo {
+                ty: TcType::Table,
+                mutable: false,
+                annotated: true,
+            },
+        );
+
         // Register External type marker
         env.declare(
             "External".to_string(),

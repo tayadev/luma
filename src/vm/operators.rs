@@ -99,6 +99,41 @@ pub fn call_overload_method(
             vm.captured_locals = HashMap::new();
             Ok(())
         }
+        Value::Closure {
+            chunk,
+            arity,
+            upvalues,
+        } => {
+            if *arity != expected_arity {
+                return Err(VmError::runtime(format!(
+                    "{method_name} method must have arity {expected_arity}, got {arity}"
+                )));
+            }
+
+            // Save current frame
+            let frame = CallFrame {
+                chunk: vm.chunk.clone(),
+                ip: vm.ip,
+                base: vm.base,
+                upvalues: vm.upvalues.clone(),
+                captured_locals: std::mem::take(&mut vm.captured_locals),
+            };
+            vm.frames.push(frame);
+
+            // Set up stack for function call
+            vm.stack.push(method.clone());
+            for arg in args {
+                vm.stack.push(arg);
+            }
+
+            // Set new base to point to first argument
+            vm.base = vm.stack.len() - expected_arity;
+            // Switch to method chunk and restore closure upvalues
+            vm.chunk = chunk.clone();
+            vm.ip = 0;
+            vm.upvalues = upvalues.clone();
+            Ok(())
+        }
         _ => Err(VmError::runtime(format!(
             "{method_name} must be a function"
         ))),
