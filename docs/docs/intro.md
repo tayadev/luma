@@ -32,6 +32,10 @@ print(greet("World"))  -- Output: Hello, World!
 ## Development Status
 
 Luma is currently in **active development**, expect things to be broken and changing.
+Until version 1.0.0:
+- The standard library is incomplete and may change frequently
+- The compiler and tooling are under heavy development
+- The semver spec is not followed properly
 
 ## Getting Started
 
