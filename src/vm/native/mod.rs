@@ -6,12 +6,14 @@
 //! - `core`: Core runtime functions (cast, isInstanceOf, into, typeof, iter)
 //! - `io`: Input/output functions (print, read_file, write_file, etc.)
 //! - `ffi`: Foreign Function Interface for calling native C code
+//! - `process`: Process-related functions (os detection, exit, etc.)
 //! - `helpers`: Shared utilities for native function implementations
 
 pub mod core;
 pub mod ffi;
 pub mod helpers;
 pub mod io;
+pub mod process;
 
 // Re-export all native functions for convenience
 pub use core::{native_cast, native_into, native_is_instance_of, native_iter, native_typeof};
@@ -23,3 +25,4 @@ pub use io::{
     native_file_exists, native_panic, native_print, native_read_file, native_write,
     native_write_file,
 };
+pub use process::{create_process_module, native_process_exit};

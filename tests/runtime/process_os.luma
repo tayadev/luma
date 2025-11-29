@@ -1,0 +1,6 @@
+-- Test process.os returns the operating system string
+-- On Linux (CI environment), this should return "linux"
+let os_name = process.os
+
+-- Verify it's a string
+typeof(os_name)
