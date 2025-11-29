@@ -43,7 +43,7 @@ pub fn resolve_import_path(path: &str, current_file: Option<&String>) -> Result<
     if path_obj.is_absolute() {
         return Ok(path_obj
             .canonicalize()
-            .map_err(|e| VmError::runtime(format!("Failed to resolve path '{}': {}", path, e)))?
+            .map_err(|e| VmError::runtime(format!("Failed to resolve path '{path}': {e}")))?
             .to_string_lossy()
             .to_string());
     }
@@ -52,14 +52,12 @@ pub fn resolve_import_path(path: &str, current_file: Option<&String>) -> Result<
     let base_dir = if let Some(current_file) = current_file {
         Path::new(current_file)
             .parent()
-            .ok_or_else(|| {
-                VmError::runtime(format!("Invalid current file path: {}", current_file))
-            })?
+            .ok_or_else(|| VmError::runtime(format!("Invalid current file path: {current_file}")))?
             .to_path_buf()
     } else {
         // No current file, use current working directory
         std::env::current_dir()
-            .map_err(|e| VmError::runtime(format!("Failed to get current directory: {}", e)))?
+            .map_err(|e| VmError::runtime(format!("Failed to get current directory: {e}")))?
     };
 
     let mut full_path = base_dir.join(path);
@@ -73,9 +71,9 @@ pub fn resolve_import_path(path: &str, current_file: Option<&String>) -> Result<
     }
 
     // Canonicalize to get absolute path and resolve .. and .
-    let canonical = full_path.canonicalize().map_err(|e| {
-        VmError::runtime(format!("Failed to resolve import path '{}': {}", path, e))
-    })?;
+    let canonical = full_path
+        .canonicalize()
+        .map_err(|e| VmError::runtime(format!("Failed to resolve import path '{path}': {e}")))?;
 
     Ok(canonical.to_string_lossy().to_string())
 }
@@ -105,7 +103,7 @@ pub fn load_module(vm: &mut VM, path: &str) -> Result<Value, VmError> {
     let result = (|| {
         // Read the module source
         let source = fs::read_to_string(path)
-            .map_err(|e| VmError::runtime(format!("Failed to read module '{}': {}", path, e)))?;
+            .map_err(|e| VmError::runtime(format!("Failed to read module '{path}': {e}")))?;
 
         // Parse the module
         let ast = crate::parser::parse(&source, path).map_err(|errors| {
@@ -145,7 +143,7 @@ pub fn load_module(vm: &mut VM, path: &str) -> Result<Value, VmError> {
         // Execute the module
         let module_value = module_vm
             .run()
-            .map_err(|e| VmError::runtime(format!("Error executing module '{}': {:?}", path, e)))?;
+            .map_err(|e| VmError::runtime(format!("Error executing module '{path}': {e:?}")))?;
 
         // Cache the module value
         vm.module_cache

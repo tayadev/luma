@@ -16,13 +16,13 @@ pub fn format_error_reason(reason: &RichReason<char>) -> String {
             };
 
             if expected.is_empty() {
-                format!("unexpected {}", found_msg)
+                format!("unexpected {found_msg}")
             } else {
                 // Just show a simplified message instead of listing all expected tokens
                 if found.is_none() {
                     "unexpected end of input".to_string()
                 } else {
-                    format!("unexpected {}", found_msg)
+                    format!("unexpected {found_msg}")
                 }
             }
         }

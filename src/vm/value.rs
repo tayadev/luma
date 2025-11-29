@@ -101,11 +101,11 @@ impl fmt::Display for Value {
                 if n.fract() == 0.0 && n.is_finite() {
                     write!(f, "{}", *n as i64)
                 } else {
-                    write!(f, "{}", n)
+                    write!(f, "{n}")
                 }
             }
-            Value::String(s) => write!(f, "{}", s),
-            Value::Boolean(b) => write!(f, "{}", b),
+            Value::String(s) => write!(f, "{s}"),
+            Value::Boolean(b) => write!(f, "{b}"),
             Value::Null => write!(f, "null"),
             Value::List(arr) => {
                 let borrowed = arr.borrow();
@@ -114,7 +114,7 @@ impl fmt::Display for Value {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", val)?;
+                    write!(f, "{val}")?;
                 }
                 write!(f, "]")
             }
@@ -127,14 +127,14 @@ impl fmt::Display for Value {
                         write!(f, ", ")?;
                     }
                     first = false;
-                    write!(f, "{}: {}", key, val)?;
+                    write!(f, "{key}: {val}")?;
                 }
                 write!(f, "}}")
             }
-            Value::Function { arity, .. } => write!(f, "<function/{}>", arity),
-            Value::Closure { arity, .. } => write!(f, "<closure/{}>", arity),
+            Value::Function { arity, .. } => write!(f, "<function/{arity}>"),
+            Value::Closure { arity, .. } => write!(f, "<closure/{arity}>"),
             Value::NativeFunction { name, arity } => {
-                write!(f, "<native function {}/{}>", name, arity)
+                write!(f, "<native function {name}/{arity}>",)
             }
             Value::Type(_) => write!(f, "<type>"),
         }

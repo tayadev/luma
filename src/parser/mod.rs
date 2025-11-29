@@ -24,7 +24,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
             if lexer::KEYWORDS.contains(&s) {
                 Err(Rich::custom(
                     span,
-                    format!("'{}' is a keyword and cannot be used as an identifier", s),
+                    format!("'{s}' is a keyword and cannot be used as an identifier"),
                 ))
             } else {
                 Ok(s)

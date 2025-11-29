@@ -29,7 +29,7 @@ fn test_error_formatting() {
     );
 
     let formatted = error.format(Some(source));
-    println!("Formatted error:\n{}", formatted);
+    println!("Formatted error:\n{formatted}");
     assert!(formatted.contains("test.luma"));
     assert!(formatted.contains("2:")); // Line 2 in format
     assert!(formatted.contains("Test error message"));
@@ -49,7 +49,7 @@ fn test_error_formatting_with_unicode() {
     );
 
     let formatted = error.format(Some(source));
-    println!("Formatted error with unicode:\n{}", formatted);
+    println!("Formatted error with unicode:\n{formatted}");
     assert!(formatted.contains("test.luma"));
     assert!(formatted.contains("2:")); // Line 2 in format
     assert!(formatted.contains("Error in second line"));

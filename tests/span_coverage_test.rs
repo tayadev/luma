@@ -17,10 +17,10 @@ fn verify_stmt_spans(stmt: &Stmt) -> Result<(), String> {
     // Check that this statement has a span
     if let Some(span) = stmt.span() {
         if span.is_empty() {
-            return Err(format!("Statement has empty span: {:?}", stmt));
+            return Err(format!("Statement has empty span: {stmt:?}"));
         }
     } else {
-        return Err(format!("Statement missing span: {:?}", stmt));
+        return Err(format!("Statement missing span: {stmt:?}"));
     }
 
     // Recursively check child nodes
@@ -105,10 +105,10 @@ fn verify_expr_spans(expr: &Expr) -> Result<(), String> {
     // Check that this expression has a span
     if let Some(span) = expr.span() {
         if span.is_empty() {
-            return Err(format!("Expression has empty span: {:?}", expr));
+            return Err(format!("Expression has empty span: {expr:?}"));
         }
     } else {
-        return Err(format!("Expression missing span: {:?}", expr));
+        return Err(format!("Expression missing span: {expr:?}"));
     }
 
     // Recursively check child nodes
@@ -204,10 +204,10 @@ fn verify_pattern_spans(pattern: &Pattern) -> Result<(), String> {
     // Check that this pattern has a span
     if let Some(span) = pattern.span() {
         if span.is_empty() {
-            return Err(format!("Pattern has empty span: {:?}", pattern));
+            return Err(format!("Pattern has empty span: {pattern:?}"));
         }
     } else {
-        return Err(format!("Pattern missing span: {:?}", pattern));
+        return Err(format!("Pattern missing span: {pattern:?}"));
     }
 
     // Recursively check child nodes
@@ -269,11 +269,11 @@ fn test_span_coverage_comprehensive() {
         match result {
             Ok(program) => {
                 if let Err(e) = verify_program_spans(&program) {
-                    panic!("Span coverage failed for '{}': {}", description, e);
+                    panic!("Span coverage failed for '{description}': {e}");
                 }
             }
             Err(errors) => {
-                panic!("Parse failed for '{}': {:?}", description, errors);
+                panic!("Parse failed for '{description}': {errors:?}");
             }
         }
     }

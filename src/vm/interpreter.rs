@@ -91,7 +91,7 @@ impl VmError {
                     ));
                 }
             } else {
-                result.push_str(&format!("Runtime error at {}\n", file));
+                result.push_str(&format!("Runtime error at {file}\n"));
             }
         } else {
             result.push_str("Runtime error\n");
@@ -174,7 +174,7 @@ impl VM {
 
         // Load prelude (standard library)
         if let Err(e) = vm.load_prelude() {
-            eprintln!("Warning: Failed to load prelude: {:?}", e);
+            eprintln!("Warning: Failed to load prelude: {e:?}");
         }
 
         vm
@@ -207,12 +207,11 @@ impl VM {
             Err(errors) => {
                 let error_msg = errors
                     .iter()
-                    .map(|e| format!("{}", e))
+                    .map(|e| format!("{e}"))
                     .collect::<Vec<_>>()
                     .join(", ");
                 return Err(VmError::runtime(format!(
-                    "Failed to parse prelude: {}",
-                    error_msg
+                    "Failed to parse prelude: {error_msg}"
                 )));
             }
         };
@@ -249,8 +248,7 @@ impl VM {
                 Ok(())
             }
             Err(e) => Err(VmError::runtime(format!(
-                "Failed to execute prelude: {:?}",
-                e
+                "Failed to execute prelude: {e:?}"
             ))),
         }
     }
@@ -322,7 +320,7 @@ impl VM {
                     operators::execute_binary_op(self, a, b, "__add", |a, b| match (a, b) {
                         (Value::Number(x), Value::Number(y)) => Ok(Value::Number(x + y)),
                         (Value::String(x), Value::String(y)) => {
-                            Ok(Value::String(format!("{}{}", x, y)))
+                            Ok(Value::String(format!("{x}{y}")))
                         }
                         _ => Err("Type mismatch".to_string()),
                     })?;
@@ -419,7 +417,7 @@ impl VM {
                     if let Some(v) = self.globals.get(&name).cloned() {
                         self.stack.push(v);
                     } else {
-                        return Err(self._error(format!("Undefined global '{}'", name)));
+                        return Err(self._error(format!("Undefined global '{name}'")));
                     }
                 }
                 Instruction::SetGlobal(idx) => {
@@ -776,8 +774,7 @@ impl VM {
                                         .get(abs)
                                         .ok_or_else(|| {
                                             self._error(format!(
-                                                "Upvalue capture: local slot {} out of bounds",
-                                                slot
+                                                "Upvalue capture: local slot {slot} out of bounds"
                                             ))
                                         })?
                                         .clone();
@@ -792,8 +789,7 @@ impl VM {
                                     .get(*upvalue_idx)
                                     .ok_or_else(|| {
                                         self._error(format!(
-                                            "Upvalue capture: upvalue {} out of bounds",
-                                            upvalue_idx
+                                            "Upvalue capture: upvalue {upvalue_idx} out of bounds"
                                         ))
                                     })?
                                     .clone()
@@ -812,7 +808,7 @@ impl VM {
                 Instruction::GetUpvalue(idx) => {
                     // Get value from upvalue at index
                     let upvalue = self.upvalues.get(idx).ok_or_else(|| {
-                        self._error(format!("GetUpvalue: index {} out of bounds", idx))
+                        self._error(format!("GetUpvalue: index {idx} out of bounds"))
                     })?;
                     let value = upvalue.value.borrow().clone();
                     self.stack.push(value);
@@ -824,7 +820,7 @@ impl VM {
                         .pop()
                         .ok_or_else(|| self._error("SetUpvalue: stack underflow".into()))?;
                     let upvalue = self.upvalues.get(idx).ok_or_else(|| {
-                        self._error(format!("SetUpvalue: index {} out of bounds", idx))
+                        self._error(format!("SetUpvalue: index {idx} out of bounds"))
                     })?;
                     *upvalue.value.borrow_mut() = value;
                 }
@@ -845,8 +841,7 @@ impl VM {
                         } => {
                             if arity != fn_arity {
                                 return Err(self._error(format!(
-                                    "Arity mismatch: expected {}, got {}",
-                                    fn_arity, arity
+                                    "Arity mismatch: expected {fn_arity}, got {arity}"
                                 )));
                             }
                             // Save current frame
@@ -875,8 +870,7 @@ impl VM {
                         } => {
                             if arity != fn_arity {
                                 return Err(self._error(format!(
-                                    "Arity mismatch: expected {}, got {}",
-                                    fn_arity, arity
+                                    "Arity mismatch: expected {fn_arity}, got {arity}"
                                 )));
                             }
                             // Save current frame
@@ -905,8 +899,7 @@ impl VM {
                             // Skip arity check for variadic functions (print)
                             if name != "print" && arity != fn_arity {
                                 return Err(self._error(format!(
-                                    "Arity mismatch: expected {}, got {}",
-                                    fn_arity, arity
+                                    "Arity mismatch: expected {fn_arity}, got {arity}"
                                 )));
                             }
                             // Collect arguments
@@ -955,7 +948,7 @@ impl VM {
                                                     Value::Null => {
                                                         Value::String("null".to_string())
                                                     }
-                                                    other => Value::String(format!("{}", other)),
+                                                    other => Value::String(format!("{other}")),
                                                 };
                                                 self.stack.push(converted);
                                             } else {
@@ -973,7 +966,7 @@ impl VM {
                             } else {
                                 // Call native function normally
                                 let func = self.native_functions.get(&name).ok_or_else(|| {
-                                    self._error(format!("Native function '{}' not found", name))
+                                    self._error(format!("Native function '{name}' not found"))
                                 })?;
                                 let result = func(&args).map_err(|e| self._error(e))?;
                                 self.stack.push(result);

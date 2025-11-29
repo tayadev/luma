@@ -69,8 +69,7 @@ pub fn call_overload_method(
         Value::Function { chunk, arity } => {
             if *arity != expected_arity {
                 return Err(VmError::runtime(format!(
-                    "{} method must have arity {}, got {}",
-                    method_name, expected_arity, arity
+                    "{method_name} method must have arity {expected_arity}, got {arity}"
                 )));
             }
 
@@ -101,8 +100,7 @@ pub fn call_overload_method(
             Ok(())
         }
         _ => Err(VmError::runtime(format!(
-            "{} must be a function",
-            method_name
+            "{method_name} must be a function"
         ))),
     }
 }

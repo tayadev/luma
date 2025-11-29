@@ -280,7 +280,7 @@ where
                 .padded_by(ws.clone())
                 .try_map(|s: &str, span| {
                     s.parse::<u32>()
-                        .map_err(|e| Rich::custom(span, format!("Invalid break level: {}", e)))
+                        .map_err(|e| Rich::custom(span, format!("Invalid break level: {e}")))
                 })
                 .or_not(),
         )
@@ -305,7 +305,7 @@ where
                 .padded_by(ws.clone())
                 .try_map(|s: &str, span| {
                     s.parse::<u32>()
-                        .map_err(|e| Rich::custom(span, format!("Invalid continue level: {}", e)))
+                        .map_err(|e| Rich::custom(span, format!("Invalid continue level: {e}")))
                 })
                 .or_not(),
         )

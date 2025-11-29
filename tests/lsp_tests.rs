@@ -31,7 +31,7 @@ fn test_lsp_server_starts() {
     // Send an initialize request
     let init_request = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"processId":null,"rootUri":null,"capabilities":{}}}"#;
     let content_length = init_request.len();
-    let message = format!("Content-Length: {}\r\n\r\n{}", content_length, init_request);
+    let message = format!("Content-Length: {content_length}\r\n\r\n{init_request}");
     stdin
         .write_all(message.as_bytes())
         .expect("Failed to write to stdin");
@@ -42,7 +42,7 @@ fn test_lsp_server_starts() {
     // Send initialized notification
     let initialized = r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#;
     let content_length = initialized.len();
-    let message = format!("Content-Length: {}\r\n\r\n{}", content_length, initialized);
+    let message = format!("Content-Length: {content_length}\r\n\r\n{initialized}");
     stdin
         .write_all(message.as_bytes())
         .expect("Failed to write initialized");
@@ -53,10 +53,7 @@ fn test_lsp_server_starts() {
     // Send shutdown and exit
     let shutdown_request = r#"{"jsonrpc":"2.0","id":2,"method":"shutdown"}"#;
     let content_length = shutdown_request.len();
-    let message = format!(
-        "Content-Length: {}\r\n\r\n{}",
-        content_length, shutdown_request
-    );
+    let message = format!("Content-Length: {content_length}\r\n\r\n{shutdown_request}");
     stdin
         .write_all(message.as_bytes())
         .expect("Failed to write shutdown");
@@ -66,10 +63,7 @@ fn test_lsp_server_starts() {
 
     let exit_notification = r#"{"jsonrpc":"2.0","method":"exit"}"#;
     let content_length = exit_notification.len();
-    let message = format!(
-        "Content-Length: {}\r\n\r\n{}",
-        content_length, exit_notification
-    );
+    let message = format!("Content-Length: {content_length}\r\n\r\n{exit_notification}");
     stdin
         .write_all(message.as_bytes())
         .expect("Failed to write exit");
@@ -83,7 +77,6 @@ fn test_lsp_server_starts() {
     // Check that we got a response (should contain Content-Length header)
     assert!(
         stdout.contains("Content-Length:"),
-        "LSP server should respond with Content-Length header. Got: {}",
-        stdout
+        "LSP server should respond with Content-Length header. Got: {stdout}"
     );
 }

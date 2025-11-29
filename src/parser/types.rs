@@ -37,7 +37,7 @@ pub fn type_parser<'a>(
                 } else if lexer::KEYWORDS.contains(&s) {
                     Err(Rich::custom(
                         span,
-                        format!("'{}' is a keyword and cannot be used as a type", s),
+                        format!("'{s}' is a keyword and cannot be used as a type"),
                     ))
                 } else {
                     Ok(Type::TypeIdent {
@@ -78,7 +78,7 @@ pub fn type_parser<'a>(
                 if lexer::KEYWORDS.contains(&s) {
                     Err(Rich::custom(
                         span,
-                        format!("'{}' is a keyword and cannot be used as a type", s),
+                        format!("'{s}' is a keyword and cannot be used as a type"),
                     ))
                 } else {
                     Ok(s.to_string())

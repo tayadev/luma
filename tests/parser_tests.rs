@@ -247,7 +247,7 @@ fn test_parser_fixtures() {
             }
             if path.extension().and_then(|s| s.to_str()) == Some("luma") {
                 let stem = path.file_stem().unwrap().to_str().unwrap();
-                let ron_path = path.parent().unwrap().join(format!("{}.ron", stem));
+                let ron_path = path.parent().unwrap().join(format!("{stem}.ron"));
                 if ron_path.exists() {
                     fixtures.push((path.clone(), ron_path));
                 }
@@ -284,7 +284,7 @@ fn test_parser_fixtures() {
                     test_name,
                     errors
                         .iter()
-                        .map(|e| format!("  {}", e))
+                        .map(|e| format!("  {e}"))
                         .collect::<Vec<_>>()
                         .join("\n")
                 ));
@@ -298,7 +298,7 @@ fn test_parser_fixtures() {
 
         // Parse both RON strings for comparison (to normalize formatting)
         let expected_ast: luma::ast::Program = ron::from_str(&expected_ron)
-            .unwrap_or_else(|e| panic!("Failed to parse expected RON for {}: {}", test_name, e));
+            .unwrap_or_else(|e| panic!("Failed to parse expected RON for {test_name}: {e}"));
 
         // Strip spans from both ASTs before comparison
         let ast_without_spans = strip_spans_program(ast.clone());
@@ -306,11 +306,10 @@ fn test_parser_fixtures() {
 
         if ast_without_spans != expected_without_spans {
             failed_tests.push(format!(
-                "❌ {}: AST mismatch\nExpected:\n{}\n\nActual:\n{}\n",
-                test_name, expected_ron, actual_ron
+                "❌ {test_name}: AST mismatch\nExpected:\n{expected_ron}\n\nActual:\n{actual_ron}\n"
             ));
         } else {
-            println!("✓ {}", test_name);
+            println!("✓ {test_name}");
         }
     }
 

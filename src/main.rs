@@ -96,7 +96,7 @@ fn main() {
             let source = match read_source(file) {
                 Ok(content) => content,
                 Err(err) => {
-                    eprintln!("Error reading file '{}': {}", file, err);
+                    eprintln!("Error reading file '{file}': {err}");
                     process::exit(1);
                 }
             };
@@ -136,7 +136,7 @@ fn main() {
             let source = match read_source(file) {
                 Ok(content) => content,
                 Err(err) => {
-                    eprintln!("Error reading file '{}': {}", file, err);
+                    eprintln!("Error reading file '{file}': {err}");
                     process::exit(1);
                 }
             };
@@ -149,13 +149,13 @@ fn main() {
                     process::exit(1);
                 }
             };
-            println!("{:#?}", ast);
+            println!("{ast:#?}");
         }
         Some(Commands::Bytecode { file }) => {
             let source = match read_source(file) {
                 Ok(content) => content,
                 Err(err) => {
-                    eprintln!("Error reading file '{}': {}", file, err);
+                    eprintln!("Error reading file '{file}': {err}");
                     process::exit(1);
                 }
             };
@@ -169,7 +169,7 @@ fn main() {
                 }
             };
             let chunk = luma::bytecode::compile::compile_program(&ast);
-            println!("{:#?}", chunk);
+            println!("{chunk:#?}");
         }
         None => {
             // Default: run the file if provided, otherwise print help
@@ -191,7 +191,7 @@ fn run_file(file: &str) {
     let source = match read_source(file) {
         Ok(content) => content,
         Err(err) => {
-            eprintln!("Error reading file '{}': {}", file, err);
+            eprintln!("Error reading file '{file}': {err}");
             process::exit(1);
         }
     };
@@ -227,7 +227,7 @@ fn run_file(file: &str) {
         match std::path::Path::new(file).canonicalize() {
             Ok(path) => Some(path.to_string_lossy().to_string()),
             Err(_) => {
-                eprintln!("Warning: Could not resolve absolute path for '{}'", file);
+                eprintln!("Warning: Could not resolve absolute path for '{file}'");
                 Some(file.to_string())
             }
         }
@@ -256,7 +256,7 @@ fn compile_file(file: &str, output: Option<&str>) {
     let source = match read_source(file) {
         Ok(content) => content,
         Err(err) => {
-            eprintln!("Error reading file '{}': {}", file, err);
+            eprintln!("Error reading file '{file}': {err}");
             process::exit(1);
         }
     };
@@ -296,18 +296,18 @@ fn compile_file(file: &str, output: Option<&str>) {
     let serialized = match ron::ser::to_string_pretty(&chunk, ron::ser::PrettyConfig::default()) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("Error serializing bytecode: {}", e);
+            eprintln!("Error serializing bytecode: {e}");
             process::exit(1);
         }
     };
 
     // Write to file
     if let Err(e) = fs::write(&output_file, serialized) {
-        eprintln!("Error writing to '{}': {}", output_file, e);
+        eprintln!("Error writing to '{output_file}': {e}");
         process::exit(1);
     }
 
-    println!("Compiled '{}' to '{}'", file, output_file);
+    println!("Compiled '{file}' to '{output_file}'");
 }
 
 fn run_repl() {
@@ -338,7 +338,7 @@ fn run_repl() {
                 input.push('\n');
             }
             Some(Err(e)) => {
-                eprintln!("Error reading input: {}", e);
+                eprintln!("Error reading input: {e}");
                 continue;
             }
             None => {
@@ -378,7 +378,7 @@ fn run_repl() {
         // Execute in the existing VM context
         match vm.eval(chunk) {
             Ok(val) => {
-                println!("{}", val);
+                println!("{val}");
             }
             Err(e) => {
                 eprintln!("{}", e.format(Some(&input)));
@@ -411,7 +411,7 @@ fn upgrade_luma(version: Option<&str>) {
     let current_exe = match env::current_exe() {
         Ok(path) => path,
         Err(e) => {
-            eprintln!("Error: Could not determine current executable path: {}", e);
+            eprintln!("Error: Could not determine current executable path: {e}");
             process::exit(1);
         }
     };
@@ -441,14 +441,14 @@ fn upgrade_luma(version: Option<&str>) {
     let mut archive = match zip::ZipArchive::new(cursor) {
         Ok(archive) => archive,
         Err(e) => {
-            eprintln!("Error: Failed to read zip archive: {}", e);
+            eprintln!("Error: Failed to read zip archive: {e}");
             process::exit(1);
         }
     };
 
     // Create bin directory if it doesn't exist
     if let Err(e) = fs::create_dir_all(&luma_bin) {
-        eprintln!("Error: Failed to create bin directory: {}", e);
+        eprintln!("Error: Failed to create bin directory: {e}");
         process::exit(1);
     }
 
@@ -460,7 +460,7 @@ fn upgrade_luma(version: Option<&str>) {
         let mut file = match archive.by_index(i) {
             Ok(file) => file,
             Err(e) => {
-                eprintln!("Error: Failed to read file from archive: {}", e);
+                eprintln!("Error: Failed to read file from archive: {e}");
                 continue;
             }
         };
@@ -478,7 +478,7 @@ fn upgrade_luma(version: Option<&str>) {
             let backup_exe = luma_bin.join("luma.exe.old");
             if luma_exe.exists() {
                 if let Err(e) = fs::rename(&luma_exe, &backup_exe) {
-                    eprintln!("Error: Failed to backup current executable: {}", e);
+                    eprintln!("Error: Failed to backup current executable: {e}");
                     process::exit(1);
                 }
             }
@@ -487,7 +487,7 @@ fn upgrade_luma(version: Option<&str>) {
             let mut outfile = match fs::File::create(&luma_exe) {
                 Ok(file) => file,
                 Err(e) => {
-                    eprintln!("Error: Failed to create new executable: {}", e);
+                    eprintln!("Error: Failed to create new executable: {e}");
                     // Restore backup
                     let _ = fs::rename(&backup_exe, &luma_exe);
                     process::exit(1);
@@ -495,7 +495,7 @@ fn upgrade_luma(version: Option<&str>) {
             };
 
             if let Err(e) = std::io::copy(&mut file, &mut outfile) {
-                eprintln!("Error: Failed to write new executable: {}", e);
+                eprintln!("Error: Failed to write new executable: {e}");
                 // Restore backup
                 drop(outfile);
                 let _ = fs::remove_file(&luma_exe);
@@ -520,7 +520,7 @@ fn upgrade_luma(version: Option<&str>) {
     let output = match process::Command::new(&luma_exe).arg("--version").output() {
         Ok(output) => output,
         Err(e) => {
-            eprintln!("Warning: Could not verify new installation: {}", e);
+            eprintln!("Warning: Could not verify new installation: {e}");
             println!("\nUpgrade complete!");
             return;
         }
@@ -543,9 +543,9 @@ fn download_release_artifact(version: Option<&str>) -> bytes::Bytes {
         Some(v) => {
             // Normalize version format
             if v.starts_with("v") {
-                format!("{}", v)
+                v.to_string()
             } else if v.chars().next().unwrap().is_ascii_digit() {
-                format!("v{}", v)
+                format!("v{v}")
             } else {
                 v.to_string()
             }
@@ -555,15 +555,15 @@ fn download_release_artifact(version: Option<&str>) -> bytes::Bytes {
 
     // Construct download URL
     let arch = "x64";
-    let target = format!("luma-windows-{}", arch);
+    let target = format!("luma-windows-{arch}");
     let base_url = "https://github.com/tayadev/luma/releases";
     let url = if version_tag == "latest" {
-        format!("{}/latest/download/{}.zip", base_url, target)
+        format!("{base_url}/latest/download/{target}.zip")
     } else {
-        format!("{}/download/{}/{}.zip", base_url, version_tag, target)
+        format!("{base_url}/download/{version_tag}/{target}.zip")
     };
 
-    println!("Downloading from: {}", url);
+    println!("Downloading from: {url}");
 
     // Download the release
     let client = reqwest::blocking::Client::builder()
@@ -574,7 +574,7 @@ fn download_release_artifact(version: Option<&str>) -> bytes::Bytes {
     let response = match client.get(&url).send() {
         Ok(resp) => resp,
         Err(e) => {
-            eprintln!("Error: Failed to download release: {}", e);
+            eprintln!("Error: Failed to download release: {e}");
             process::exit(1);
         }
     };
@@ -590,7 +590,7 @@ fn download_release_artifact(version: Option<&str>) -> bytes::Bytes {
     match response.bytes() {
         Ok(bytes) => bytes,
         Err(e) => {
-            eprintln!("Error: Failed to read download: {}", e);
+            eprintln!("Error: Failed to read download: {e}");
             process::exit(1);
         }
     }
@@ -607,17 +607,14 @@ fn download_nightly_artifact() -> bytes::Bytes {
 
     // Use nightly.link service to download artifacts from the latest successful build workflow
     let artifact_name = "luma-windows-x64";
-    let url = format!(
-        "https://nightly.link/tayadev/luma/workflows/build/main/{}.zip",
-        artifact_name
-    );
+    let url = format!("https://nightly.link/tayadev/luma/workflows/build/main/{artifact_name}.zip");
 
-    println!("Downloading from: {}", url);
+    println!("Downloading from: {url}");
 
     let response = match client.get(&url).send() {
         Ok(resp) => resp,
         Err(e) => {
-            eprintln!("Error: Failed to download nightly build: {}", e);
+            eprintln!("Error: Failed to download nightly build: {e}");
             eprintln!("Make sure there is a successful build on the main branch.");
             process::exit(1);
         }
@@ -635,7 +632,7 @@ fn download_nightly_artifact() -> bytes::Bytes {
     match response.bytes() {
         Ok(bytes) => bytes,
         Err(e) => {
-            eprintln!("Error: Failed to read download: {}", e);
+            eprintln!("Error: Failed to read download: {e}");
             process::exit(1);
         }
     }

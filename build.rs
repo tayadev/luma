@@ -17,7 +17,7 @@ fn main() {
         .unwrap_or_else(|| "unknown".to_string());
 
     // Set environment variable for use in main.rs
-    println!("cargo:rustc-env=GIT_HASH={}", git_hash);
+    println!("cargo:rustc-env=GIT_HASH={git_hash}");
 
     // Re-run if git HEAD changes (this is a file that points to the current ref)
     println!("cargo:rerun-if-changed=.git/HEAD");

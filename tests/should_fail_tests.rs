@@ -46,7 +46,7 @@ fn test_should_fail_programs() {
                 .trim()
                 .to_lowercase()
         } else {
-            failures.push(format!("❌ {}: Missing .expect file", test_name));
+            failures.push(format!("❌ {test_name}: Missing .expect file"));
             continue;
         };
 
@@ -54,13 +54,9 @@ fn test_should_fail_programs() {
         let ast = match luma::parser::parse(source.as_str(), luma_path.to_str().unwrap()) {
             Ok(ast) => {
                 if expected_failure == "parse" {
-                    println!(
-                        "✓ {} (expected parse failure, got success - FAIL)",
-                        test_name
-                    );
+                    println!("✓ {test_name} (expected parse failure, got success - FAIL)");
                     failures.push(format!(
-                        "❌ {}: Expected parse failure but parsing succeeded",
-                        test_name
+                        "❌ {test_name}: Expected parse failure but parsing succeeded"
                     ));
                     continue;
                 }
@@ -68,12 +64,11 @@ fn test_should_fail_programs() {
             }
             Err(_errors) => {
                 if expected_failure == "parse" {
-                    println!("✓ {} (parse failed as expected)", test_name);
+                    println!("✓ {test_name} (parse failed as expected)");
                     continue;
                 } else {
                     failures.push(format!(
-                        "❌ {}: Unexpected parse failure (expected {} failure)",
-                        test_name, expected_failure
+                        "❌ {test_name}: Unexpected parse failure (expected {expected_failure} failure)"
                     ));
                     continue;
                 }
@@ -85,8 +80,7 @@ fn test_should_fail_programs() {
             Ok(_) => {
                 if expected_failure == "typecheck" {
                     failures.push(format!(
-                        "❌ {}: Expected typecheck failure but typechecking succeeded",
-                        test_name
+                        "❌ {test_name}: Expected typecheck failure but typechecking succeeded"
                     ));
                     continue;
                 } else {
@@ -95,12 +89,11 @@ fn test_should_fail_programs() {
             }
             Err(_errs) => {
                 if expected_failure == "typecheck" {
-                    println!("✓ {} (typecheck failed as expected)", test_name);
+                    println!("✓ {test_name} (typecheck failed as expected)");
                     continue;
                 } else {
                     failures.push(format!(
-                        "❌ {}: Unexpected typecheck failure (expected {} failure)",
-                        test_name, expected_failure
+                        "❌ {test_name}: Unexpected typecheck failure (expected {expected_failure} failure)"
                     ));
                     continue;
                 }
@@ -116,23 +109,20 @@ fn test_should_fail_programs() {
             Ok(_) => {
                 if expected_failure == "runtime" {
                     failures.push(format!(
-                        "❌ {}: Expected runtime failure but execution succeeded",
-                        test_name
+                        "❌ {test_name}: Expected runtime failure but execution succeeded"
                     ));
                 } else {
                     failures.push(format!(
-                        "❌ {}: Test succeeded but expected {} failure",
-                        test_name, expected_failure
+                        "❌ {test_name}: Test succeeded but expected {expected_failure} failure"
                     ));
                 }
             }
             Err(_e) => {
                 if expected_failure == "runtime" {
-                    println!("✓ {} (runtime failed as expected)", test_name);
+                    println!("✓ {test_name} (runtime failed as expected)");
                 } else {
                     failures.push(format!(
-                        "❌ {}: Unexpected runtime failure (expected {} failure)",
-                        test_name, expected_failure
+                        "❌ {test_name}: Unexpected runtime failure (expected {expected_failure} failure)"
                     ));
                 }
             }

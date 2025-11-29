@@ -43,7 +43,7 @@ fn test_runtime_programs() {
                     test_name,
                     errors
                         .iter()
-                        .map(|e| format!("  {}", e))
+                        .map(|e| format!("  {e}"))
                         .collect::<Vec<_>>()
                         .join("\n")
                 ));
@@ -78,7 +78,7 @@ fn test_runtime_programs() {
         let value = match vm.run() {
             Ok(v) => v,
             Err(e) => {
-                failures.push(format!("❌ {}: Runtime error: {:?}", test_name, e));
+                failures.push(format!("❌ {test_name}: Runtime error: {e:?}"));
                 continue;
             }
         };
@@ -91,24 +91,20 @@ fn test_runtime_programs() {
             let expected_val: luma::vm::value::Value = match ron::from_str(&expected_ron) {
                 Ok(v) => v,
                 Err(e) => {
-                    failures.push(format!(
-                        "❌ {}: Failed to parse expected RON: {}",
-                        test_name, e
-                    ));
+                    failures.push(format!("❌ {test_name}: Failed to parse expected RON: {e}"));
                     continue;
                 }
             };
             if value != expected_val {
                 failures.push(format!(
-                    "❌ {}: Value mismatch\nExpected:\n{}\n\nActual:\n{:?}\n",
-                    test_name, expected_ron, value
+                    "❌ {test_name}: Value mismatch\nExpected:\n{expected_ron}\n\nActual:\n{value:?}\n"
                 ));
             } else {
-                println!("✓ {}", test_name);
+                println!("✓ {test_name}");
             }
         } else {
             // No expectation: only ensure it ran
-            println!("✓ {} (no expectation)", test_name);
+            println!("✓ {test_name} (no expectation)");
         }
     }
 

@@ -166,12 +166,12 @@ impl<'a> DiagnosticFormatter<'a> {
 
         // Notes
         for note in &self.diagnostic.notes {
-            output.push_str(&format!("note: {}\n", note));
+            output.push_str(&format!("note: {note}\n"));
         }
 
         // Help
         if let Some(help) = &self.diagnostic.help {
-            output.push_str(&format!("help: {}\n", help));
+            output.push_str(&format!("help: {help}\n"));
         }
 
         output
@@ -202,12 +202,7 @@ impl<'a> DiagnosticFormatter<'a> {
                 let line_text = &self.source[line_start..line_end];
 
                 // Print line number and source
-                output.push_str(&format!(
-                    "{:width$} | {}\n",
-                    line_num,
-                    line_text,
-                    width = line_num_width
-                ));
+                output.push_str(&format!("{line_num:line_num_width$} | {line_text}\n"));
 
                 // Print underline/caret for error span
                 if line_num >= start_line && line_num <= end_line {

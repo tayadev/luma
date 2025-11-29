@@ -17,9 +17,9 @@ pub fn native_print(args: &[Value]) -> Result<Value, String> {
         if i > 0 {
             output.push('\t');
         }
-        output.push_str(&format!("{}", arg));
+        output.push_str(&format!("{arg}"));
     }
-    println!("{}", output);
+    println!("{output}");
     Ok(Value::Null)
 }
 
@@ -44,7 +44,7 @@ pub fn native_write(args: &[Value]) -> Result<Value, String> {
         Value::Number(n) => n.to_string(),
         Value::Boolean(b) => b.to_string(),
         Value::Null => "null".to_string(),
-        other => format!("{}", other),
+        other => format!("{other}"),
     };
 
     use std::io::Write;
@@ -53,15 +53,14 @@ pub fn native_write(args: &[Value]) -> Result<Value, String> {
         FD_STDERR => std::io::stderr().write_all(content.as_bytes()),
         _ => {
             return Ok(make_result_err(format!(
-                "Invalid file descriptor: {}. Only {} (stdout) and {} (stderr) are supported",
-                fd, FD_STDOUT, FD_STDERR
+                "Invalid file descriptor: {fd}. Only {FD_STDOUT} (stdout) and {FD_STDERR} (stderr) are supported"
             )));
         }
     };
 
     match result {
         Ok(_) => Ok(make_result_ok(Value::Null)),
-        Err(e) => Ok(make_result_err(format!("I/O error: {}", e))),
+        Err(e) => Ok(make_result_err(format!("I/O error: {e}"))),
     }
 }
 
@@ -87,8 +86,7 @@ pub fn native_read_file(args: &[Value]) -> Result<Value, String> {
     match std::fs::read_to_string(path) {
         Ok(content) => Ok(make_result_ok(Value::String(content))),
         Err(e) => Ok(make_result_err(format!(
-            "Failed to read file '{}': {}",
-            path, e
+            "Failed to read file '{path}': {e}"
         ))),
     }
 }
@@ -117,14 +115,13 @@ pub fn native_write_file(args: &[Value]) -> Result<Value, String> {
         Value::Number(n) => n.to_string(),
         Value::Boolean(b) => b.to_string(),
         Value::Null => "null".to_string(),
-        other => format!("{}", other),
+        other => format!("{other}"),
     };
 
     match std::fs::write(path, content) {
         Ok(_) => Ok(make_result_ok(Value::Null)),
         Err(e) => Ok(make_result_err(format!(
-            "Failed to write file '{}': {}",
-            path, e
+            "Failed to write file '{path}': {e}"
         ))),
     }
 }
@@ -156,9 +153,9 @@ pub fn native_panic(args: &[Value]) -> Result<Value, String> {
 
     let message = match &args[0] {
         Value::String(s) => s.clone(),
-        other => format!("{}", other),
+        other => format!("{other}"),
     };
 
-    eprintln!("PANIC: {}", message);
+    eprintln!("PANIC: {message}");
     std::process::exit(1);
 }

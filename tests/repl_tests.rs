@@ -30,8 +30,7 @@ fn test_repl_basic_expression() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         stdout.contains("3"),
-        "Expected output to contain '3', got: {}",
-        stdout
+        "Expected output to contain '3', got: {stdout}"
     );
 }
 
@@ -66,13 +65,11 @@ fn test_repl_variable_persistence() {
     // Should show null for let statement, then 20 for x * 2
     assert!(
         stdout.contains("null"),
-        "Expected 'null' for let statement, got: {}",
-        stdout
+        "Expected 'null' for let statement, got: {stdout}"
     );
     assert!(
         stdout.contains("20"),
-        "Expected '20' for x * 2, got: {}",
-        stdout
+        "Expected '20' for x * 2, got: {stdout}"
     );
 }
 
@@ -106,8 +103,7 @@ fn test_repl_multiple_variables() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         stdout.contains("15"),
-        "Expected '15' for x + y, got: {}",
-        stdout
+        "Expected '15' for x + y, got: {stdout}"
     );
 }
 
@@ -141,8 +137,7 @@ fn test_repl_function_persistence() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         stdout.contains("42"),
-        "Expected '42' for double(21), got: {}",
-        stdout
+        "Expected '42' for double(21), got: {stdout}"
     );
 }
 
@@ -177,8 +172,7 @@ fn test_repl_parse_error_recovery() {
     );
     assert!(
         stdout.contains("10"),
-        "Expected '10' for 5 + 5 after error, got: {}",
-        stdout
+        "Expected '10' for 5 + 5 after error, got: {stdout}"
     );
 }
 
@@ -212,7 +206,6 @@ fn test_repl_empty_lines() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
         stdout.contains("42"),
-        "Expected '42' in output, got: {}",
-        stdout
+        "Expected '42' in output, got: {stdout}"
     );
 }

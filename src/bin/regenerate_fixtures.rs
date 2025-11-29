@@ -67,8 +67,8 @@ fn main() {
     }
 
     println!("\nRegeneration complete:");
-    println!("  Updated: {}", updated);
-    println!("  Failed: {}", failed);
+    println!("  Updated: {updated}");
+    println!("  Failed: {failed}");
     println!("MAKE SURE TO MANUALLY CHECK THE FIXTURES FOR CORRECTNESS!");
 
     if failed > 0 {
