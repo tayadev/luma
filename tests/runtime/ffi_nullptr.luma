@@ -1,0 +1,5 @@
+-- Test ffi.nullptr() function
+let nil_ptr = ffi.nullptr()
+
+-- Check it's a null pointer (handle = 0)
+ffi.is_null(nil_ptr)

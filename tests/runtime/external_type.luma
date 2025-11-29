@@ -1,0 +1,5 @@
+-- Test External type exists and works
+let ext = External
+
+-- Check External is an External type
+typeof(ext)

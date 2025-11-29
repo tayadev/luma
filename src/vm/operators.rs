@@ -199,5 +199,6 @@ fn value_type_name(value: &Value) -> &'static str {
         Value::Table(_) => "Table",
         Value::Function { .. } | Value::Closure { .. } | Value::NativeFunction { .. } => "Function",
         Value::Type(_) => "Type",
+        Value::External { .. } => "External",
     }
 }

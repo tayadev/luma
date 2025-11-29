@@ -1,0 +1,5 @@
+-- Test ffi.new_cstr() function
+let c_str = ffi.new_cstr("Hello, World!")
+
+-- c_str should be an External type
+typeof(c_str)

@@ -741,7 +741,19 @@ impl VM {
                 name,
                 arity: fn_arity,
             } => {
-                if name != "print" && arity != fn_arity {
+                // FFI functions have variable arity, skip arity check for them
+                let is_ffi_dispatch = name.starts_with("ffi.")
+                    && ![
+                        "ffi.def",
+                        "ffi.new_cstr",
+                        "ffi.nullptr",
+                        "ffi.is_null",
+                        "ffi.call",
+                        "ffi.free_cstr",
+                    ]
+                    .contains(&name.as_str());
+
+                if name != "print" && !is_ffi_dispatch && arity != fn_arity {
                     return Err(
                         self._error(format!("Arity mismatch: expected {fn_arity}, got {arity}"))
                     );
@@ -751,6 +763,12 @@ impl VM {
 
                 if name == "into" {
                     self.exec_native_into(args)
+                } else if is_ffi_dispatch {
+                    // Dispatch to FFI function handler
+                    let result = super::native::native_ffi_dispatch(&name, &args)
+                        .map_err(|e| self._error(e))?;
+                    self.stack.push(result);
+                    Ok(())
                 } else {
                     let func = self.native_functions.get(&name).ok_or_else(|| {
                         self._error(format!("Native function '{name}' not found"))

@@ -195,6 +195,7 @@ pub fn native_typeof(args: &[Value]) -> Result<Value, String> {
         Value::Closure { .. } => "Function",
         Value::NativeFunction { .. } => "Function",
         Value::Type(_) => "Type",
+        Value::External { .. } => "External",
     };
 
     Ok(Value::String(type_name.to_string()))

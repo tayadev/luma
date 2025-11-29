@@ -58,6 +58,16 @@ pub enum Value {
     /// including field definitions and optional __parent for inheritance.
     #[serde(skip)]
     Type(Rc<RefCell<HashMap<String, Value>>>),
+    /// External represents an opaque pointer to external/native data.
+    /// Used for FFI to hold references to C data structures.
+    /// The usize is an opaque handle that the FFI system uses to track the resource.
+    #[serde(skip)]
+    External {
+        /// Opaque handle identifying the external resource
+        handle: usize,
+        /// Type name for debugging/display purposes
+        type_name: String,
+    },
 }
 
 impl PartialEq for Value {
@@ -88,6 +98,7 @@ impl PartialEq for Value {
                 },
             ) => n1 == n2 && a1 == a2,
             (Value::Type(a), Value::Type(b)) => Rc::ptr_eq(a, b) || *a.borrow() == *b.borrow(),
+            (Value::External { handle: h1, .. }, Value::External { handle: h2, .. }) => h1 == h2,
             _ => false,
         }
     }
@@ -137,6 +148,9 @@ impl fmt::Display for Value {
                 write!(f, "<native function {name}/{arity}>",)
             }
             Value::Type(_) => write!(f, "<type>"),
+            Value::External { handle, type_name } => {
+                write!(f, "<external {type_name} id:{handle}>")
+            }
         }
     }
 }

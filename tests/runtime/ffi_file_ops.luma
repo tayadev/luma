@@ -1,0 +1,25 @@
+-- Test FFI file operations
+let c_def = ffi.def("
+  typedef struct FILE FILE;
+  FILE *fopen(const char *path, const char *mode);
+  int fclose(FILE *stream);
+  int fputs(const char *str, FILE *stream);
+")
+
+-- Create a test file
+let f = c_def.fopen("/tmp/ffi_file_test.txt", "w")
+
+-- Check file opened successfully
+if ffi.is_null(f) do
+  false
+end
+
+-- Write to file
+let write_result = c_def.fputs("Test content", f)
+
+-- Close file
+let close_result = c_def.fclose(f)
+
+-- Return true if everything worked
+close_result == 0
+

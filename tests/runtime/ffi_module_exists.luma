@@ -1,0 +1,5 @@
+-- Test basic FFI module access
+let ffi_module = ffi
+
+-- Check that ffi module exists
+typeof(ffi_module)

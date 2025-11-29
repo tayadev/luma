@@ -229,6 +229,26 @@ impl TypeEnv {
             },
         );
 
+        // Register FFI module
+        env.declare(
+            "ffi".to_string(),
+            VarInfo {
+                ty: TcType::Table,
+                mutable: false,
+                annotated: true,
+            },
+        );
+
+        // Register External type marker
+        env.declare(
+            "External".to_string(),
+            VarInfo {
+                ty: TcType::Any, // External values can be any type
+                mutable: false,
+                annotated: true,
+            },
+        );
+
         env
     }
 
