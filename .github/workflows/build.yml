@@ -54,6 +54,7 @@ jobs:
         files: ./lcov.info
         flags: unittests
         fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   build:
     needs: test
