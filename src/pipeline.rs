@@ -151,8 +151,7 @@ impl Pipeline {
     ///
     /// Returns `PipelineError::Parse` if parsing fails
     pub fn parse(&self) -> PipelineResult<Program> {
-        crate::parser::parse(&self.source, &self.filename)
-            .map_err(PipelineError::Parse)
+        crate::parser::parse(&self.source, &self.filename).map_err(PipelineError::Parse)
     }
 
     /// Type-check the AST

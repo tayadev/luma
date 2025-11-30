@@ -172,12 +172,13 @@ fn get_libc_symbol(name: &str) -> Option<*const c_void> {
 
         for lib_name in &lib_names {
             if let Ok(lib) = unsafe { Library::new(lib_name) }
-                && let Ok(symbol) = unsafe { lib.get::<*const c_void>(name.as_bytes()) } {
-                    let ptr = *symbol;
-                    // Leak the library to keep it loaded (similar to dlopen without dlclose)
-                    std::mem::forget(lib);
-                    return Some(ptr);
-                }
+                && let Ok(symbol) = unsafe { lib.get::<*const c_void>(name.as_bytes()) }
+            {
+                let ptr = *symbol;
+                // Leak the library to keep it loaded (similar to dlopen without dlclose)
+                std::mem::forget(lib);
+                return Some(ptr);
+            }
         }
         None
     }
