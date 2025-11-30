@@ -8,4 +8,5 @@ run-ignored = "never"
 # Status level: show failing tests only (adjust to "all" for verbose).
 status-level = "fail"
 
+[profile.default.junit]
 path = "junit.xml"

@@ -6,7 +6,8 @@ Reference implementation of the Luma programming language.
 
 ## Quick Links
 
-- **[Language Specification](https://tayadev.github.io/luma/specification)** - Complete language reference with syntax, semantics, and examples
+- **[Docs](https://tayadev.github.io/luma/)** 
+- **[Language Specification](https://tayadev.github.io/luma/specification)**
 
 ## Installation
 
