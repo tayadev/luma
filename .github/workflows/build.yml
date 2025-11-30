@@ -37,7 +37,9 @@ jobs:
       uses: extractions/setup-just@v2
 
     - name: Install cargo extensions
-      run: cargo install cargo-nextest cargo-llvm-cov
+      uses: taiki-e/install-action@v2
+      with:
+        tool: nextest,cargo-llvm-cov
     
     - name: Check formatting
       run: just fmt-check
