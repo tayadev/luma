@@ -2,25 +2,22 @@
 # Install just: cargo install just
 # Usage: just [recipe]
 
+set windows-shell := ["powershell", "-Command"]
+
 # List available recipes
 default:
     @just --list
 
 # Run all tests (using nextest)
 test:
-    cargo nextest run
+    cargo nextest run --config-file nextest.toml
 
 # Run tests with all features
 test-all:
-    cargo nextest run --all-features
-
-# Produce JUnit XML for CI
-test-junit:
-    cargo nextest run --all-features
-
+    cargo nextest rua --config-file nextest.toml --all-features
 # CI: Run tests with coverage and JUnit XML output
 ci-test:
-    cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
+    cargo llvm-cov nextest --config-file nextest.toml --all-features --workspace --lcov --output-path lcov.info
 
 # Check code formatting
 fmt-check:
@@ -71,8 +68,7 @@ bench:
 clean:
     cargo clean
 
-# Full CI check: format, lint, test, coverage
-check: fmt-check lint test coverage-summary
+check: fmt-check lint test
     @echo "✓ All checks passed!"
 
 # Prepare for commit: format, lint, test

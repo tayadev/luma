@@ -3,8 +3,6 @@
 fail-fast = false
 # Retries disabled; adjust if flaky tests appear.
 retries = 0
-# Ignore no tests.
-run-ignored = "never"
 # Status level: show failing tests only (adjust to "all" for verbose).
 status-level = "fail"
 
