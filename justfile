@@ -47,19 +47,6 @@ run file:
 coverage:
     cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
 
-# Generate HTML coverage report
-coverage-html:
-    cargo llvm-cov --all-features --workspace --html
-
-# Generate coverage and show summary
-coverage-summary:
-    cargo llvm-cov --all-features --workspace --summary-only
-
-# Generate coverage and open in browser (macOS only)
-coverage-open:
-    cargo llvm-cov --all-features --workspace --html
-    open coverage/html/index.html
-
 # Run benchmarks
 bench:
     cargo bench
