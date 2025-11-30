@@ -61,6 +61,7 @@ impl LumaLanguageServer {
                 crate::diagnostics::Severity::Error => DiagnosticSeverity::ERROR,
                 crate::diagnostics::Severity::Warning => DiagnosticSeverity::WARNING,
                 crate::diagnostics::Severity::Info => DiagnosticSeverity::INFORMATION,
+                crate::diagnostics::Severity::Hint => DiagnosticSeverity::HINT,
             }),
             code: None,
             code_description: None,

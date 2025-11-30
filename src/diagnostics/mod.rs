@@ -1,20 +1,86 @@
 use crate::ast::Span;
 use std::fmt;
 
-/// Diagnostic severity level
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Diagnostic severity level (matches LSP DiagnosticSeverity)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Severity {
-    Error,
-    Warning,
-    Info,
+    Error = 1,
+    Warning = 2,
+    Info = 3,
+    Hint = 4,
+}
+
+impl Severity {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Severity::Error => "error",
+            Severity::Warning => "warning",
+            Severity::Info => "info",
+            Severity::Hint => "hint",
+        }
+    }
 }
 
 /// Diagnostic kind/category
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DiagnosticKind {
     Parse,
     Type,
     Runtime,
+}
+
+impl DiagnosticKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DiagnosticKind::Parse => "parse",
+            DiagnosticKind::Type => "type",
+            DiagnosticKind::Runtime => "runtime",
+        }
+    }
+}
+
+/// Diagnostic error code for categorization (e.g., "E0001")
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DiagnosticCode {
+    /// Code identifier (e.g., "E0001", "W0042")
+    pub code: String,
+    /// Brief description of the error code
+    pub title: String,
+    /// Link to documentation
+    pub url: Option<String>,
+}
+
+impl DiagnosticCode {
+    pub fn new(code: impl Into<String>, title: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            title: title.into(),
+            url: None,
+        }
+    }
+
+    pub fn with_url(mut self, url: impl Into<String>) -> Self {
+        self.url = Some(url.into());
+        self
+    }
+}
+
+/// Information about a related diagnostic location
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RelatedInfo {
+    pub message: String,
+    pub span: Span,
+    pub filename: String,
+}
+
+impl RelatedInfo {
+    pub fn new(message: impl Into<String>, span: Span, filename: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            span,
+            filename: filename.into(),
+        }
+    }
 }
 
 /// A diagnostic message with location and context
@@ -25,6 +91,8 @@ pub struct Diagnostic {
     pub message: String,
     pub span: Span,
     pub filename: String,
+    pub code: Option<DiagnosticCode>,
+    pub related_info: Vec<RelatedInfo>,
     pub notes: Vec<String>,
     pub help: Option<String>,
 }
@@ -37,9 +105,35 @@ impl Diagnostic {
             message,
             span,
             filename,
+            code: None,
+            related_info: Vec::new(),
             notes: Vec::new(),
             help: None,
         }
+    }
+
+    pub fn warning(kind: DiagnosticKind, message: String, span: Span, filename: String) -> Self {
+        Self {
+            kind,
+            severity: Severity::Warning,
+            message,
+            span,
+            filename,
+            code: None,
+            related_info: Vec::new(),
+            notes: Vec::new(),
+            help: None,
+        }
+    }
+
+    pub fn with_code(mut self, code: DiagnosticCode) -> Self {
+        self.code = Some(code);
+        self
+    }
+
+    pub fn with_related(mut self, related: RelatedInfo) -> Self {
+        self.related_info.push(related);
+        self
     }
 
     pub fn with_note(mut self, note: String) -> Self {
@@ -50,6 +144,16 @@ impl Diagnostic {
     pub fn with_help(mut self, help: String) -> Self {
         self.help = Some(help);
         self
+    }
+
+    /// Check if this diagnostic represents a recoverable error
+    /// (i.e., subsequent passes can continue despite this error)
+    pub fn is_recoverable(&self) -> bool {
+        match self.kind {
+            DiagnosticKind::Parse => false, // Parse errors prevent further analysis
+            DiagnosticKind::Type => true,   // Can continue type checking on other code
+            DiagnosticKind::Runtime => true, // Runtime errors don't prevent execution of other code
+        }
     }
 
     /// Format the diagnostic with source code snippet
@@ -69,11 +173,7 @@ impl fmt::Display for Diagnostic {
         write!(
             f,
             "{}: {} at {}:{}:{}",
-            match self.severity {
-                Severity::Error => "error",
-                Severity::Warning => "warning",
-                Severity::Info => "info",
-            },
+            self.severity.as_str(),
             self.message,
             self.filename,
             self.span.start,
@@ -149,6 +249,7 @@ impl<'a> DiagnosticFormatter<'a> {
             Severity::Error => "error",
             Severity::Warning => "warning",
             Severity::Info => "info",
+            Severity::Hint => "hint",
         };
         output.push_str(&format!("{}: {}\n", severity_str, self.diagnostic.message));
 
@@ -313,5 +414,126 @@ mod tests {
         assert!(formatted.contains("test.luma:3:1")); // Points to start of span end line
         assert!(formatted.contains("let x = 1 +"));
         assert!(formatted.contains("true"));
+    }
+
+    #[test]
+    fn test_diagnostic_code_creation() {
+        let code = DiagnosticCode::new("E0001", "Type mismatch")
+            .with_url("https://docs.luma.dev/errors/E0001");
+
+        assert_eq!(code.code, "E0001");
+        assert_eq!(code.title, "Type mismatch");
+        assert!(code.url.is_some());
+    }
+
+    #[test]
+    fn test_diagnostic_with_code() {
+        let diag = Diagnostic::error(
+            DiagnosticKind::Type,
+            "expected number, found string".to_string(),
+            Span::new(0, 5),
+            "test.luma".to_string(),
+        )
+        .with_code(DiagnosticCode::new("E0001", "Type mismatch"));
+
+        assert!(diag.code.is_some());
+        assert_eq!(diag.code.as_ref().unwrap().code, "E0001");
+    }
+
+    #[test]
+    fn test_diagnostic_with_related_info() {
+        let diag = Diagnostic::error(
+            DiagnosticKind::Type,
+            "type mismatch".to_string(),
+            Span::new(10, 15),
+            "test.luma".to_string(),
+        )
+        .with_related(RelatedInfo::new(
+            "variable first defined here",
+            Span::new(0, 10),
+            "test.luma".to_string(),
+        ));
+
+        assert_eq!(diag.related_info.len(), 1);
+        assert_eq!(diag.related_info[0].message, "variable first defined here");
+    }
+
+    #[test]
+    fn test_severity_display() {
+        assert_eq!(Severity::Error.as_str(), "error");
+        assert_eq!(Severity::Warning.as_str(), "warning");
+        assert_eq!(Severity::Info.as_str(), "info");
+        assert_eq!(Severity::Hint.as_str(), "hint");
+    }
+
+    #[test]
+    fn test_diagnostic_kind_display() {
+        assert_eq!(DiagnosticKind::Parse.as_str(), "parse");
+        assert_eq!(DiagnosticKind::Type.as_str(), "type");
+        assert_eq!(DiagnosticKind::Runtime.as_str(), "runtime");
+    }
+
+    #[test]
+    fn test_is_recoverable() {
+        let parse_diag = Diagnostic::error(
+            DiagnosticKind::Parse,
+            "parse error".to_string(),
+            Span::new(0, 5),
+            "test.luma".to_string(),
+        );
+        assert!(!parse_diag.is_recoverable());
+
+        let type_diag = Diagnostic::error(
+            DiagnosticKind::Type,
+            "type error".to_string(),
+            Span::new(0, 5),
+            "test.luma".to_string(),
+        );
+        assert!(type_diag.is_recoverable());
+
+        let runtime_diag = Diagnostic::error(
+            DiagnosticKind::Runtime,
+            "runtime error".to_string(),
+            Span::new(0, 5),
+            "test.luma".to_string(),
+        );
+        assert!(runtime_diag.is_recoverable());
+    }
+
+    #[test]
+    fn test_diagnostic_warning() {
+        let diag = Diagnostic::warning(
+            DiagnosticKind::Type,
+            "unused variable".to_string(),
+            Span::new(0, 5),
+            "test.luma".to_string(),
+        );
+
+        assert_eq!(diag.severity, Severity::Warning);
+        assert_eq!(diag.message, "unused variable");
+    }
+
+    #[test]
+    fn test_diagnostic_builder_pattern() {
+        let diag = Diagnostic::error(
+            DiagnosticKind::Type,
+            "type mismatch".to_string(),
+            Span::new(0, 10),
+            "test.luma".to_string(),
+        )
+        .with_code(DiagnosticCode::new("E0001", "Type mismatch"))
+        .with_note("expected i32".to_string())
+        .with_note("found string".to_string())
+        .with_help("use `x.parse()` to convert".to_string())
+        .with_related(RelatedInfo::new(
+            "variable defined here",
+            Span::new(0, 1),
+            "test.luma".to_string(),
+        ));
+
+        assert!(diag.code.is_some());
+        assert_eq!(diag.notes.len(), 2);
+        assert!(diag.help.is_some());
+        assert_eq!(diag.related_info.len(), 1);
     }
 }
