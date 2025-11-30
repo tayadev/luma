@@ -2,19 +2,25 @@
 # Install just: cargo install just
 # Usage: just [recipe]
 
-set shell := ["pwsh", "-NoProfile", "-Command"]
-
 # List available recipes
 default:
     @just --list
 
-# Run all tests
+# Run all tests (using nextest)
 test:
-    cargo test --verbose
+    cargo nextest run
 
 # Run tests with all features
 test-all:
-    cargo test --all-features --verbose
+    cargo nextest run --all-features
+
+# Produce JUnit XML for CI
+test-junit:
+    cargo nextest run --all-features
+
+# CI: Run tests with coverage and JUnit XML output
+ci-test:
+    cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
 
 # Check code formatting
 fmt-check:
@@ -40,9 +46,9 @@ build-release:
 run file:
     cargo run -- {{file}}
 
-# Generate code coverage report (requires cargo-llvm-cov)
+# Generate code coverage report (requires cargo-llvm-cov, uses nextest)
 coverage:
-    cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+    cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
 
 # Generate HTML coverage report
 coverage-html:
