@@ -3,7 +3,12 @@
 {
 	"name": "Rust",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/rust:2-1-bullseye"
+	"image": "mcr.microsoft.com/devcontainers/rust:2-1-bullseye",
+	"features": {
+		"ghcr.io/guiyomh/features/just:0": {},
+		"ghcr.io/lee-orr/rusty-dev-containers/cargo-llvm-cov:0": {},
+		"ghcr.io/lee-orr/rusty-dev-containers/cargo-nextest:0": {}
+	}
 
 	// Use 'mounts' to make the cargo cache persistent in a Docker Volume.
 	// "mounts": [
