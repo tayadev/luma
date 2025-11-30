@@ -112,7 +112,7 @@ function Install-Luma {
     return 1
   }
 
-  $Target = "windows-${Arch}"
+  $Target = "luma-windows-${Arch}"
   $BaseURL = "https://github.com/tayadev/luma/releases"
   $URL = "$BaseURL/$(if ($Version -eq "latest") { "latest/download" } else { "download/$Version" })/$Target.zip"
 
