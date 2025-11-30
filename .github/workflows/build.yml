@@ -33,6 +33,9 @@ jobs:
         toolchain: stable
         components: rustfmt, clippy
     
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+    
     - name: Install just
       uses: extractions/setup-just@v2
 
@@ -50,19 +53,19 @@ jobs:
     - name: Run tests with coverage and JUnit
       run: just ci-test
 
-    - name: Upload coverage & test results to Codecov
+    - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
-        files: './lcov.info,./junit.xml'
+        files: './lcov.info'
         flags: unittests
         fail_ci_if_error: false
         token: ${{ secrets.CODECOV_TOKEN }}
-
-    - name: Upload JUnit XML artifact (optional)
-      uses: actions/upload-artifact@v4
+    
+    - name: Upload test results to Codecov
+      if: ${{ !cancelled() }}
+      uses: codecov/test-results-action@v1
       with:
-        name: junit-report
-        path: test-results/junit.xml
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   build:
     needs: test
