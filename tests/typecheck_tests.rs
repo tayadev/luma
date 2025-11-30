@@ -265,3 +265,98 @@ fn test_typecheck_error_format_with_diagnostics() {
         formatted
     );
 }
+
+#[test]
+fn test_typecheck_implicit_return_from_if_statement() {
+    // Test case from issue: if statement as last statement in function should be implicit return
+    let source = r#"
+let fibonacci = fn(n: Number): Number do
+  if n <= 1 do
+    n
+  else do
+    fibonacci(n - 1) + fibonacci(n - 2)
+  end
+end
+"#;
+
+    let ast = parser::parse(source, "test.luma").expect("Should parse successfully");
+    let result = typecheck_program(&ast);
+
+    assert!(
+        result.is_ok(),
+        "If statement as implicit return should typecheck successfully, got errors: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_typecheck_implicit_return_from_if_with_elif() {
+    let source = r#"
+let grade = fn(score: Number): String do
+  if score >= 90 do
+    "A"
+  else if score >= 80 do
+    "B"
+  else if score >= 70 do
+    "C"
+  else do
+    "F"
+  end
+end
+"#;
+
+    let ast = parser::parse(source, "test.luma").expect("Should parse successfully");
+    let result = typecheck_program(&ast);
+
+    assert!(
+        result.is_ok(),
+        "If-elif statement as implicit return should typecheck successfully, got errors: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_typecheck_if_without_else_not_implicit_return() {
+    // If without else cannot be an implicit return because not all paths return
+    let source = r#"
+let test = fn(n: Number): Number do
+  if n > 0 do
+    n
+  end
+end
+"#;
+
+    let ast = parser::parse(source, "test.luma").expect("Should parse successfully");
+    let result = typecheck_program(&ast);
+
+    assert!(
+        result.is_err(),
+        "If without else should fail typecheck for Number return type"
+    );
+}
+
+#[test]
+fn test_typecheck_nested_if_implicit_return() {
+    let source = r#"
+let test = fn(n: Number): Number do
+  if n > 10 do
+    if n > 20 do
+      20
+    else do
+      10
+    end
+  else do
+    n
+  end
+end
+"#;
+
+    let ast = parser::parse(source, "test.luma").expect("Should parse successfully");
+    let result = typecheck_program(&ast);
+
+    assert!(
+        result.is_ok(),
+        "Nested if as implicit return should typecheck successfully, got errors: {:?}",
+        result.err()
+    );
+}
