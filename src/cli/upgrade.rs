@@ -1,9 +1,8 @@
 //! `upgrade` subcommand handler for Windows
 
-use std::env;
-use std::fs;
-use std::path::PathBuf;
 use std::process;
+#[cfg(target_os = "windows")]
+use std::{env, fs, path::PathBuf};
 
 /// Upgrade Luma to a newer version (Windows only)
 #[cfg(target_os = "windows")]
