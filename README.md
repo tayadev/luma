@@ -1,4 +1,5 @@
 # Luma
+![GitHub Release](https://img.shields.io/github/v/release/tayadev/luma)
 [![Build](https://github.com/tayadev/luma/actions/workflows/build.yml/badge.svg)](https://github.com/tayadev/luma/actions/workflows/build.yml)
 [![codecov](https://codecov.io/github/tayadev/luma/graph/badge.svg?token=1DOMJ3CFKH)](https://codecov.io/github/tayadev/luma)
 
@@ -41,4 +42,5 @@ Commands:
 
 
 > `run` can be omitted to execute a script directly: `luma ./my-script.luma` is equivalent to `luma run ./my-script.luma`
+
 
