@@ -1,4 +1,5 @@
 # Luma
+[![codecov](https://codecov.io/github/tayadev/luma/graph/badge.svg?token=1DOMJ3CFKH)](https://codecov.io/github/tayadev/luma)
 
 Reference implementation of the Luma programming language.
 
@@ -35,5 +36,6 @@ Commands:
 
   <command> --help               Print help text for command.
 ```
+
 
 > `run` can be omitted to execute a script directly: `luma ./my-script.luma` is equivalent to `luma run ./my-script.luma`
