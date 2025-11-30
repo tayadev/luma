@@ -42,6 +42,19 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
 
+    - name: Install cargo-llvm-cov
+      run: cargo install cargo-llvm-cov
+
+    - name: Generate coverage
+      run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./lcov.info
+        flags: unittests
+        fail_ci_if_error: false
+
   build:
     needs: test
     name: Build Binaries

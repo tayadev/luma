@@ -1,5 +1,9 @@
 /target
 
+# Coverage reports
+/coverage
+lcov.info
+
 # Docusaurus
 /docs/node_modules
 /docs/.docusaurus
