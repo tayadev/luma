@@ -111,26 +111,6 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     ))
     .boxed();
 
-    // Unary operators (not, -)
-    let unary_op = operators::unary_op(ws.clone());
-    let unary_expr = unary_op
-        .repeated()
-        .collect::<Vec<_>>()
-        .then(primary.clone())
-        .try_map(|(ops, mut operand), span| {
-            // Apply operators right-to-left
-            for op in ops.into_iter().rev() {
-                let operand_span = operand.span().map(|s| s.end).unwrap_or(span.end);
-                operand = Expr::Unary {
-                    op,
-                    operand: Box::new(operand),
-                    span: Some(crate::ast::Span::new(span.start, operand_span)),
-                };
-            }
-            Ok(operand)
-        })
-        .boxed();
-
     // Postfix operators: function calls, member access, and indexing
     // Parse call arguments - can be positional (expr) or named (name = expr)
     let call_arg = {
@@ -186,7 +166,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         index.map(|e| PostfixOp::Index(Box::new(e))),
     ));
 
-    let postfix = unary_expr
+    let postfix = primary
         .clone()
         .then(postfix_op.repeated().collect::<Vec<_>>())
         .try_map(|(mut expr, ops), span| {
@@ -221,6 +201,27 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         })
         .boxed();
 
+    // Unary operators (not, -)
+    // These have lower precedence than postfix, so they operate on postfix expressions
+    let unary_op = operators::unary_op(ws.clone());
+    let unary_expr = unary_op
+        .repeated()
+        .collect::<Vec<_>>()
+        .then(postfix.clone())
+        .try_map(|(ops, mut operand), span| {
+            // Apply operators right-to-left
+            for op in ops.into_iter().rev() {
+                let operand_span = operand.span().map(|s| s.end).unwrap_or(span.end);
+                operand = Expr::Unary {
+                    op,
+                    operand: Box::new(operand),
+                    span: Some(crate::ast::Span::new(span.start, operand_span)),
+                };
+            }
+            Ok(operand)
+        })
+        .boxed();
+
     // Binary operators with precedence
     let mul_op = operators::mul_op(ws.clone());
     let add_op = operators::add_op(ws.clone());
@@ -229,10 +230,15 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
     let and_op = operators::and_op(ws.clone());
     let or_op = operators::or_op(ws.clone());
 
-    // Build expression with precedence: || > && > == != > < <= > >= > + - > * / % > postfix > unary
-    let mul_expr = postfix
+    // Build expression with precedence: || > && > == != > < <= > >= > + - > * / % > unary > postfix
+    let mul_expr = unary_expr
         .clone()
-        .then(mul_op.then(postfix.clone()).repeated().collect::<Vec<_>>())
+        .then(
+            mul_op
+                .then(unary_expr.clone())
+                .repeated()
+                .collect::<Vec<_>>(),
+        )
         .try_map(|(mut left, ops), span| {
             for (op, right) in ops {
                 let left_span = left.span().map(|s| s.start).unwrap_or(span.start);
@@ -714,6 +720,40 @@ mod tests {
                 ));
             }
             _ => panic!("Expected double negation"),
+        }
+    }
+
+    #[test]
+    fn test_parse_unary_not_function_call() {
+        // Test that !fn() parses as !(fn()), not (!fn)()
+        let expr = parse_expr("!foo()");
+        match expr {
+            Expr::Unary {
+                op: UnaryOp::Not,
+                operand,
+                ..
+            } => {
+                // The operand should be a function call
+                assert!(matches!(*operand, Expr::Call { .. }));
+            }
+            _ => panic!("Expected unary not with function call as operand"),
+        }
+    }
+
+    #[test]
+    fn test_parse_negation_function_call() {
+        // Test that -fn() parses as -(fn()), not (-fn)()
+        let expr = parse_expr("-foo()");
+        match expr {
+            Expr::Unary {
+                op: UnaryOp::Neg,
+                operand,
+                ..
+            } => {
+                // The operand should be a function call
+                assert!(matches!(*operand, Expr::Call { .. }));
+            }
+            _ => panic!("Expected negation with function call as operand"),
         }
     }
 
