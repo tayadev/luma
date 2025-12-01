@@ -78,12 +78,16 @@ impl TypeEnv {
             },
         );
 
-        // print is variadic - we use Any to accept any number of arguments
-        // The actual arity check is skipped for print in the VM
+        // The native print function accepts any number of arguments.
+        // Note: The prelude defines its own print function that shadows this.
         env.declare(
             "print".to_string(),
             VarInfo {
-                ty: TcType::Any, // Variadic function - any type
+                ty: TcType::Function {
+                    params: vec![TcType::List(Box::new(TcType::Any))],
+                    ret: Box::new(TcType::Null),
+                    variadic_index: Some(0),
+                },
                 mutable: false,
                 annotated: true,
             },

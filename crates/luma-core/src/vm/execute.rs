@@ -852,7 +852,7 @@ impl VM {
         _arity: usize,
         variadic_idx: usize,
     ) -> Result<(), VmError> {
-        // The arguments are on the stack at positions: callee_idx + 1 to callee_idx + 1 + arity
+        // The arguments are on the stack at positions: callee_idx + 1 to end of current args
         // We need to collect args[variadic_idx..] into a list and replace them with that list
         let first_variadic_arg_idx = callee_idx + 1 + variadic_idx;
 
