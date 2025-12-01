@@ -32,6 +32,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Any, TcType::Any],
                     ret: Box::new(TcType::Any),
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -44,6 +45,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Any, TcType::Any],
                     ret: Box::new(TcType::Boolean),
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -56,6 +58,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Any, TcType::Any],
                     ret: Box::new(TcType::Any),
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -68,18 +71,23 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Any],
                     ret: Box::new(TcType::String),
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
             },
         );
 
-        // print is variadic - we use Any to accept any number of arguments
-        // The actual arity check is skipped for print in the VM
+        // The native print function accepts any number of arguments.
+        // Note: The prelude defines its own print function that shadows this.
         env.declare(
             "print".to_string(),
             VarInfo {
-                ty: TcType::Any, // Variadic function - any type
+                ty: TcType::Function {
+                    params: vec![TcType::List(Box::new(TcType::Any))],
+                    ret: Box::new(TcType::Null),
+                    variadic_index: Some(0),
+                },
                 mutable: false,
                 annotated: true,
             },
@@ -92,6 +100,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Number, TcType::Any],
                     ret: Box::new(TcType::Table), // Returns Result
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -104,6 +113,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::String],
                     ret: Box::new(TcType::Table), // Returns Result
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -116,6 +126,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::String, TcType::Any],
                     ret: Box::new(TcType::Table), // Returns Result
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -128,6 +139,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::String],
                     ret: Box::new(TcType::Boolean),
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -140,6 +152,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Any],
                     ret: Box::new(TcType::Any), // Never returns, but use Any
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -410,7 +423,7 @@ impl TypeEnv {
                     .map(Self::type_from_ast)
                     .collect::<Vec<_>>();
                 let ret = Box::new(Self::type_from_ast(return_type));
-                TcType::Function { params, ret }
+                TcType::Function { params, ret, variadic_index: None }
             }
         }
     }

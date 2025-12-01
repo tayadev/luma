@@ -470,6 +470,42 @@ greet("Alice")                     -- "Hello, Friend Alice!"
 greet("Bob", "Dr.")                -- "Hello, Dr. Bob!"
 ```
 
+#### 6.2.3 Variadic Parameters
+
+Variadic parameters use the `...` prefix and collect all remaining arguments into a list:
+
+```luma
+let printAll = fn(...args: Any) do
+  for arg in args do
+    print(arg)
+  end
+end
+
+printAll("Hello", 42, true)        -- prints: Hello, 42, true
+```
+
+Variadic parameters can follow regular parameters:
+
+```luma
+let greetMany = fn(greeting: String, ...names: String): String do
+  var result = greeting
+  for name in names do
+    result = result + " " + name
+  end
+  return result
+end
+
+greetMany("Hello")                 -- "Hello"
+greetMany("Hello", "Alice")        -- "Hello Alice"
+greetMany("Hello", "Alice", "Bob") -- "Hello Alice Bob"
+```
+
+**Rules:**
+- Variadic parameter must be the last parameter
+- The variadic parameter becomes a List of the specified type
+- All variadic arguments must be of the specified type
+- Zero or more arguments can be passed to the variadic parameter
+
 ### 6.3 Function Calls
 
 #### 6.3.1 Positional Arguments

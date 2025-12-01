@@ -72,6 +72,11 @@ pub struct Chunk {
     /// Describes which upvalues this chunk needs, in order
     /// Each upvalue descriptor tells us how to capture the value when creating a closure
     pub upvalue_descriptors: Vec<UpvalueDescriptor>,
+    /// If Some(n), the parameter at index n is variadic and collects remaining arguments into a list.
+    /// The local_count represents the number of logical parameters (including the variadic one).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub variadic_param_index: Option<usize>,
     /// Maps instruction index to source span (parallel to instructions)
     /// None indicates no source location available
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -88,6 +93,7 @@ impl Chunk {
             local_count: 0,
             name,
             upvalue_descriptors: vec![],
+            variadic_param_index: None,
             spans: vec![None], // One span for the Halt instruction
         }
     }

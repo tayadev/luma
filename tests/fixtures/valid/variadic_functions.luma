@@ -1,0 +1,43 @@
+-- Variadic functions test
+
+-- Simple variadic function that sums all arguments
+let sum = fn(...args: Number): Number do
+    var total = 0
+    for arg in args do
+        total = total + arg
+    end
+    total
+end
+
+-- Test with different numbers of arguments
+let a = sum()
+let b = sum(1)
+let c = sum(1, 2, 3)
+let d = sum(1, 2, 3, 4, 5)
+
+-- Variadic function with regular parameters before
+let greet = fn(prefix: String, ...names: String): String do
+    var result = prefix
+    for name in names do
+        result = result + " " + name
+    end
+    result
+end
+
+-- Test greet with different numbers of names
+let e = greet("Hello")
+let f = greet("Hello", "Alice")
+let g = greet("Hello", "Alice", "Bob", "Charlie")
+
+-- Print the results for verification (one argument at a time to work with prelude)
+print("Testing variadic functions")
+print(a)
+print(b)
+print(c)
+print(d)
+print(e)
+print(f)
+print(g)
+
+-- Return the sum for final check
+a + b + c + d
