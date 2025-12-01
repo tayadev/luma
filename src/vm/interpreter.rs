@@ -250,3 +250,340 @@ impl VM {
         result
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bytecode::compile::compile_program;
+    use crate::parser::parse;
+
+    fn run_source(source: &str) -> Result<Value, VmError> {
+        let program = parse(source, "test.luma").expect("Parse failed");
+        let chunk = compile_program(&program);
+        let mut vm = VM::new(chunk);
+        vm.run()
+    }
+
+    // Basic value tests
+    #[test]
+    fn test_vm_number() {
+        let result = run_source("42").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 42.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_string() {
+        let result = run_source("\"hello\"").unwrap();
+        assert!(matches!(result, Value::String(s) if s == "hello"));
+    }
+
+    #[test]
+    fn test_vm_boolean_true() {
+        let result = run_source("true").unwrap();
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    #[test]
+    fn test_vm_boolean_false() {
+        let result = run_source("false").unwrap();
+        assert!(matches!(result, Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_vm_null() {
+        let result = run_source("null").unwrap();
+        assert!(matches!(result, Value::Null));
+    }
+
+    // Arithmetic tests
+    #[test]
+    fn test_vm_addition() {
+        let result = run_source("2 + 3").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 5.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_subtraction() {
+        let result = run_source("10 - 4").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 6.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_multiplication() {
+        let result = run_source("6 * 7").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 42.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_division() {
+        let result = run_source("20 / 4").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 5.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_modulo() {
+        let result = run_source("10 % 3").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 1.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_negation() {
+        let result = run_source("-42").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n + 42.0).abs() < f64::EPSILON));
+    }
+
+    // String operations
+    #[test]
+    fn test_vm_string_concatenation() {
+        let result = run_source("\"hello\" + \" world\"").unwrap();
+        assert!(matches!(result, Value::String(s) if s == "hello world"));
+    }
+
+    // Comparison tests
+    #[test]
+    fn test_vm_equality_true() {
+        let result = run_source("42 == 42").unwrap();
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    #[test]
+    fn test_vm_equality_false() {
+        let result = run_source("42 == 43").unwrap();
+        assert!(matches!(result, Value::Boolean(false)));
+    }
+
+    #[test]
+    fn test_vm_inequality() {
+        let result = run_source("42 != 43").unwrap();
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    #[test]
+    fn test_vm_less_than() {
+        let result = run_source("5 < 10").unwrap();
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    #[test]
+    fn test_vm_greater_than() {
+        let result = run_source("10 > 5").unwrap();
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    #[test]
+    fn test_vm_less_equal() {
+        let result = run_source("5 <= 5").unwrap();
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    #[test]
+    fn test_vm_greater_equal() {
+        let result = run_source("10 >= 10").unwrap();
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    // Logical operations
+    #[test]
+    fn test_vm_logical_not() {
+        let result = run_source("!false").unwrap();
+        assert!(matches!(result, Value::Boolean(true)));
+    }
+
+    // Variable tests
+    #[test]
+    fn test_vm_local_variable() {
+        let result = run_source("let x = 42\nx").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 42.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_mutable_variable_assignment() {
+        let result = run_source("var x = 10\nx = 20\nx").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 20.0).abs() < f64::EPSILON));
+    }
+
+    // Collection tests
+    #[test]
+    fn test_vm_empty_list() {
+        let result = run_source("[]").unwrap();
+        match result {
+            Value::List(list) => assert_eq!(list.borrow().len(), 0),
+            _ => panic!("Expected list"),
+        }
+    }
+
+    #[test]
+    fn test_vm_list_with_elements() {
+        let result = run_source("[1, 2, 3]").unwrap();
+        match result {
+            Value::List(list) => assert_eq!(list.borrow().len(), 3),
+            _ => panic!("Expected list"),
+        }
+    }
+
+    #[test]
+    fn test_vm_list_indexing() {
+        let result = run_source("[10, 20, 30][1]").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 20.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_table_creation() {
+        let result = run_source("{ x = 1, y = 2 }").unwrap();
+        match result {
+            Value::Table(table) => assert_eq!(table.borrow().len(), 2),
+            _ => panic!("Expected table"),
+        }
+    }
+
+    #[test]
+    fn test_vm_table_member_access() {
+        let result = run_source("let t = { x = 42 }\nt.x").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 42.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_table_index_access() {
+        let result = run_source("let t = { x = 42 }\nt[\"x\"]").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 42.0).abs() < f64::EPSILON));
+    }
+
+    // Control flow tests
+    #[test]
+    fn test_vm_if_then() {
+        let result = run_source("if true do 42 else do 0 end").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 42.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_if_else() {
+        let result = run_source("if false do 42 else do 10 end").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 10.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_while_loop() {
+        let code = r#"
+            var sum = 0
+            var i = 1
+            while i <= 5 do
+                sum = sum + i
+                i = i + 1
+            end
+            sum
+        "#;
+        let result = run_source(code).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 15.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_for_loop() {
+        let code = r#"
+            var sum = 0
+            for x in [1, 2, 3, 4, 5] do
+                sum = sum + x
+            end
+            sum
+        "#;
+        let result = run_source(code).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 15.0).abs() < f64::EPSILON));
+    }
+
+    // Function tests
+    #[test]
+    fn test_vm_simple_function() {
+        let code = "let f = fn(x: Number): Number do return x + 1 end\nf(41)";
+        let result = run_source(code).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 42.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_function_with_multiple_params() {
+        let code = "let add = fn(a: Number, b: Number): Number do return a + b end\nadd(10, 32)";
+        let result = run_source(code).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 42.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_recursive_function() {
+        let code = r#"
+            let factorial = fn(n: Number): Number do
+                if n <= 1 do
+                    return 1
+                else do
+                    return n * factorial(n - 1)
+                end
+            end
+            factorial(5)
+        "#;
+        let result = run_source(code).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 120.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_closure() {
+        let code = r#"
+            let makeAdder = fn(x: Number): Function do
+                return fn(y: Number): Number do
+                    return x + y
+                end
+            end
+            let add5 = makeAdder(5)
+            add5(10)
+        "#;
+        let result = run_source(code).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 15.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_closure_mutation() {
+        let code = r#"
+            let makeCounter = fn(): Function do
+                var count = 0
+                return fn(): Number do
+                    count = count + 1
+                    return count
+                end
+            end
+            let counter = makeCounter()
+            counter()
+            counter()
+            counter()
+        "#;
+        let result = run_source(code).unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 3.0).abs() < f64::EPSILON));
+    }
+
+    // Complex expression tests
+    #[test]
+    fn test_vm_operator_precedence() {
+        let result = run_source("2 + 3 * 4").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 14.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_vm_nested_arithmetic() {
+        let result = run_source("(10 + 5) * (6 - 2)").unwrap();
+        assert!(matches!(result, Value::Number(n) if (n - 60.0).abs() < f64::EPSILON));
+    }
+
+    // Error tests
+    #[test]
+    fn test_vm_undefined_variable_error() {
+        let result = run_source("x");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_vm_division_by_zero() {
+        let result = run_source("10 / 0").unwrap();
+        // Division by zero in Luma returns infinity (follows IEEE 754)
+        assert!(matches!(result, Value::Number(n) if n.is_infinite()));
+    }
+
+    #[test]
+    fn test_vm_list_index_out_of_bounds() {
+        let result = run_source("[1, 2, 3][10]");
+        assert!(result.is_err());
+    }
+}

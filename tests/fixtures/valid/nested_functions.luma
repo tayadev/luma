@@ -1,0 +1,15 @@
+-- Nested functions and closures
+let makeMultiplier = fn(factor: Number): Function do
+    return fn(x: Number): Number do
+        return x * factor
+    end
+end
+
+let double = makeMultiplier(2)
+let triple = makeMultiplier(3)
+
+-- Test both multipliers
+let a = double(5)
+let b = triple(5)
+
+a + b

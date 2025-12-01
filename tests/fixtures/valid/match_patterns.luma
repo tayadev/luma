@@ -1,0 +1,15 @@
+-- Pattern matching with match statement
+let describe = fn(x: Number): String do
+    match x do
+        0 do return "zero" end
+        1 do return "one" end
+        2 do return "two" end
+        _ do return "many" end
+    end
+end
+
+let r1 = describe(0)
+let r2 = describe(1)
+let r3 = describe(5)
+
+r1

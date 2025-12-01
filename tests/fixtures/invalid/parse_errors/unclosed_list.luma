@@ -1,0 +1,2 @@
+-- Unclosed list
+let items = [1, 2, 3

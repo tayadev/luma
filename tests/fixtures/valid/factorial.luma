@@ -1,0 +1,12 @@
+-- Factorial using iteration
+let factorial = fn(n: Number): Number do
+    var result = 1
+    var i = 1
+    while i <= n do
+        result = result * i
+        i = i + 1
+    end
+    return result
+end
+
+factorial(5)

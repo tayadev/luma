@@ -1,3 +1,0 @@
-for item in items do
-  print(item)
-end

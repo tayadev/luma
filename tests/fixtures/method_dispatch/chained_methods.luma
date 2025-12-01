@@ -1,7 +1,0 @@
-let vec = { value = 5, double = fn(self: Any) do
-  { value = self.value * 2 }
-end, square = fn(self: Any) do
-  { value = self.value * self.value }
-end }
-
-vec:double():square()

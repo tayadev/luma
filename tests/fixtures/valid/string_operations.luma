@@ -1,0 +1,13 @@
+-- String operations
+let greeting = "Hello"
+let name = "World"
+
+-- Concatenation
+let message = greeting + ", " + name + "!"
+
+-- String in table
+let obj = {
+    text = message
+}
+
+obj.text

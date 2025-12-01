@@ -1,0 +1,18 @@
+-- Higher-order functions
+let apply = fn(f: Function, x: Number): Number do
+    return f(x)
+end
+
+let square = fn(x: Number): Number do
+    return x * x
+end
+
+let increment = fn(x: Number): Number do
+    return x + 1
+end
+
+-- Apply functions
+let a = apply(square, 5)
+let b = apply(increment, 10)
+
+a + b

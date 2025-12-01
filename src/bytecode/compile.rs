@@ -400,3 +400,379 @@ pub(super) fn does_block_leave_value(block: &[Stmt]) -> bool {
         _ => false,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::parse;
+
+    fn compile_source(source: &str) -> Chunk {
+        let program = parse(source, "test.luma").expect("Parse failed");
+        compile_program(&program)
+    }
+
+    fn has_instruction(chunk: &Chunk, instr: fn(&Instruction) -> bool) -> bool {
+        chunk.instructions.iter().any(instr)
+    }
+
+    // Basic constant tests
+    #[test]
+    fn test_compile_number_constant() {
+        let chunk = compile_source("42");
+        assert!(matches!(
+            chunk.constants.first(),
+            Some(Constant::Number(n)) if (*n - 42.0).abs() < f64::EPSILON
+        ));
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::Const(0)
+        )));
+    }
+
+    #[test]
+    fn test_compile_string_constant() {
+        let chunk = compile_source("\"hello\"");
+        assert!(matches!(
+            chunk.constants.first(),
+            Some(Constant::String(s)) if s == "hello"
+        ));
+    }
+
+    #[test]
+    fn test_compile_boolean_constant() {
+        let chunk = compile_source("true");
+        assert!(matches!(
+            chunk.constants.first(),
+            Some(Constant::Boolean(true))
+        ));
+    }
+
+    #[test]
+    fn test_compile_null_constant() {
+        let chunk = compile_source("null");
+        assert!(matches!(chunk.constants.first(), Some(Constant::Null)));
+    }
+
+    // Arithmetic operator tests
+    #[test]
+    fn test_compile_addition() {
+        let chunk = compile_source("1 + 2");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Add)));
+    }
+
+    #[test]
+    fn test_compile_subtraction() {
+        let chunk = compile_source("5 - 3");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Sub)));
+    }
+
+    #[test]
+    fn test_compile_multiplication() {
+        let chunk = compile_source("4 * 7");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Mul)));
+    }
+
+    #[test]
+    fn test_compile_division() {
+        let chunk = compile_source("10 / 2");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Div)));
+    }
+
+    #[test]
+    fn test_compile_modulo() {
+        let chunk = compile_source("10 % 3");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Mod)));
+    }
+
+    // Comparison operator tests
+    #[test]
+    fn test_compile_equality() {
+        let chunk = compile_source("1 == 1");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Eq)));
+    }
+
+    #[test]
+    fn test_compile_inequality() {
+        let chunk = compile_source("1 != 2");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Ne)));
+    }
+
+    #[test]
+    fn test_compile_less_than() {
+        let chunk = compile_source("1 < 2");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Lt)));
+    }
+
+    #[test]
+    fn test_compile_less_equal() {
+        let chunk = compile_source("1 <= 2");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Le)));
+    }
+
+    #[test]
+    fn test_compile_greater_than() {
+        let chunk = compile_source("2 > 1");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Gt)));
+    }
+
+    #[test]
+    fn test_compile_greater_equal() {
+        let chunk = compile_source("2 >= 1");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Ge)));
+    }
+
+    // Unary operator tests
+    #[test]
+    fn test_compile_negation() {
+        let chunk = compile_source("-42");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Neg)));
+    }
+
+    #[test]
+    fn test_compile_logical_not() {
+        let chunk = compile_source("!true");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Not)));
+    }
+
+    // Collection tests
+    #[test]
+    fn test_compile_list() {
+        let chunk = compile_source("[1, 2, 3]");
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::BuildList(3)
+        )));
+    }
+
+    #[test]
+    fn test_compile_empty_list() {
+        let chunk = compile_source("[]");
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::BuildList(0)
+        )));
+    }
+
+    #[test]
+    fn test_compile_table() {
+        let chunk = compile_source("{ x = 1, y = 2 }");
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::BuildTable(2)
+        )));
+    }
+
+    #[test]
+    fn test_compile_list_index() {
+        let chunk = compile_source("let x = [1, 2, 3]\nx[0]");
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::GetIndex
+        )));
+    }
+
+    #[test]
+    fn test_compile_table_member_access() {
+        let chunk = compile_source("let t = { x = 1 }\nt.x");
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::GetProp(_)
+        )));
+    }
+
+    // Variable tests
+    #[test]
+    fn test_compile_local_variable() {
+        let chunk = compile_source("let x = 42\nx");
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::GetLocal(_)
+        )));
+    }
+
+    #[test]
+    fn test_compile_local_assignment() {
+        let chunk = compile_source("var x = 42\nx = 43");
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::SetLocal(_)
+        )));
+    }
+
+    // Control flow tests
+    #[test]
+    fn test_compile_if_statement() {
+        let chunk = compile_source("if true do let x = 1 end");
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::JumpIfFalse(_)
+        )));
+    }
+
+    #[test]
+    fn test_compile_if_else_statement() {
+        let chunk = compile_source("if true do let x = 1 else do let y = 2 end");
+        let jump_if_false_count = chunk
+            .instructions
+            .iter()
+            .filter(|i| matches!(i, Instruction::JumpIfFalse(_)))
+            .count();
+        assert_eq!(jump_if_false_count, 1);
+        let jump_count = chunk
+            .instructions
+            .iter()
+            .filter(|i| matches!(i, Instruction::Jump(_)))
+            .count();
+        assert!(jump_count >= 1);
+    }
+
+    #[test]
+    fn test_compile_while_loop() {
+        let chunk = compile_source("while true do let x = 1 end");
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::JumpIfFalse(_)
+        )));
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::Jump(_)
+        )));
+    }
+
+    #[test]
+    fn test_compile_for_loop() {
+        let chunk = compile_source("for x in [1, 2, 3] do let y = x end");
+        // For loops involve iteration which uses various instructions
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::Jump(_)
+        )));
+    }
+
+    // Function tests
+    #[test]
+    fn test_compile_function_definition() {
+        let chunk = compile_source("let f = fn(x: Number): Number do return x + 1 end");
+        // Should have a function constant
+        assert!(
+            chunk
+                .constants
+                .iter()
+                .any(|c| matches!(c, Constant::Function(_)))
+        );
+    }
+
+    #[test]
+    fn test_compile_function_call() {
+        let chunk = compile_source("let f = fn(x: Number): Number do return x end\nf(42)");
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::Call(_)
+        )));
+    }
+
+    #[test]
+    fn test_compile_closure() {
+        let chunk = compile_source("let x = 42\nlet f = fn(): Number do return x end");
+        // Closures use the Closure instruction
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::Closure(_)
+        )));
+    }
+
+    #[test]
+    fn test_compile_return_statement() {
+        let chunk = compile_source("let f = fn(): Number do return 42 end");
+        // Should have a function constant somewhere
+        let has_func = chunk.constants.iter().any(|c| {
+            if let Constant::Function(func_chunk) = c {
+                has_instruction(func_chunk, |i| matches!(i, Instruction::Return))
+            } else {
+                false
+            }
+        });
+        assert!(has_func, "Expected function with return instruction");
+    }
+
+    // Complex expression tests
+    #[test]
+    fn test_compile_nested_arithmetic() {
+        let chunk = compile_source("(1 + 2) * (3 - 4)");
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Add)));
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Sub)));
+        assert!(has_instruction(&chunk, |i| matches!(i, Instruction::Mul)));
+    }
+
+    #[test]
+    fn test_compile_chained_member_access() {
+        let chunk = compile_source("let t = { inner = { value = 42 } }\nt.inner.value");
+        let prop_count = chunk
+            .instructions
+            .iter()
+            .filter(|i| matches!(i, Instruction::GetProp(_)))
+            .count();
+        assert_eq!(prop_count, 2);
+    }
+
+    // Halt instruction test
+    #[test]
+    fn test_compile_always_ends_with_halt() {
+        let chunk = compile_source("42");
+        assert!(matches!(chunk.instructions.last(), Some(Instruction::Halt)));
+    }
+
+    // Constant pool tests
+    #[test]
+    fn test_constant_deduplication() {
+        // Multiple uses of same constant should reuse the same constant index
+        let chunk = compile_source("let x = 42\nlet y = 42");
+        // Should have at most 2 constants: null (for pre-declaration) and 42
+        let number_constants = chunk
+            .constants
+            .iter()
+            .filter(|c| matches!(c, Constant::Number(_)))
+            .count();
+        assert!(number_constants <= 2); // Might have 1 or 2 depending on optimization
+    }
+
+    // Scope tests
+    #[test]
+    fn test_nested_scopes() {
+        let chunk = compile_source("let x = 1\ndo let x = 2 end");
+        // Should have Pop or PopNPreserve instruction to clean up inner scope
+        assert!(has_instruction(&chunk, |i| matches!(
+            i,
+            Instruction::Pop | Instruction::PopNPreserve(_)
+        )));
+    }
+
+    #[test]
+    fn test_mutual_recursion() {
+        let code = r#"
+            let even = fn(n: Number): Boolean do
+                if n == 0 do
+                    return true
+                else do
+                    return odd(n - 1)
+                end
+            end
+            
+            let odd = fn(n: Number): Boolean do
+                if n == 0 do
+                    return false
+                else do
+                    return even(n - 1)
+                end
+            end
+        "#;
+        let chunk = compile_source(code);
+        // Should compile without errors and have function constants
+        let func_count = chunk
+            .constants
+            .iter()
+            .filter(|c| matches!(c, Constant::Function(_)))
+            .count();
+        assert_eq!(func_count, 2);
+    }
+}

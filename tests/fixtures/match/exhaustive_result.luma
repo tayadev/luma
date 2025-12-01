@@ -1,6 +1,0 @@
--- Exhaustive Result match with ok/err tags
-let result = Result.ok.new(42)
-match result do
-  ok do print(result.ok) end
-  err do print(result.err) end
-end

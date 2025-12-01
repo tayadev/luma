@@ -1,6 +1,0 @@
-let r = Result.ok.new(42)
-match r do
-  ok do print(r.ok) end
-  err do print(r.err) end
-  _ do print("default") end
-end

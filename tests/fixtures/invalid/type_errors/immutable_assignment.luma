@@ -1,0 +1,3 @@
+-- Assignment to immutable variable
+let x = 10
+x = 20

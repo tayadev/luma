@@ -1,0 +1,14 @@
+-- Early return pattern
+let findFirst = fn(list: List, target: Number): Number do
+    var index = 0
+    for item in list do
+        if item == target do
+            return index
+        end
+        index = index + 1
+    end
+    return -1
+end
+
+let numbers = [10, 20, 30, 40, 50]
+findFirst(numbers, 30)

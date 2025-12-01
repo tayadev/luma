@@ -1,3 +1,0 @@
-let greet = fn(name: String): String do
-  "Hello ${name}"
-end

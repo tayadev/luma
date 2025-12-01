@@ -1,0 +1,4 @@
+-- Non-boolean condition in if statement
+if 42 do
+    let x = 1
+end

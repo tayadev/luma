@@ -1,0 +1,2 @@
+-- Type mismatch
+let x: Number = "string"

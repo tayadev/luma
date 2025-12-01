@@ -1,0 +1,6 @@
+-- Function argument type mismatch
+let double = fn(x: Number): Number do
+    return x * 2
+end
+
+double("not a number")

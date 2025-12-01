@@ -1,0 +1,13 @@
+-- Closure example
+let makeCounter = fn(): Function do
+    var count = 0
+    return fn(): Number do
+        count = count + 1
+        return count
+    end
+end
+
+let counter = makeCounter()
+counter()
+counter()
+counter()

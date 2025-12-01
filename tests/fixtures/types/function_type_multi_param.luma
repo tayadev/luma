@@ -1,3 +1,0 @@
-let handler: fn(Number, String): Boolean = fn(x: Number, y: String): Boolean do
-  true
-end

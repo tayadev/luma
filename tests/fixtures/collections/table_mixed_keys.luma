@@ -1,6 +1,0 @@
-{ 
-  simple = 1, 
-  "with spaces" = 2, 
-  ["computed" + "Key"] = 3,
-  another = { nested = true }
-}

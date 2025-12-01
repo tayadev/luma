@@ -1,62 +1,88 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use std::fs;
-use std::path::{Path, PathBuf};
+use luma::bytecode::compile::compile_program;
+use luma::parser;
+use luma::vm::VM;
 
-fn collect_luma_files(root: &Path) -> Vec<PathBuf> {
-    let mut files = Vec::new();
-    if root.is_dir() {
-        for entry in walkdir::WalkDir::new(root)
-            .into_iter()
-            .filter_map(|e| e.ok())
-        {
-            let p = entry.path();
-            if p.extension().and_then(|s| s.to_str()) == Some("luma") {
-                // Skip module import tests - they require working directory context
-                let skip = p.components().any(|c| {
-                    c.as_os_str() == "modules" || c.as_os_str().to_string_lossy().contains("import")
-                });
-                if !skip {
-                    files.push(p.to_path_buf());
-                }
-            }
-        }
-    }
-    files
+fn bench_vm_arithmetic(c: &mut Criterion) {
+    let source = "1 + 2 * 3 - 4 / 2";
+    let program = parser::parse(source, "bench.luma").unwrap();
+    let chunk = compile_program(&program);
+
+    c.bench_function("vm execute arithmetic", |b| {
+        b.iter(|| {
+            let mut vm = VM::new(chunk.clone());
+            black_box(vm.run())
+        })
+    });
 }
 
-fn sanitize(name: &str) -> String {
-    name.replace('\\', "/")
+fn bench_vm_fibonacci(c: &mut Criterion) {
+    let source = r#"
+        fn fib(n: Number): Number do
+            if n <= 1 do
+                return n
+            end
+            return fib(n - 1) + fib(n - 2)
+        end
+        fib(10)
+    "#;
+    let program = parser::parse(source, "bench.luma").unwrap();
+    let chunk = compile_program(&program);
+
+    c.bench_function("vm execute fibonacci(10)", |b| {
+        b.iter(|| {
+            let mut vm = VM::new(chunk.clone());
+            black_box(vm.run())
+        })
+    });
 }
 
-fn bench_vm(c: &mut Criterion) {
-    let fixtures_dir = Path::new("tests/runtime");
-    let files = collect_luma_files(fixtures_dir);
+fn bench_vm_loop(c: &mut Criterion) {
+    let source = r#"
+        var sum = 0
+        var i = 0
+        while i < 100 do
+            sum = sum + i
+            i = i + 1
+        end
+        sum
+    "#;
+    let program = parser::parse(source, "bench.luma").unwrap();
+    let chunk = compile_program(&program);
 
-    // Benchmark individually for more granular results
-    let mut group = c.benchmark_group("vm");
-    group.sample_size(20);
-
-    for file in files {
-        let name = file
-            .strip_prefix(fixtures_dir)
-            .unwrap_or(&file)
-            .to_string_lossy()
-            .to_string();
-        let src = fs::read_to_string(&file).expect("read runtime fixture");
-        group.bench_function(format!("execute/{}", sanitize(&name)), |b| {
-            b.iter(|| {
-                let program =
-                    luma::parser::parse(&src, &format!("<bench:{name}>")).expect("parse ok");
-                let bytecode = luma::bytecode::compile::compile_program(&program);
-                let mut vm = luma::vm::VM::new(bytecode);
-                let result = vm.run().expect("vm ok");
-                black_box(&result);
-            });
-        });
-    }
-
-    group.finish();
+    c.bench_function("vm execute loop sum", |b| {
+        b.iter(|| {
+            let mut vm = VM::new(chunk.clone());
+            black_box(vm.run())
+        })
+    });
 }
 
-criterion_group!(benches, bench_vm);
+fn bench_vm_list_operations(c: &mut Criterion) {
+    let source = r#"
+        let list = [1, 2, 3, 4, 5]
+        var sum = 0
+        for x in list do
+            sum = sum + x
+        end
+        sum
+    "#;
+    let program = parser::parse(source, "bench.luma").unwrap();
+    let chunk = compile_program(&program);
+
+    c.bench_function("vm execute list iteration", |b| {
+        b.iter(|| {
+            let mut vm = VM::new(chunk.clone());
+            black_box(vm.run())
+        })
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_vm_arithmetic,
+    bench_vm_fibonacci,
+    bench_vm_loop,
+    bench_vm_list_operations
+);
 criterion_main!(benches);

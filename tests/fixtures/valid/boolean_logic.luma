@@ -1,0 +1,25 @@
+-- Boolean logic operations
+let isInRange = fn(x: Number, min: Number, max: Number): Boolean do
+    return x >= min && x <= max
+end
+
+let isEven = fn(n: Number): Boolean do
+    return n % 2 == 0
+end
+
+let isOdd = fn(n: Number): Boolean do
+    let even = isEven(n)
+    return !even
+end
+
+-- Test logic
+let a = isInRange(5, 1, 10)
+let b = isEven(4)
+let c = isOdd(7)
+
+-- Return boolean as number for testing
+if a && b && c do
+    1
+else do
+    0
+end

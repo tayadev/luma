@@ -416,3 +416,651 @@ pub fn parse(source: &str, filename: &str) -> Result<Program, Vec<Diagnostic>> {
         Err(errors::errors_to_diagnostics(errs, filename))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{BinaryOp, Expr, LogicalOp, Stmt, UnaryOp};
+
+    fn parse_expr(source: &str) -> Expr {
+        let program = parse(source, "test.luma").expect("Parse failed");
+        // The parser converts trailing expressions into Return statements
+        match program.statements.last() {
+            Some(Stmt::Return { value, .. }) => value.clone(),
+            Some(Stmt::ExprStmt { expr, .. }) => expr.clone(),
+            _ => panic!("Expected expression in program"),
+        }
+    }
+
+    fn parse_stmt(source: &str) -> Stmt {
+        let program = parse(source, "test.luma").expect("Parse failed");
+        program.statements[0].clone()
+    }
+
+    // ===== Literal Tests =====
+
+    #[test]
+    fn test_parse_number_literal() {
+        let expr = parse_expr("42");
+        assert!(matches!(expr, Expr::Number { value, .. } if (value - 42.0).abs() < f64::EPSILON));
+    }
+
+    #[test]
+    fn test_parse_float_literal() {
+        let expr = parse_expr("3.14159");
+        assert!(
+            matches!(expr, Expr::Number { value, .. } if (value - 3.14159).abs() < f64::EPSILON)
+        );
+    }
+
+    #[test]
+    fn test_parse_string_literal() {
+        let expr = parse_expr(r#""hello world""#);
+        assert!(matches!(expr, Expr::String { value, .. } if value == "hello world"));
+    }
+
+    #[test]
+    fn test_parse_boolean_true() {
+        let expr = parse_expr("true");
+        assert!(matches!(expr, Expr::Boolean { value: true, .. }));
+    }
+
+    #[test]
+    fn test_parse_boolean_false() {
+        let expr = parse_expr("false");
+        assert!(matches!(expr, Expr::Boolean { value: false, .. }));
+    }
+
+    #[test]
+    fn test_parse_null() {
+        let expr = parse_expr("null");
+        assert!(matches!(expr, Expr::Null { .. }));
+    }
+
+    #[test]
+    fn test_parse_identifier() {
+        let expr = parse_expr("myVar");
+        assert!(matches!(expr, Expr::Identifier { name, .. } if name == "myVar"));
+    }
+
+    // ===== Binary Operator Tests =====
+
+    #[test]
+    fn test_parse_addition() {
+        let expr = parse_expr("1 + 2");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Add,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_subtraction() {
+        let expr = parse_expr("5 - 3");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Sub,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_multiplication() {
+        let expr = parse_expr("4 * 5");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Mul,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_division() {
+        let expr = parse_expr("10 / 2");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Div,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_modulo() {
+        let expr = parse_expr("10 % 3");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Mod,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_operator_precedence_mul_before_add() {
+        let expr = parse_expr("1 + 2 * 3");
+        match expr {
+            Expr::Binary {
+                left,
+                op: BinaryOp::Add,
+                right,
+                ..
+            } => {
+                assert!(
+                    matches!(*left, Expr::Number { value, .. } if (value - 1.0).abs() < f64::EPSILON)
+                );
+                assert!(matches!(
+                    *right,
+                    Expr::Binary {
+                        op: BinaryOp::Mul,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected addition with multiplication on right"),
+        }
+    }
+
+    #[test]
+    fn test_parse_operator_precedence_parentheses() {
+        let expr = parse_expr("(1 + 2) * 3");
+        match expr {
+            Expr::Binary {
+                left,
+                op: BinaryOp::Mul,
+                right,
+                ..
+            } => {
+                assert!(matches!(
+                    *left,
+                    Expr::Binary {
+                        op: BinaryOp::Add,
+                        ..
+                    }
+                ));
+                assert!(
+                    matches!(*right, Expr::Number { value, .. } if (value - 3.0).abs() < f64::EPSILON)
+                );
+            }
+            _ => panic!("Expected multiplication with addition on left"),
+        }
+    }
+
+    // ===== Comparison Operator Tests =====
+
+    #[test]
+    fn test_parse_less_than() {
+        let expr = parse_expr("x < 10");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Lt,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_greater_than() {
+        let expr = parse_expr("x > 10");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Gt,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_less_or_equal() {
+        let expr = parse_expr("x <= 10");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Le,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_greater_or_equal() {
+        let expr = parse_expr("x >= 10");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Ge,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_equality() {
+        let expr = parse_expr("x == 10");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Eq,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_inequality() {
+        let expr = parse_expr("x != 10");
+        assert!(matches!(
+            expr,
+            Expr::Binary {
+                op: BinaryOp::Ne,
+                ..
+            }
+        ));
+    }
+
+    // ===== Unary Operator Tests =====
+
+    #[test]
+    fn test_parse_unary_negation() {
+        let expr = parse_expr("-42");
+        assert!(matches!(
+            expr,
+            Expr::Unary {
+                op: UnaryOp::Neg,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_unary_not() {
+        let expr = parse_expr("!true");
+        assert!(matches!(
+            expr,
+            Expr::Unary {
+                op: UnaryOp::Not,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_double_negation() {
+        // Double negation with parentheses (-- would be a comment)
+        let expr = parse_expr("-(-5)");
+        match expr {
+            Expr::Unary {
+                op: UnaryOp::Neg,
+                operand,
+                ..
+            } => {
+                assert!(matches!(
+                    *operand,
+                    Expr::Unary {
+                        op: UnaryOp::Neg,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected double negation"),
+        }
+    }
+
+    // ===== Logical Operator Tests =====
+
+    #[test]
+    fn test_parse_logical_and() {
+        let expr = parse_expr("true && false");
+        assert!(matches!(
+            expr,
+            Expr::Logical {
+                op: LogicalOp::And,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_logical_or() {
+        let expr = parse_expr("true || false");
+        assert!(matches!(
+            expr,
+            Expr::Logical {
+                op: LogicalOp::Or,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_parse_logical_precedence() {
+        let expr = parse_expr("a || b && c");
+        match expr {
+            Expr::Logical {
+                left,
+                op: LogicalOp::Or,
+                right,
+                ..
+            } => {
+                assert!(matches!(*left, Expr::Identifier { .. }));
+                assert!(matches!(
+                    *right,
+                    Expr::Logical {
+                        op: LogicalOp::And,
+                        ..
+                    }
+                ));
+            }
+            _ => panic!("Expected || with && on right"),
+        }
+    }
+
+    // ===== List Tests =====
+
+    #[test]
+    fn test_parse_empty_list() {
+        let expr = parse_expr("[]");
+        assert!(matches!(expr, Expr::List { elements, .. } if elements.is_empty()));
+    }
+
+    #[test]
+    fn test_parse_list_with_elements() {
+        let expr = parse_expr("[1, 2, 3]");
+        assert!(matches!(expr, Expr::List { elements, .. } if elements.len() == 3));
+    }
+
+    #[test]
+    fn test_parse_nested_lists() {
+        let expr = parse_expr("[[1, 2], [3, 4]]");
+        match expr {
+            Expr::List { elements, .. } => {
+                assert_eq!(elements.len(), 2);
+                assert!(matches!(elements[0], Expr::List { .. }));
+                assert!(matches!(elements[1], Expr::List { .. }));
+            }
+            _ => panic!("Expected list"),
+        }
+    }
+
+    // ===== Table Tests =====
+
+    #[test]
+    fn test_parse_empty_table() {
+        let expr = parse_expr("{}");
+        assert!(matches!(expr, Expr::Table { fields, .. } if fields.is_empty()));
+    }
+
+    #[test]
+    fn test_parse_table_with_identifier_keys() {
+        let expr = parse_expr("{x = 1, y = 2}");
+        match expr {
+            Expr::Table { fields, .. } => {
+                assert_eq!(fields.len(), 2);
+            }
+            _ => panic!("Expected table"),
+        }
+    }
+
+    // ===== Function Call Tests =====
+
+    #[test]
+    fn test_parse_function_call_no_args() {
+        let expr = parse_expr("foo()");
+        assert!(matches!(expr, Expr::Call { arguments, .. } if arguments.is_empty()));
+    }
+
+    #[test]
+    fn test_parse_function_call_with_args() {
+        let expr = parse_expr("add(1, 2)");
+        assert!(matches!(expr, Expr::Call { arguments, .. } if arguments.len() == 2));
+    }
+
+    #[test]
+    fn test_parse_function_call_named_args() {
+        let expr = parse_expr("func(x=1, y=2)");
+        match expr {
+            Expr::Call { arguments, .. } => {
+                assert_eq!(arguments.len(), 2);
+                assert!(matches!(arguments[0], CallArgument::Named { .. }));
+                assert!(matches!(arguments[1], CallArgument::Named { .. }));
+            }
+            _ => panic!("Expected call with named arguments"),
+        }
+    }
+
+    #[test]
+    fn test_parse_function_call_mixed_args() {
+        let expr = parse_expr("func(1, y=2)");
+        match expr {
+            Expr::Call { arguments, .. } => {
+                assert_eq!(arguments.len(), 2);
+                assert!(matches!(arguments[0], CallArgument::Positional(_)));
+                assert!(matches!(arguments[1], CallArgument::Named { .. }));
+            }
+            _ => panic!("Expected call with mixed arguments"),
+        }
+    }
+
+    // ===== Member Access Tests =====
+
+    #[test]
+    fn test_parse_member_access() {
+        let expr = parse_expr("obj.field");
+        assert!(matches!(expr, Expr::MemberAccess { member, .. } if member == "field"));
+    }
+
+    #[test]
+    fn test_parse_chained_member_access() {
+        let expr = parse_expr("obj.field.subfield");
+        match expr {
+            Expr::MemberAccess { object, member, .. } => {
+                assert_eq!(member, "subfield");
+                assert!(matches!(*object, Expr::MemberAccess { .. }));
+            }
+            _ => panic!("Expected chained member access"),
+        }
+    }
+
+    // ===== Index Access Tests =====
+
+    #[test]
+    fn test_parse_index_access() {
+        let expr = parse_expr("arr[0]");
+        assert!(matches!(expr, Expr::Index { .. }));
+    }
+
+    #[test]
+    fn test_parse_nested_index_access() {
+        let expr = parse_expr("arr[0][1]");
+        match expr {
+            Expr::Index { object, .. } => {
+                assert!(matches!(*object, Expr::Index { .. }));
+            }
+            _ => panic!("Expected nested index access"),
+        }
+    }
+
+    // ===== Variable Declaration Tests =====
+
+    #[test]
+    fn test_parse_var_decl_immutable() {
+        let stmt = parse_stmt("let x = 5");
+        assert!(matches!(stmt, Stmt::VarDecl { mutable: false, .. }));
+    }
+
+    #[test]
+    fn test_parse_var_decl_mutable() {
+        let stmt = parse_stmt("var x = 5");
+        assert!(matches!(stmt, Stmt::VarDecl { mutable: true, .. }));
+    }
+
+    #[test]
+    fn test_parse_var_decl_with_type() {
+        let stmt = parse_stmt("let x: Number = 5");
+        match stmt {
+            Stmt::VarDecl { name, r#type, .. } => {
+                assert_eq!(name, "x");
+                assert!(r#type.is_some());
+            }
+            _ => panic!("Expected var decl"),
+        }
+    }
+
+    // ===== If Statement Tests =====
+
+    #[test]
+    fn test_parse_if_stmt() {
+        let stmt = parse_stmt("if x > 5 do return x end");
+        assert!(matches!(stmt, Stmt::If { .. }));
+    }
+
+    #[test]
+    fn test_parse_if_else_stmt() {
+        let stmt = parse_stmt("if x > 5 do x else do 0 end");
+        match stmt {
+            Stmt::If { else_block, .. } => {
+                assert!(else_block.is_some());
+            }
+            _ => panic!("Expected if with else"),
+        }
+    }
+
+    // ===== While Loop Tests =====
+
+    #[test]
+    fn test_parse_while_loop() {
+        let stmt = parse_stmt("while x < 10 do x = x + 1 end");
+        assert!(matches!(stmt, Stmt::While { .. }));
+    }
+
+    #[test]
+    fn test_parse_do_while_loop() {
+        let stmt = parse_stmt("do x = x + 1 while x < 10 end");
+        assert!(matches!(stmt, Stmt::DoWhile { .. }));
+    }
+
+    // ===== For Loop Tests =====
+
+    #[test]
+    fn test_parse_for_loop() {
+        let stmt = parse_stmt("for x in list do print(x) end");
+        assert!(matches!(stmt, Stmt::For { .. }));
+    }
+
+    // ===== Function Definition Tests =====
+
+    #[test]
+    fn test_parse_function_no_args() {
+        let expr = parse_expr("fn() do return 42 end");
+        match expr {
+            Expr::Function { arguments, .. } => {
+                assert!(arguments.is_empty());
+            }
+            _ => panic!("Expected function"),
+        }
+    }
+
+    #[test]
+    fn test_parse_function_with_args() {
+        let expr = parse_expr("fn(x: Number, y: Number): Number do return x + y end");
+        match expr {
+            Expr::Function {
+                arguments,
+                return_type,
+                ..
+            } => {
+                assert_eq!(arguments.len(), 2);
+                assert!(return_type.is_some());
+            }
+            _ => panic!("Expected function with arguments"),
+        }
+    }
+
+    // ===== Return Statement Tests =====
+
+    #[test]
+    fn test_parse_return_stmt() {
+        let stmt = parse_stmt("return 42");
+        assert!(matches!(stmt, Stmt::Return { .. }));
+    }
+
+    // ===== Break/Continue Tests =====
+
+    #[test]
+    fn test_parse_break_stmt() {
+        let stmt = parse_stmt("break");
+        assert!(matches!(stmt, Stmt::Break { level: None, .. }));
+    }
+
+    #[test]
+    fn test_parse_break_with_level() {
+        let stmt = parse_stmt("break 2");
+        assert!(matches!(stmt, Stmt::Break { level: Some(2), .. }));
+    }
+
+    #[test]
+    fn test_parse_continue_stmt() {
+        let stmt = parse_stmt("continue");
+        assert!(matches!(stmt, Stmt::Continue { level: None, .. }));
+    }
+
+    #[test]
+    fn test_parse_continue_with_level() {
+        let stmt = parse_stmt("continue 3");
+        assert!(matches!(stmt, Stmt::Continue { level: Some(3), .. }));
+    }
+
+    // ===== Assignment Tests =====
+
+    #[test]
+    fn test_parse_assignment() {
+        let stmt = parse_stmt("x = 10");
+        assert!(matches!(stmt, Stmt::Assignment { .. }));
+    }
+
+    // ===== Error Tests =====
+
+    #[test]
+    fn test_parse_error_invalid_syntax() {
+        let result = parse("let x = ", "test.luma");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_error_keyword_as_identifier() {
+        let result = parse("let if = 5", "test.luma");
+        assert!(result.is_err());
+    }
+
+    // ===== Complex Expression Tests =====
+
+    #[test]
+    fn test_parse_complex_nested_expression() {
+        let source = "((1 + 2) * 3 - 4) / 5";
+        let result = parse(source, "test.luma");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_method_call() {
+        let expr = parse_expr("obj:method(1, 2)");
+        assert!(matches!(expr, Expr::MethodCall { .. }));
+    }
+
+    #[test]
+    fn test_parse_import() {
+        let expr = parse_expr("import(\"./module.luma\")");
+        assert!(matches!(expr, Expr::Import { .. }));
+    }
+}

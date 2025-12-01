@@ -1,0 +1,16 @@
+-- Table operations
+let person = {
+    name = "Alice",
+    age = 30,
+    city = "Seattle"
+}
+
+-- Access properties
+let n = person.name
+let a = person["age"]
+
+-- Update property
+var p = person
+p.age = 31
+
+person.age

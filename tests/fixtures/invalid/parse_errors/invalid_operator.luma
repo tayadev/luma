@@ -1,0 +1,2 @@
+-- Invalid operator usage
+let x = 5 ++ 3

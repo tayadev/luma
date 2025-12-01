@@ -1,0 +1,3 @@
+-- Missing end keyword
+let test = fn() do
+    let x = 1

@@ -1,0 +1,19 @@
+-- Complex nested expressions
+let calculate = fn(a: Number, b: Number, c: Number): Number do
+    let result = ((a + b) * c - (a - b)) / 2
+    return result
+end
+
+let x = calculate(10, 5, 3)
+let y = calculate(20, 10, 2)
+
+-- Chained operations
+let data = {
+    inner = {
+        value = 42
+    }
+}
+
+let v = data.inner.value
+
+x + y + v

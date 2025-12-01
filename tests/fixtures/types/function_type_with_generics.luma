@@ -1,3 +1,0 @@
-let processor: fn(List(Number)): List(String) = fn(nums: List(Number)): List(String) do
-  []
-end

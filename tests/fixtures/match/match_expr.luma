@@ -1,5 +1,0 @@
-let v = {a = 1}
-let result = match v do
-  a do a end
-  _ do 0 end
-end

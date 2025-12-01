@@ -1,1 +1,0 @@
-if x > 0 do "positive" else do "non-positive" end

@@ -183,10 +183,12 @@ impl TypeEnv {
                     && right_ty.is_compatible(&TcType::Number)
                 {
                     TcType::Number
+                } else if Self::has_operator_method(&left_ty, "__add") {
+                    TcType::Unknown // Return type depends on implementation
                 } else {
                     self.error(
                         format!(
-                            "ADD requires (Number, Number) or (String, String), got ({left_ty}, {right_ty})"
+                            "ADD requires (Number, Number) or (String, String) or type with __add method, got ({left_ty}, {right_ty})"
                         ),
                         span,
                     );

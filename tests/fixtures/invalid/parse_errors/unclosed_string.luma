@@ -1,0 +1,2 @@
+-- Unclosed string literal
+let message = "Hello World

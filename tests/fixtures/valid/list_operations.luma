@@ -1,0 +1,18 @@
+-- List operations
+let numbers = [1, 2, 3, 4, 5]
+
+-- Sum all numbers
+var sum = 0
+for n in numbers do
+    sum = sum + n
+end
+
+-- Filter even numbers
+let evens = []
+for n in numbers do
+    if n % 2 == 0 do
+        evens
+    end
+end
+
+sum

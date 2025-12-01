@@ -1,0 +1,6 @@
+-- Return type mismatch
+let getName = fn(): String do
+    return 42
+end
+
+getName()

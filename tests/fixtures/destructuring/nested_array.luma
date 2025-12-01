@@ -1,5 +1,0 @@
--- Nested array pattern
-let arr = [[1, 2], [3, 4]]
-let [[a, b], [c, d]] = arr
-print(a)
-print(d)

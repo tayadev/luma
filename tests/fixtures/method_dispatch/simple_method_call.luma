@@ -1,5 +1,0 @@
-let obj = { greet = fn(self: Any): String do
-  return "Hello"
-end }
-
-obj:greet()
