@@ -434,13 +434,15 @@ continue 2                         -- skip in outer loop
 
 ### 6.1 Function Definition
 
+Functions are defined using the `fn` keyword and assigned to variables:
+
 ```luma
-fn name(param1: Type1, param2: Type2): ReturnType do
+let name = fn(param1: Type1, param2: Type2): ReturnType do
   -- body
 end
 ```
 
-**Anonymous functions:**
+**Example:**
 ```luma
 let add = fn(a: Number, b: Number): Number do
   return a + b
@@ -452,7 +454,7 @@ end
 #### 6.2.1 Required Parameters
 
 ```luma
-fn greet(name: String): String do
+let greet = fn(name: String): String do
   return "Hello, ${name}!"
 end
 ```
@@ -460,7 +462,7 @@ end
 #### 6.2.2 Optional Parameters
 
 ```luma
-fn greet(name: String, title: String = "Friend"): String do
+let greet = fn(name: String, title: String = "Friend"): String do
   return "Hello, ${title} ${name}!"
 end
 
@@ -495,7 +497,7 @@ greet("Alice", title = "Dr.")      -- positional then named
 #### 6.4.1 Explicit Returns
 
 ```luma
-fn factorial(n: Number): Number do
+let factorial = fn(n: Number): Number do
   if n <= 1 do
     return 1
   end
@@ -506,7 +508,7 @@ end
 #### 6.4.2 Implicit Returns
 
 ```luma
-fn add(a: Number, b: Number): Number do
+let add = fn(a: Number, b: Number): Number do
   a + b                            -- last expression returned
 end
 ```
@@ -516,7 +518,7 @@ end
 Functions that don't return a meaningful value return `null` and dont need an explicit return type.
 
 ```luma
-fn printMessage(msg: String) do
+let printMessage = fn(msg: String) do
   print(msg)
 end
 ```
@@ -526,7 +528,7 @@ end
 Functions capture variables from their enclosing scope:
 
 ```luma
-fn makeCounter(): fn(): Number do
+let makeCounter = fn(): fn(): Number do
   var count = 0
   return fn(): Number do
     count = count + 1
@@ -545,7 +547,7 @@ print(counter())                   -- 3
 Functions can accept and return other functions:
 
 ```luma
-fn map(list: List(Any), f: fn(Any): Any): List(Any) do
+let map = fn(list: List(Any), f: fn(Any): Any): List(Any) do
   let result = []
   for item in list do
     result.push(f(item))
