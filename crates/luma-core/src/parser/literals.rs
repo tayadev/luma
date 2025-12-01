@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Span, TableKey};
+use crate::ast::{Expr, Span, TableField, TableKey, Type};
 use chumsky::prelude::*;
 
 /// Creates a parser for number literals (integers, floats, hex, binary, scientific)
@@ -116,19 +116,22 @@ where
 /// Creates a parser for table literals {key = value, ...}
 /// Supports:
 /// - Identifier keys: key = value
+/// - Typed identifier keys: key: Type = value
 /// - String literal keys: "key with spaces" = value  
 /// - Computed keys: [expression] = value
-pub fn table<'a, WS, I, E, S>(
+pub fn table<'a, WS, I, E, S, T>(
     ws: WS,
     ident: I,
     expr: E,
     string_lit: S,
+    type_parser: T,
 ) -> Boxed<'a, 'a, &'a str, Expr, extra::Err<Rich<'a, char>>>
 where
     WS: Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
     I: Parser<'a, &'a str, &'a str, extra::Err<Rich<'a, char>>> + Clone + 'a,
     E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
     S: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
+    T: Parser<'a, &'a str, Type, extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
     // Identifier key: key = value
     let identifier_key = ident
@@ -153,7 +156,21 @@ where
         )
         .map(|e| TableKey::Computed(Box::new(e)));
 
-    // Any of the three key types followed by = and value
+    // Typed identifier entry: key: Type = value
+    let typed_ident_entry = ident
+        .clone()
+        .map(|s: &str| TableKey::Identifier(s.to_string()))
+        .then_ignore(just(':').padded_by(ws.clone()))
+        .then(type_parser.clone())
+        .then_ignore(just('=').padded_by(ws.clone()))
+        .then(expr.clone())
+        .map(|((key, field_type), value)| TableField {
+            key,
+            field_type: Some(field_type),
+            value,
+        });
+
+    // Any of the three key types followed by = and value (no type annotation)
     let kv_entry = choice((
         computed_key.clone(),
         string_key.clone(),
@@ -161,26 +178,35 @@ where
     ))
     .then_ignore(just('=').padded_by(ws.clone()))
     .then(expr.clone())
-    .map(|(k, v)| (k, v));
+    .map(|(key, value)| TableField {
+        key,
+        field_type: None,
+        value,
+    });
 
     // Shorthand entry: identifier alone expands to key=name, value=Identifier(name)
     let shorthand_entry = ident.try_map(|s: &str, span| {
         let name = s.to_string();
-        Ok((
-            TableKey::Identifier(name.clone()),
-            Expr::Identifier {
+        Ok(TableField {
+            key: TableKey::Identifier(name.clone()),
+            field_type: None,
+            value: Expr::Identifier {
                 name,
                 span: Some(Span::from_chumsky(span)),
             },
-        ))
+        })
     });
 
-    let table_entry = choice((kv_entry, shorthand_entry));
+    // Try typed entry first, then kv_entry, then shorthand
+    let table_entry = choice((typed_ident_entry, kv_entry, shorthand_entry));
 
-    table_entry
-        .separated_by(just(',').padded_by(ws.clone()))
-        .allow_trailing()
-        .collect::<Vec<(TableKey, Expr)>>()
+    // Table entry followed by optional comma - allows entries to be separated by just whitespace
+    let table_entry_with_optional_comma = table_entry
+        .then_ignore(just(',').padded_by(ws.clone()).or_not());
+
+    table_entry_with_optional_comma
+        .repeated()
+        .collect::<Vec<TableField>>()
         .delimited_by(
             just('{').padded_by(ws.clone()),
             just('}').padded_by(ws.clone()),

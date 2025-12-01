@@ -53,6 +53,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         ident.clone(),
         expr_ref.clone(),
         string_parser(ws.clone(), expr_ref.clone()).boxed(),
+        type_parser.clone(),
     );
 
     // Pattern parsing for destructuring

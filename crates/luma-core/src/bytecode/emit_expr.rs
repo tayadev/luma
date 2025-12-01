@@ -33,8 +33,8 @@ impl Compiler {
                     .push(Instruction::BuildList(items.len()));
             }
             Expr::Table { fields, .. } => {
-                for (key, value) in fields {
-                    match key {
+                for field in fields {
+                    match &field.key {
                         TableKey::Identifier(s) | TableKey::StringLiteral(s) => {
                             let k_idx = self.push_const(Constant::String(s.clone()));
                             self.chunk.instructions.push(Instruction::Const(k_idx));
@@ -43,7 +43,7 @@ impl Compiler {
                             self.emit_expr(expr);
                         }
                     }
-                    self.emit_expr(value);
+                    self.emit_expr(&field.value);
                 }
                 self.chunk
                     .instructions

@@ -4,6 +4,7 @@
 //! - Simple type identifiers (Number, String, Boolean, etc.)
 //! - Generic types (List(String), Result(Number, String))
 //! - Function types (fn(Number, String): Boolean)
+//! - Union types (Type1 | Type2)
 //! - The Any type for dynamic typing
 
 use crate::ast::{Span, Type};
@@ -17,6 +18,7 @@ use chumsky::prelude::*;
 /// - `TypeIdent` - simple type names
 /// - `GenericType` - parameterized types like List(String)
 /// - `FunctionType` - function signatures like fn(Number): String
+/// - `UnionType` - union types like Number | String
 pub fn type_parser<'a>(
     ws: impl Parser<'a, &'a str, (), extra::Err<Rich<'a, char>>> + Clone + 'a,
 ) -> impl Parser<'a, &'a str, Type, extra::Err<Rich<'a, char>>> + Clone {
@@ -105,12 +107,38 @@ pub fn type_parser<'a>(
                 })
             });
 
-        // Combine all type parsers, with priority: function > generic > any > ident
-        choice((
+        // Base type: function > generic > any > ident
+        let base_type = choice((
             function_type.boxed(),
             generic_type.boxed(),
             any_type.boxed(),
             type_ident.boxed(),
-        ))
+        ));
+
+        // Union type: Type | Type | ...
+        // Parse base type followed by optional union extensions
+        base_type
+            .clone()
+            .then(
+                just('|')
+                    .padded_by(ws.clone())
+                    .ignore_then(base_type.clone())
+                    .repeated()
+                    .collect::<Vec<Type>>(),
+            )
+            .try_map(|(first, rest), span| {
+                if rest.is_empty() {
+                    // Not a union type, just return the base type
+                    Ok(first)
+                } else {
+                    // Union type with multiple types
+                    let mut types = vec![first];
+                    types.extend(rest);
+                    Ok(Type::UnionType {
+                        types,
+                        span: Some(Span::from_chumsky(span)),
+                    })
+                }
+            })
     })
 }

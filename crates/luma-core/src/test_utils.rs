@@ -205,7 +205,11 @@ fn strip_spans_expr(expr: Expr) -> Expr {
         Expr::Table { fields, .. } => Expr::Table {
             fields: fields
                 .into_iter()
-                .map(|(k, v)| (k, strip_spans_expr(v)))
+                .map(|field| crate::ast::TableField {
+                    key: field.key,
+                    field_type: field.field_type,
+                    value: strip_spans_expr(field.value),
+                })
                 .collect(),
             span: None,
         },

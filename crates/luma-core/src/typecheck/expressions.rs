@@ -46,13 +46,13 @@ impl TypeEnv {
             Expr::Table {
                 fields: entries, ..
             } => {
-                for (_, value) in entries {
-                    self.check_expr(value);
+                for entry in entries {
+                    self.check_expr(&entry.value);
                 }
                 // Collect identifier and string literal keys for structural presence
                 let mut fields = Vec::new();
-                for (k, _) in entries {
-                    match k {
+                for entry in entries {
+                    match &entry.key {
                         TableKey::Identifier(s) | TableKey::StringLiteral(s) => {
                             fields.push(s.clone())
                         }
