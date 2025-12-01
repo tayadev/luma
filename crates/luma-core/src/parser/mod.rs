@@ -53,6 +53,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Program, extra::Err<Rich<'a, cha
         ident.clone(),
         expr_ref.clone(),
         string_parser(ws.clone(), expr_ref.clone()).boxed(),
+        type_parser.clone(),
     );
 
     // Pattern parsing for destructuring
@@ -852,6 +853,42 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_parse_table_with_typed_field() {
+        let expr = parse_expr("{x: Number = 42}");
+        match expr {
+            Expr::Table { fields, .. } => {
+                assert_eq!(fields.len(), 1);
+                assert!(fields[0].field_type.is_some());
+            }
+            _ => panic!("Expected table"),
+        }
+    }
+
+    #[test]
+    fn test_parse_table_with_optional_comma() {
+        // Test that commas are optional between entries
+        let expr = parse_expr("{x = 1 y = 2}");
+        match expr {
+            Expr::Table { fields, .. } => {
+                assert_eq!(fields.len(), 2);
+            }
+            _ => panic!("Expected table"),
+        }
+    }
+
+    #[test]
+    fn test_parse_table_with_mixed_comma_usage() {
+        // Test mix of comma and no comma between entries
+        let expr = parse_expr("{x = 1, y = 2 z = 3}");
+        match expr {
+            Expr::Table { fields, .. } => {
+                assert_eq!(fields.len(), 3);
+            }
+            _ => panic!("Expected table"),
+        }
+    }
+
     // ===== Function Call Tests =====
 
     #[test]
@@ -952,6 +989,51 @@ mod tests {
             Stmt::VarDecl { name, r#type, .. } => {
                 assert_eq!(name, "x");
                 assert!(r#type.is_some());
+            }
+            _ => panic!("Expected var decl"),
+        }
+    }
+
+    // ===== Union Type Tests =====
+
+    #[test]
+    fn test_parse_union_type() {
+        use crate::ast::Type;
+        let stmt = parse_stmt("let f = fn(x: Number | String): Any do x end");
+        match stmt {
+            Stmt::VarDecl { value, .. } => {
+                if let Expr::Function { arguments, .. } = value {
+                    assert_eq!(arguments.len(), 1);
+                    match &arguments[0].r#type {
+                        Type::UnionType { types, .. } => {
+                            assert_eq!(types.len(), 2);
+                        }
+                        _ => panic!("Expected union type"),
+                    }
+                } else {
+                    panic!("Expected function");
+                }
+            }
+            _ => panic!("Expected var decl"),
+        }
+    }
+
+    #[test]
+    fn test_parse_triple_union_type() {
+        use crate::ast::Type;
+        let stmt = parse_stmt("let f = fn(x: Number | String | Boolean): Any do x end");
+        match stmt {
+            Stmt::VarDecl { value, .. } => {
+                if let Expr::Function { arguments, .. } = value {
+                    match &arguments[0].r#type {
+                        Type::UnionType { types, .. } => {
+                            assert_eq!(types.len(), 3);
+                        }
+                        _ => panic!("Expected union type"),
+                    }
+                } else {
+                    panic!("Expected function");
+                }
             }
             _ => panic!("Expected var decl"),
         }

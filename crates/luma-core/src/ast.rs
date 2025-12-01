@@ -28,6 +28,16 @@ pub enum TableKey {
     Computed(Box<Expr>),
 }
 
+/// A field in a table literal, with optional type annotation
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct TableField {
+    pub key: TableKey,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub field_type: Option<Type>,
+    pub value: Expr,
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Expr {
     Number {
@@ -74,7 +84,7 @@ pub enum Expr {
         span: Option<Span>,
     },
     Table {
-        fields: Vec<(TableKey, Expr)>,
+        fields: Vec<TableField>,
         #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(default)]
         span: Option<Span>,

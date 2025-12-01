@@ -412,6 +412,11 @@ impl TypeEnv {
                 let ret = Box::new(Self::type_from_ast(return_type));
                 TcType::Function { params, ret }
             }
+            Type::UnionType { .. } => {
+                // Union types are treated as Any in type checking for now
+                // since the type checker doesn't have full union type support yet
+                TcType::Any
+            }
         }
     }
 }

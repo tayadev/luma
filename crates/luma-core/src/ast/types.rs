@@ -30,6 +30,13 @@ pub enum Type {
         #[serde(default)]
         span: Option<Span>,
     },
+    /// Union type (Type1 | Type2)
+    UnionType {
+        types: Vec<Type>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(default)]
+        span: Option<Span>,
+    },
     /// Dynamic type - no static type checking
     Any {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -45,6 +52,7 @@ impl Type {
             Type::TypeIdent { span, .. } => *span,
             Type::GenericType { span, .. } => *span,
             Type::FunctionType { span, .. } => *span,
+            Type::UnionType { span, .. } => *span,
             Type::Any { span, .. } => *span,
         }
     }
