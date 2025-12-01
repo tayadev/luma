@@ -241,7 +241,9 @@ pub fn native_ffi_def(args: &[Value]) -> Result<Value, String> {
                 // Register the FFI function definition
                 let ffi_key = format!("ffi.{func_name}");
                 {
-                    let mut ffi_funcs = FFI_FUNCTIONS.lock().unwrap();
+                    let mut ffi_funcs = FFI_FUNCTIONS
+                        .lock()
+                        .map_err(|e| format!("FFI function registry lock poisoned: {}", e))?;
                     ffi_funcs.insert(
                         ffi_key.clone(),
                         FfiFunctionDef {
@@ -272,7 +274,9 @@ pub fn native_ffi_def(args: &[Value]) -> Result<Value, String> {
 pub fn native_ffi_dispatch(func_name: &str, args: &[Value]) -> Result<Value, String> {
     // Look up the function definition
     let func_def = {
-        let ffi_funcs = FFI_FUNCTIONS.lock().unwrap();
+        let ffi_funcs = FFI_FUNCTIONS
+            .lock()
+            .map_err(|e| format!("FFI function registry lock poisoned: {}", e))?;
         ffi_funcs.get(func_name).cloned()
     };
 
@@ -307,13 +311,17 @@ pub fn native_ffi_dispatch(func_name: &str, args: &[Value]) -> Result<Value, Str
                     ptr_storage.push(std::ptr::null());
                 } else {
                     // Check if it's a cstring handle
-                    let cstring_reg = CSTRING_REGISTRY.lock().unwrap();
+                    let cstring_reg = CSTRING_REGISTRY
+                        .lock()
+                        .map_err(|e| format!("CString registry lock poisoned: {}", e))?;
                     if let Some(cstr) = cstring_reg.get(handle) {
                         ptr_storage.push(cstr.as_ptr() as *const c_void);
                     } else {
                         drop(cstring_reg); // Explicitly drop to release lock
                         // Check if it's allocated memory from ffi.new()
-                        let alloc_reg = ALLOCATED_MEMORY.lock().unwrap();
+                        let alloc_reg = ALLOCATED_MEMORY.lock().map_err(|e| {
+                            format!("Allocated memory registry lock poisoned: {}", e)
+                        })?;
                         if let Some((ptr_addr, _size)) = alloc_reg.get(handle) {
                             ptr_storage.push(*ptr_addr as *const c_void);
                         } else {
@@ -435,7 +443,9 @@ pub fn native_ffi_new_cstr(args: &[Value]) -> Result<Value, String> {
     let handle = new_external_handle();
 
     {
-        let mut registry = CSTRING_REGISTRY.lock().unwrap();
+        let mut registry = CSTRING_REGISTRY
+            .lock()
+            .map_err(|e| format!("CString registry lock poisoned: {}", e))?;
         registry.insert(handle, cstr);
     }
 
@@ -529,7 +539,9 @@ pub fn native_ffi_new(args: &[Value]) -> Result<Value, String> {
     let handle = new_external_handle();
 
     {
-        let mut registry = ALLOCATED_MEMORY.lock().unwrap();
+        let mut registry = ALLOCATED_MEMORY
+            .lock()
+            .map_err(|e| format!("Allocated memory registry lock poisoned: {}", e))?;
         registry.insert(handle, (ptr as usize, size));
     }
 
@@ -549,7 +561,9 @@ pub fn native_ffi_free(args: &[Value]) -> Result<Value, String> {
 
     match &args[0] {
         Value::External { handle, .. } => {
-            let mut registry = ALLOCATED_MEMORY.lock().unwrap();
+            let mut registry = ALLOCATED_MEMORY
+                .lock()
+                .map_err(|e| format!("Allocated memory registry lock poisoned: {}", e))?;
             if let Some((ptr_addr, size)) = registry.remove(handle) {
                 unsafe {
                     let layout = std::alloc::Layout::from_size_align_unchecked(size, 8);
@@ -593,7 +607,9 @@ pub fn native_ffi_free_cstr(args: &[Value]) -> Result<Value, String> {
 
     match &args[0] {
         Value::External { handle, .. } => {
-            let mut registry = CSTRING_REGISTRY.lock().unwrap();
+            let mut registry = CSTRING_REGISTRY
+                .lock()
+                .map_err(|e| format!("CString registry lock poisoned: {}", e))?;
             registry.remove(handle);
             Ok(Value::Null)
         }

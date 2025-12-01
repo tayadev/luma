@@ -6,6 +6,7 @@ use crate::ast::{Expr, Span, Type};
 
 use super::errors::TypeError;
 use super::types::{TcType, VarInfo};
+use crate::diagnostics::FixIt;
 
 /// Type environment that tracks variable scopes and accumulates errors.
 pub struct TypeEnv {
@@ -291,7 +292,56 @@ impl TypeEnv {
 
     /// Record a type error.
     pub fn error(&mut self, message: String, span: Option<Span>) {
-        self.errors.push(TypeError { message, span });
+        self.errors.push(TypeError {
+            message,
+            span,
+            suggestions: Vec::new(),
+            fixits: Vec::new(),
+        });
+    }
+
+    /// Record an undefined variable error with did-you-mean suggestions and rename fix-its
+    pub fn error_undefined_variable(&mut self, name: &str, span: Option<Span>) {
+        // Collect candidate names from all visible scopes
+        let mut candidates: Vec<String> = Vec::new();
+        for scope in self.scopes.iter() {
+            for key in scope.keys() {
+                candidates.push(key.clone());
+            }
+        }
+        candidates.sort();
+        candidates.dedup();
+
+        // Rank by simple Levenshtein distance
+        let mut ranked: Vec<(usize, String)> = candidates
+            .into_iter()
+            .map(|cand| (levenshtein(name, &cand), cand))
+            .collect();
+        ranked.sort_by_key(|(d, _)| *d);
+
+        let mut suggestions: Vec<String> = Vec::new();
+        let mut fixits: Vec<FixIt> = Vec::new();
+
+        for (_dist, cand) in ranked.into_iter().take(3) {
+            // Only suggest names with reasonable distance
+            if name.is_empty() || similar_enough(name, &cand) {
+                suggestions.push(format!("did you mean '{cand}'?"));
+                if let Some(s) = span {
+                    fixits.push(FixIt::replace(
+                        s,
+                        cand.clone(),
+                        format!("Change to '{cand}'"),
+                    ));
+                }
+            }
+        }
+
+        self.errors.push(TypeError {
+            message: format!("Undefined variable: {name}"),
+            span,
+            suggestions,
+            fixits,
+        });
     }
 
     /// Check if an expression has the expected type, reporting an error if not.
@@ -370,4 +420,48 @@ impl Default for TypeEnv {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Compute Levenshtein edit distance between two strings (UTF-8 scalar based)
+fn levenshtein(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let n = a_chars.len();
+    let m = b_chars.len();
+    if n == 0 {
+        return m;
+    }
+    if m == 0 {
+        return n;
+    }
+    let mut dp = vec![vec![0usize; m + 1]; n + 1];
+    // Initialize first column with row indices
+    for (i, row) in dp.iter_mut().enumerate().take(n + 1) {
+        row[0] = i;
+    }
+    // Initialize first row with column indices
+    if let Some(first_row) = dp.get_mut(0) {
+        for (j, cell) in first_row.iter_mut().enumerate().take(m + 1) {
+            *cell = j;
+        }
+    }
+    for i in 1..=n {
+        for j in 1..=m {
+            let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                0
+            } else {
+                1
+            };
+            dp[i][j] = (dp[i - 1][j] + 1)
+                .min(dp[i][j - 1] + 1)
+                .min(dp[i - 1][j - 1] + cost);
+        }
+    }
+    dp[n][m]
+}
+
+/// Basic similarity threshold: allow up to ceil(len/2) edits
+fn similar_enough(a: &str, b: &str) -> bool {
+    let max_edits = (a.chars().count() / 2) + 1;
+    levenshtein(a, b) <= max_edits
 }

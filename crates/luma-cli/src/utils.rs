@@ -29,12 +29,18 @@ pub fn format_parse_errors(errors: &[diagnostics::Diagnostic], source: &str) {
 pub fn format_typecheck_errors(errors: &[typecheck::TypeError], file: &str, source: &str) {
     eprintln!("Typecheck failed:");
     for e in errors {
-        let diag = diagnostics::Diagnostic::error(
+        let mut diag = diagnostics::Diagnostic::error(
             diagnostics::DiagnosticKind::Type,
             e.message.clone(),
             e.span.unwrap_or_else(|| ast::Span::new(0, 0)),
             file.to_string(),
         );
+        for s in &e.suggestions {
+            diag = diag.with_suggestion(s.clone());
+        }
+        for fix in &e.fixits {
+            diag = diag.with_fix(fix.clone());
+        }
         eprintln!("{}", diag.format(source));
     }
 }

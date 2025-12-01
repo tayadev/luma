@@ -170,6 +170,31 @@ mod tests {
         assert!(result.is_err());
         let errors = result.unwrap_err();
         assert!(errors[0].message.contains("Undefined variable: y"));
+        // Touch suggestions field to ensure it compiles
+        let _ = &errors[0].suggestions;
+    }
+
+    #[test]
+    fn test_undefined_variable_did_you_mean_and_fixit() {
+        // Provide a close-in-scope name so suggestions kick in
+        let code = r#"
+            let count = 1
+            let x = coutn
+        "#;
+        let result = parse_and_typecheck(code);
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        // Find the undefined variable error
+        let e = errors
+            .iter()
+            .find(|e| e.message.contains("Undefined variable"))
+            .expect("Expected undefined variable error");
+        // Expect at least one suggestion referencing 'count'
+        let has_suggestion = e.suggestions.iter().any(|s| s.contains("count"));
+        assert!(has_suggestion, "expected a suggestion for 'count'");
+        // Expect a fix-it whose replacement is 'count'
+        let has_fix = e.fixits.iter().any(|f| f.replacement() == "count");
+        assert!(has_fix, "expected a fix-it to change to 'count'");
     }
 
     #[test]

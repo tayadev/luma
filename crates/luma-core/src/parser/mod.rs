@@ -413,7 +413,7 @@ pub fn parse(source: &str, filename: &str) -> Result<Program, Vec<Diagnostic>> {
         Ok(output.expect("Parser should produce output when no errors"))
     } else {
         // Errors occurred - return all accumulated errors
-        Err(errors::errors_to_diagnostics(errs, filename))
+        Err(errors::errors_to_diagnostics(errs, filename, source))
     }
 }
 
@@ -1062,5 +1062,42 @@ mod tests {
     fn test_parse_import() {
         let expr = parse_expr("import(\"./module.luma\")");
         assert!(matches!(expr, Expr::Import { .. }));
+    }
+
+    #[test]
+    fn test_parse_unexpected_eof_suggestion() {
+        let source = "if true do";
+        let result = parse(source, "test.luma");
+        assert!(result.is_err());
+        let diags = result.unwrap_err();
+        // Expect at least one diagnostic with either a suggestion or a fix-it
+        let has_suggestion = diags
+            .iter()
+            .any(|d| !d.suggestions.is_empty() || !d.fixits.is_empty());
+        assert!(has_suggestion);
+    }
+
+    #[test]
+    fn test_parse_missing_paren_fixit() {
+        let source = "let x = (1 + 2";
+        let result = parse(source, "test.luma");
+        assert!(result.is_err());
+        let diags = result.unwrap_err();
+        let has_paren_insert = diags
+            .iter()
+            .any(|d| d.fixits.iter().any(|f| f.replacement().contains(')')));
+        assert!(has_paren_insert, "expected a fix-it to insert ')'");
+    }
+
+    #[test]
+    fn test_parse_extra_closer_delete_fixit() {
+        let source = "let x = 1 + 2))";
+        let result = parse(source, "test.luma");
+        assert!(result.is_err());
+        let diags = result.unwrap_err();
+        let has_delete = diags
+            .iter()
+            .any(|d| d.fixits.iter().any(|f| f.replacement().is_empty()));
+        assert!(has_delete, "expected a fix-it to remove an extra closer");
     }
 }

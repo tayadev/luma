@@ -18,7 +18,7 @@ impl TypeEnv {
                 if let Some(info) = self.lookup(name) {
                     info.ty.clone()
                 } else {
-                    self.error(format!("Undefined variable: {name}"), *span);
+                    self.error_undefined_variable(name, *span);
                     TcType::Unknown
                 }
             }

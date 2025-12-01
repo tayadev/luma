@@ -13,6 +13,9 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use luma_core::diagnostics::{Diagnostic as LumaDiagnostic, LineIndex};
 
+type DocDiagnostics = (String, Vec<LumaDiagnostic>);
+type DiagMap = HashMap<Url, DocDiagnostics>;
+
 /// Document state tracked by the language server
 ///
 /// Fields are stored for future features like:
@@ -30,6 +33,8 @@ struct Document {
 pub struct LumaLanguageServer {
     client: Client,
     documents: Arc<RwLock<HashMap<Url, Document>>>,
+    /// Last computed diagnostics per document (content + core diagnostics)
+    last_diags: Arc<RwLock<DiagMap>>,
 }
 
 impl LumaLanguageServer {
@@ -37,6 +42,7 @@ impl LumaLanguageServer {
         Self {
             client,
             documents: Arc::new(RwLock::new(HashMap::new())),
+            last_diags: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -79,42 +85,29 @@ impl LumaLanguageServer {
 
         // Parse the document
         let mut diagnostics = Vec::new();
+        let mut core_diags: Vec<LumaDiagnostic> = Vec::new();
 
         match luma_core::parser::parse(content, &filename) {
             Ok(ast) => {
                 // Try to typecheck the AST
                 if let Err(type_errors) = luma_core::typecheck::typecheck_program(&ast) {
                     for err in type_errors {
-                        let (start_line, start_col, end_line, end_col) =
-                            if let Some(span) = err.span {
-                                let line_index = LineIndex::new(content);
-                                let (start_line, start_col) = line_index.line_col(span.start);
-                                let (end_line, end_col) = line_index.line_col(span.end);
-                                (start_line - 1, start_col - 1, end_line - 1, end_col - 1)
-                            } else {
-                                (0, 0, 0, 0)
-                            };
-
-                        diagnostics.push(Diagnostic {
-                            range: Range {
-                                start: Position {
-                                    line: start_line as u32,
-                                    character: start_col as u32,
-                                },
-                                end: Position {
-                                    line: end_line as u32,
-                                    character: end_col as u32,
-                                },
-                            },
-                            severity: Some(DiagnosticSeverity::ERROR),
-                            code: None,
-                            code_description: None,
-                            source: Some("luma".to_string()),
-                            message: err.message,
-                            related_information: None,
-                            tags: None,
-                            data: None,
-                        });
+                        // Convert to core diagnostic to preserve suggestions/fix-its
+                        let span = err.span.unwrap_or_else(|| luma_core::ast::Span::new(0, 0));
+                        let mut core = luma_core::diagnostics::Diagnostic::error(
+                            luma_core::diagnostics::DiagnosticKind::Type,
+                            err.message.clone(),
+                            span,
+                            filename.clone(),
+                        );
+                        for s in err.suggestions {
+                            core = core.with_suggestion(s);
+                        }
+                        for fix in err.fixits {
+                            core = core.with_fix(fix);
+                        }
+                        diagnostics.push(Self::to_lsp_diagnostic(&core, content));
+                        core_diags.push(core);
                     }
                 }
             }
@@ -122,7 +115,14 @@ impl LumaLanguageServer {
                 for err in &parse_errors {
                     diagnostics.push(Self::to_lsp_diagnostic(err, content));
                 }
+                core_diags.extend(parse_errors.into_iter());
             }
+        }
+
+        // Store the last diagnostics along with content for CodeActions
+        {
+            let mut m = self.last_diags.write().await;
+            m.insert(uri.clone(), (content.to_string(), core_diags));
         }
 
         self.client
@@ -152,6 +152,7 @@ impl LanguageServer for LumaLanguageServer {
                     },
                 )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
+                code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
                 ..Default::default()
             },
         })
@@ -231,6 +232,12 @@ impl LanguageServer for LumaLanguageServer {
             docs.remove(&uri);
         }
 
+        // Clear stored diagnostics
+        {
+            let mut m = self.last_diags.write().await;
+            m.remove(&uri);
+        }
+
         // Clear diagnostics for the closed document
         self.client.publish_diagnostics(uri, Vec::new(), None).await;
     }
@@ -253,6 +260,81 @@ impl LanguageServer for LumaLanguageServer {
             }))
         } else {
             Ok(None)
+        }
+    }
+
+    async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
+        let uri = params.text_document.uri;
+        let range = params.range;
+
+        let guard = self.last_diags.read().await;
+        let Some((content, core_diags)) = guard.get(&uri) else {
+            return Ok(None);
+        };
+
+        let line_index = LineIndex::new(content);
+
+        let mut actions: Vec<CodeActionOrCommand> = Vec::new();
+        for d in core_diags {
+            // Intersect diagnostic range with requested range
+            let (ds_line, ds_col) = line_index.line_col(d.span.start);
+            let (de_line, de_col) = line_index.line_col(d.span.end);
+            let d_range = Range {
+                start: Position {
+                    line: (ds_line - 1) as u32,
+                    character: (ds_col - 1) as u32,
+                },
+                end: Position {
+                    line: (de_line - 1) as u32,
+                    character: (de_col - 1) as u32,
+                },
+            };
+
+            if d_range.start.line > range.end.line || d_range.end.line < range.start.line {
+                continue;
+            }
+
+            // Create an action per fix-it
+            for fix in &d.fixits {
+                let span = fix.span();
+                let (fs_line, fs_col) = line_index.line_col(span.start);
+                let (fe_line, fe_col) = line_index.line_col(span.end);
+                let edit = TextEdit {
+                    range: Range {
+                        start: Position {
+                            line: (fs_line - 1) as u32,
+                            character: (fs_col - 1) as u32,
+                        },
+                        end: Position {
+                            line: (fe_line - 1) as u32,
+                            character: (fe_col - 1) as u32,
+                        },
+                    },
+                    new_text: fix.replacement().to_string(),
+                };
+
+                let action = CodeAction {
+                    title: fix.label().to_string(),
+                    kind: Some(CodeActionKind::QUICKFIX),
+                    diagnostics: Some(vec![Self::to_lsp_diagnostic(d, content)]),
+                    edit: Some(WorkspaceEdit {
+                        changes: Some(HashMap::from([(uri.clone(), vec![edit])])),
+                        document_changes: None,
+                        change_annotations: None,
+                    }),
+                    command: None,
+                    is_preferred: Some(true),
+                    disabled: None,
+                    data: None,
+                };
+                actions.push(CodeActionOrCommand::CodeAction(action));
+            }
+        }
+
+        if actions.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(actions))
         }
     }
 }

@@ -21,6 +21,8 @@ impl Severity {
     }
 }
 
+// Note: FixIt definition and helpers appear later in this module.
+
 /// Diagnostic kind/category
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DiagnosticKind {
@@ -35,6 +37,47 @@ impl DiagnosticKind {
             DiagnosticKind::Parse => "parse",
             DiagnosticKind::Type => "type",
             DiagnosticKind::Runtime => "runtime",
+        }
+    }
+}
+
+/// A single text edit suggestion that can be applied to the source
+/// Represented using byte spans; mapping to line/column is done by frontends (CLI/LSP)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FixIt {
+    /// Replace the text in `span` with `replacement`
+    Replace {
+        span: Span,
+        replacement: String,
+        /// Short label for UI like "Change to 'foo'" or "Insert 'end'"
+        label: String,
+    },
+}
+
+impl FixIt {
+    pub fn replace(span: Span, replacement: impl Into<String>, label: impl Into<String>) -> Self {
+        FixIt::Replace {
+            span,
+            replacement: replacement.into(),
+            label: label.into(),
+        }
+    }
+
+    pub fn label(&self) -> &str {
+        match self {
+            FixIt::Replace { label, .. } => label,
+        }
+    }
+
+    pub fn span(&self) -> Span {
+        match self {
+            FixIt::Replace { span, .. } => *span,
+        }
+    }
+
+    pub fn replacement(&self) -> &str {
+        match self {
+            FixIt::Replace { replacement, .. } => replacement,
         }
     }
 }
@@ -95,6 +138,10 @@ pub struct Diagnostic {
     pub related_info: Vec<RelatedInfo>,
     pub notes: Vec<String>,
     pub help: Option<String>,
+    /// Human-friendly suggestions that don't imply an automatic edit
+    pub suggestions: Vec<String>,
+    /// Machine-applicable edits the user or tooling can apply
+    pub fixits: Vec<FixIt>,
 }
 
 impl Diagnostic {
@@ -109,6 +156,8 @@ impl Diagnostic {
             related_info: Vec::new(),
             notes: Vec::new(),
             help: None,
+            suggestions: Vec::new(),
+            fixits: Vec::new(),
         }
     }
 
@@ -123,6 +172,8 @@ impl Diagnostic {
             related_info: Vec::new(),
             notes: Vec::new(),
             help: None,
+            suggestions: Vec::new(),
+            fixits: Vec::new(),
         }
     }
 
@@ -143,6 +194,16 @@ impl Diagnostic {
 
     pub fn with_help(mut self, help: String) -> Self {
         self.help = Some(help);
+        self
+    }
+
+    pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
+        self.suggestions.push(suggestion.into());
+        self
+    }
+
+    pub fn with_fix(mut self, fix: FixIt) -> Self {
+        self.fixits.push(fix);
         self
     }
 
@@ -273,6 +334,16 @@ impl<'a> DiagnosticFormatter<'a> {
         // Help
         if let Some(help) = &self.diagnostic.help {
             output.push_str(&format!("help: {help}\n"));
+        }
+
+        // Suggestions
+        for suggestion in &self.diagnostic.suggestions {
+            output.push_str(&format!("suggestion: {suggestion}\n"));
+        }
+
+        // Fix-its (labels only in CLI formatter)
+        for fix in &self.diagnostic.fixits {
+            output.push_str(&format!("fix: {}\n", fix.label()));
         }
 
         output
