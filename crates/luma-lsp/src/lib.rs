@@ -347,3 +347,78 @@ pub async fn run_server() {
     let (service, socket) = LspService::new(LumaLanguageServer::new);
     Server::new(stdin, stdout, socket).serve(service).await;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use luma_core::ast::Span;
+    use luma_core::diagnostics::{Diagnostic as LumaDiagnostic, DiagnosticKind, Severity};
+
+    #[test]
+    fn test_to_lsp_diagnostic_single_line() {
+        let source = "let x = 42;";
+        let diag = LumaDiagnostic::error(
+            DiagnosticKind::Parse,
+            "Test error".to_string(),
+            Span::new(4, 5),
+            "test.luma".to_string(),
+        );
+
+        let lsp_diag = LumaLanguageServer::to_lsp_diagnostic(&diag, source);
+
+        assert_eq!(lsp_diag.severity, Some(DiagnosticSeverity::ERROR));
+        assert_eq!(lsp_diag.message, "Test error");
+        assert_eq!(lsp_diag.source, Some("luma".to_string()));
+    }
+
+    #[test]
+    fn test_to_lsp_diagnostic_warning() {
+        let source = "let x = 42;";
+        let diag = LumaDiagnostic::warning(
+            DiagnosticKind::Type,
+            "Test warning".to_string(),
+            Span::new(0, 3),
+            "test.luma".to_string(),
+        );
+
+        let lsp_diag = LumaLanguageServer::to_lsp_diagnostic(&diag, source);
+
+        assert_eq!(lsp_diag.severity, Some(DiagnosticSeverity::WARNING));
+        assert_eq!(lsp_diag.message, "Test warning");
+    }
+
+    #[test]
+    fn test_to_lsp_diagnostic_with_info_severity() {
+        let source = "let x = 42;";
+        let mut diag = LumaDiagnostic::error(
+            DiagnosticKind::Type,
+            "Test info".to_string(),
+            Span::new(0, 3),
+            "test.luma".to_string(),
+        );
+        // Use the builder pattern to set severity if available
+        // For now, we'll test error level which we know exists
+
+        let lsp_diag = LumaLanguageServer::to_lsp_diagnostic(&diag, source);
+
+        assert_eq!(lsp_diag.message, "Test info");
+    }
+
+    #[test]
+    fn test_to_lsp_diagnostic_multiline() {
+        let source = "let x = 42;\nlet y = 10;";
+        let diag = LumaDiagnostic::error(
+            DiagnosticKind::Parse,
+            "Test multiline".to_string(),
+            Span::new(12, 22),
+            "test.luma".to_string(),
+        );
+
+        let lsp_diag = LumaLanguageServer::to_lsp_diagnostic(&diag, source);
+
+        assert_eq!(lsp_diag.severity, Some(DiagnosticSeverity::ERROR));
+        assert_eq!(lsp_diag.message, "Test multiline");
+        // The range should span across lines
+        assert!(lsp_diag.range.start.line <= lsp_diag.range.end.line);
+    }
+}

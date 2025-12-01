@@ -9,6 +9,9 @@ mod run;
 mod upgrade;
 mod utils;
 
+#[cfg(test)]
+mod tests;
+
 use check::handle_check;
 use compile::handle_compile;
 use debug::{handle_ast, handle_bytecode};

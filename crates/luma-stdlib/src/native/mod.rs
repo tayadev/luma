@@ -15,6 +15,13 @@ pub mod helpers;
 pub mod io;
 pub mod process;
 
+#[cfg(test)]
+mod core_tests;
+#[cfg(test)]
+mod helpers_tests;
+#[cfg(test)]
+mod io_tests;
+
 // Re-export all native functions for convenience
 pub use core::{native_cast, native_into, native_is_instance_of, native_iter, native_typeof};
 pub use ffi::{
