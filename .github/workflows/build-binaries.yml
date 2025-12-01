@@ -66,7 +66,7 @@ jobs:
         key: ${{ matrix.target }}
     
     - name: Build release binary
-      run: cargo build --release --verbose --target ${{ matrix.target }}
+      run: cargo build --release --verbose --target ${{ matrix.target }} --bin luma
     
     - name: Create archive (Unix)
       if: inputs.create_archives && runner.os != 'Windows'

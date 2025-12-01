@@ -170,7 +170,11 @@ impl Pipeline {
         crate::bytecode::compile::compile_program(ast)
     }
 
-    /// Execute bytecode in a new VM
+    /// Execute bytecode in a new VM (without stdlib initialization)
+    ///
+    /// **Note**: This creates a VM without the standard library loaded.
+    /// For a fully functional VM, use `execute_with_vm` with an initialized VM,
+    /// or use luma_stdlib::init_vm() to initialize the VM.
     ///
     /// # Errors
     ///
@@ -188,6 +192,34 @@ impl Pipeline {
         let mut vm = vm::VM::new_with_file(chunk, absolute_path);
         vm.set_source(self.source.clone());
         vm.run().map_err(PipelineError::Runtime)
+    }
+
+    /// Execute bytecode in a provided VM (allows custom initialization)
+    ///
+    /// This allows you to provide a pre-initialized VM (e.g., with stdlib loaded).
+    ///
+    /// # Errors
+    ///
+    /// Returns `PipelineError::Runtime` if execution fails
+    pub fn execute_with_vm(&self, chunk: Chunk, vm: &mut vm::VM) -> PipelineResult<Value> {
+        // Save and restore VM state
+        let saved_chunk = vm.chunk.clone();
+        let saved_ip = vm.ip;
+        let saved_base = vm.base;
+
+        vm.chunk = chunk;
+        vm.ip = 0;
+        vm.base = 0;
+        vm.set_source(self.source.clone());
+
+        let result = vm.run().map_err(PipelineError::Runtime);
+
+        // Restore state
+        vm.chunk = saved_chunk;
+        vm.ip = saved_ip;
+        vm.base = saved_base;
+
+        result
     }
 
     /// Execute the complete pipeline: parse → typecheck → compile → run

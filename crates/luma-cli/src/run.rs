@@ -1,7 +1,6 @@
 //! `run` subcommand handler
 
-use crate::cli::utils::read_source;
-use crate::pipeline::Pipeline;
+use crate::utils::read_source;
 use std::process;
 
 /// Execute a Luma script file
@@ -14,9 +13,7 @@ pub fn handle_run(file: &str) {
         }
     };
 
-    let pipeline = Pipeline::new(source.clone(), file.to_string());
-
-    match pipeline.run_all() {
+    match luma_stdlib::run_program(source.clone(), file.to_string()) {
         Ok(_val) => {}
         Err(e) => {
             eprintln!("{}", e.format_with_source(&source));

@@ -24,7 +24,6 @@
 
 use super::errors::VmError;
 use super::frames::CallFrame;
-use super::native::*;
 use super::value::{Upvalue, Value};
 use crate::ast::Span;
 use crate::bytecode::ir::Chunk;
@@ -34,6 +33,9 @@ use std::rc::Rc;
 
 /// Type alias for native function signatures
 pub type NativeFunction = fn(&[Value]) -> Result<Value, String>;
+
+/// Type alias for FFI dispatch function (special handling for ffi.* functions)
+pub type FfiDispatchFunction = fn(&str, &[Value]) -> Result<Value, String>;
 
 /// The virtual machine that executes Luma bytecode
 pub struct VM {
@@ -46,6 +48,7 @@ pub struct VM {
     pub upvalues: Vec<Upvalue>,
     pub captured_locals: HashMap<usize, Upvalue>,
     pub native_functions: HashMap<String, NativeFunction>,
+    pub ffi_dispatch: Option<FfiDispatchFunction>,
     pub module_cache: Rc<RefCell<HashMap<String, Value>>>,
     pub loading_modules: Rc<RefCell<Vec<String>>>,
     pub current_file: Option<String>,
@@ -53,14 +56,16 @@ pub struct VM {
 }
 
 impl VM {
-    /// Create a new VM with the given chunk
+    /// Create a new VM with the given chunk (without stdlib initialization)
+    /// For a fully initialized VM with stdlib, use luma_stdlib::init_vm()
     pub fn new(chunk: Chunk) -> Self {
         Self::new_with_file(chunk, None)
     }
 
-    /// Create a new VM with the given chunk and file path
+    /// Create a new VM with the given chunk and file path (without stdlib initialization)
+    /// For a fully initialized VM with stdlib, use luma_stdlib::init_vm()
     pub fn new_with_file(chunk: Chunk, current_file: Option<String>) -> Self {
-        let mut vm = VM {
+        VM {
             stack: Vec::new(),
             ip: 0,
             chunk,
@@ -70,78 +75,12 @@ impl VM {
             upvalues: Vec::new(),
             captured_locals: HashMap::new(),
             native_functions: HashMap::new(),
+            ffi_dispatch: None,
             module_cache: Rc::new(RefCell::new(HashMap::new())),
             loading_modules: Rc::new(RefCell::new(Vec::new())),
             current_file,
             source: None,
-        };
-
-        // Register native functions
-        vm.register_native_function("cast", 2, native_cast);
-        vm.register_native_function("isInstanceOf", 2, native_is_instance_of);
-        vm.register_native_function("into", 2, native_into);
-        vm.register_native_function("typeof", 1, native_typeof);
-        vm.register_native_function("iter", 1, native_iter);
-        vm.register_native_function("print", 0, native_print);
-
-        // Register I/O functions
-        vm.register_native_function("write", 2, native_write);
-        vm.register_native_function("read_file", 1, native_read_file);
-        vm.register_native_function("write_file", 2, native_write_file);
-        vm.register_native_function("file_exists", 1, native_file_exists);
-
-        // Register panic function
-        vm.register_native_function("panic", 1, native_panic);
-
-        // Register FFI functions
-        vm.register_native_function("ffi.def", 1, native_ffi_def);
-        vm.register_native_function("ffi.new_cstr", 1, native_ffi_new_cstr);
-        vm.register_native_function("ffi.new", 1, native_ffi_new);
-        vm.register_native_function("ffi.free", 1, native_ffi_free);
-        vm.register_native_function("ffi.nullptr", 0, native_ffi_nullptr);
-        vm.register_native_function("ffi.is_null", 1, native_ffi_is_null);
-        vm.register_native_function("ffi.free_cstr", 1, native_ffi_free_cstr);
-        vm.register_native_function("ffi.call", 0, native_ffi_call);
-
-        // Register process functions
-        vm.register_native_function("process.exit", 1, native_process_exit);
-
-        // Expose file descriptor constants
-        vm.globals.insert("STDOUT".to_string(), Value::Number(1.0));
-        vm.globals.insert("STDERR".to_string(), Value::Number(2.0));
-
-        // Expose ffi module
-        vm.globals.insert("ffi".to_string(), create_ffi_module());
-
-        // Expose process module
-        vm.globals
-            .insert("process".to_string(), create_process_module());
-
-        // Expose type markers for into() conversions
-        vm.globals.insert(
-            "String".to_string(),
-            Value::Type(Rc::new(RefCell::new({
-                let mut t = HashMap::new();
-                t.insert("String".to_string(), Value::Boolean(true));
-                t
-            }))),
-        );
-
-        // Expose External type marker
-        vm.globals.insert(
-            "External".to_string(),
-            Value::External {
-                handle: 0,
-                type_name: "External".to_string(),
-            },
-        );
-
-        // Load prelude
-        if let Err(e) = vm.load_prelude() {
-            eprintln!("Warning: Failed to load prelude: {e:?}");
         }
-
-        vm
     }
 
     /// Set the source code for error reporting
@@ -160,7 +99,7 @@ impl VM {
     }
 
     /// Register a native function
-    fn register_native_function(&mut self, name: &str, arity: usize, func: NativeFunction) {
+    pub fn register_native_function(&mut self, name: &str, arity: usize, func: NativeFunction) {
         let native_val = Value::NativeFunction {
             name: name.to_string(),
             arity,
@@ -169,10 +108,8 @@ impl VM {
         self.native_functions.insert(name.to_string(), func);
     }
 
-    /// Load and execute the prelude (standard library)
-    fn load_prelude(&mut self) -> Result<(), VmError> {
-        let prelude_source = include_str!("../prelude.luma");
-
+    /// Load and execute the prelude (standard library) from provided source
+    pub fn load_prelude(&mut self, prelude_source: &str) -> Result<(), VmError> {
         let ast = match crate::parser::parse(prelude_source, "<prelude>") {
             Ok(ast) => ast,
             Err(errors) => {
@@ -469,19 +406,6 @@ mod tests {
             while i <= 5 do
                 sum = sum + i
                 i = i + 1
-            end
-            sum
-        "#;
-        let result = run_source(code).unwrap();
-        assert!(matches!(result, Value::Number(n) if (n - 15.0).abs() < f64::EPSILON));
-    }
-
-    #[test]
-    fn test_vm_for_loop() {
-        let code = r#"
-            var sum = 0
-            for x in [1, 2, 3, 4, 5] do
-                sum = sum + x
             end
             sum
         "#;

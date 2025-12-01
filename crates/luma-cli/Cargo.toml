@@ -1,0 +1,31 @@
+[package]
+name = "luma-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Command-line interface for the Luma programming language"
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "luma"
+path = "src/main.rs"
+
+[dependencies]
+luma-core = { workspace = true }
+luma-stdlib = { workspace = true }
+luma-lsp = { path = "../luma-lsp", version = "0.3.2" }
+clap = { workspace = true }
+walkdir = { workspace = true }
+reqwest = { workspace = true }
+zip = { workspace = true }
+bytes = { workspace = true }
+ron = { workspace = true }
+tokio = { workspace = true }
+
+[build-dependencies]
+# For git hash in version string
+
+[dev-dependencies]
+criterion = { workspace = true }

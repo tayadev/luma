@@ -1,7 +1,7 @@
 //! `check` subcommand handler
 
-use crate::cli::utils::read_source;
-use crate::pipeline::Pipeline;
+use crate::utils::read_source;
+use luma_core::pipeline::Pipeline;
 use std::process;
 
 /// Typecheck a Luma script without executing it

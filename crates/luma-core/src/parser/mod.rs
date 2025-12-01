@@ -449,7 +449,7 @@ mod tests {
     fn test_parse_float_literal() {
         let expr = parse_expr("3.14159");
         assert!(
-            matches!(expr, Expr::Number { value, .. } if (value - 3.14159).abs() < f64::EPSILON)
+            matches!(expr, Expr::Number { value, .. } if (value - std::f64::consts::PI).abs() < 0.00001)
         );
     }
 

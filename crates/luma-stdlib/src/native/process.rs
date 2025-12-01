@@ -4,7 +4,7 @@
 //! - `process.os` - The current operating system ('windows', 'linux', or 'macos')
 //! - `process.exit(code)` - Terminates the program with the given exit code
 
-use crate::vm::value::Value;
+use luma_core::vm::value::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

@@ -1,18 +1,25 @@
-[package]
-name = "luma"
+[workspace]
+members = [
+    "crates/luma-core",
+    "crates/luma-stdlib",
+    "crates/luma-cli",
+    "crates/luma-lsp",
+]
+resolver = "2"
+
+[workspace.package]
 version = "0.3.2"
 edition = "2024"
 license = "MIT"
-description = "Taya's Scripting Language"
 homepage = "https://github.com/tayadev/luma"
 repository = "https://github.com/tayadev/luma"
-publish = false
 
-[lib]
-name = "luma"
-path = "src/lib.rs"
+[workspace.dependencies]
+# Workspace internal dependencies
+luma-core = { path = "crates/luma-core", version = "0.3.2" }
+luma-stdlib = { path = "crates/luma-stdlib", version = "0.3.2" }
 
-[dependencies]
+# External dependencies shared across crates
 chumsky = "0.11.2"
 ron = "0.8"
 serde = { version = "1.0", features = ["derive"] }
@@ -28,19 +35,11 @@ libffi = "5.0.0"
 libc = "0.2"
 libloading = "0.8"
 
-[dev-dependencies.cargo-husky]
-version = "1"
-default-features = false
-features = ["precommit-hook", "user-hooks"]
-
-[dev-dependencies]
+# Dev dependencies
 criterion = { version = "0.5", features = ["html_reports"] }
 
-
-[[bench]]
-name = "parser_bench"
-harness = false
-
-[[bench]]
-name = "vm_bench"
-harness = false
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

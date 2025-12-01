@@ -1,5 +1,22 @@
 use clap::{CommandFactory, Parser, Subcommand};
 
+mod check;
+mod compile;
+mod debug;
+mod lsp;
+mod repl;
+mod run;
+mod upgrade;
+mod utils;
+
+use check::handle_check;
+use compile::handle_compile;
+use debug::{handle_ast, handle_bytecode};
+use lsp::handle_lsp;
+use repl::handle_repl;
+use run::handle_run;
+use upgrade::handle_upgrade;
+
 /// Get the version string including git revision
 fn version() -> &'static str {
     concat!(env!("CARGO_PKG_VERSION"), " (git:", env!("GIT_HASH"), ")")
@@ -69,28 +86,28 @@ fn main() {
 
     match &cli.command {
         Some(Commands::Run { file }) => {
-            luma::cli::handle_run(file);
+            handle_run(file);
         }
         Some(Commands::Repl) => {
-            luma::cli::handle_repl();
+            handle_repl();
         }
         Some(Commands::Lsp) => {
-            luma::cli::handle_lsp();
+            handle_lsp();
         }
         Some(Commands::Check { file }) => {
-            luma::cli::handle_check(file);
+            handle_check(file);
         }
         Some(Commands::Compile { file, output }) => {
-            luma::cli::handle_compile(file, output.as_deref());
+            handle_compile(file, output.as_deref());
         }
         Some(Commands::Upgrade { version }) => {
-            luma::cli::handle_upgrade(version.as_deref());
+            handle_upgrade(version.as_deref());
         }
         Some(Commands::Ast { file }) => {
-            luma::cli::handle_ast(file);
+            handle_ast(file);
         }
         Some(Commands::Bytecode { file }) => {
-            luma::cli::handle_bytecode(file);
+            handle_bytecode(file);
         }
         None => {
             // Default: run the file if provided, otherwise print help
@@ -103,7 +120,7 @@ fn main() {
                     std::process::exit(0);
                 }
             };
-            luma::cli::handle_run(file);
+            handle_run(file);
         }
     }
 }

@@ -5,7 +5,6 @@ mod interpreter;
 mod stack;
 
 pub mod modules;
-pub mod native;
 pub mod operators;
 pub mod value;
 

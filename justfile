@@ -8,40 +8,41 @@ set windows-shell := ["powershell", "-Command"]
 default:
     @just --list
 
-# Run all tests (using nextest)
+# Run all tests (using nextest) across workspace
 test:
-    cargo nextest run --config-file nextest.toml
+    cargo nextest run --config-file nextest.toml --workspace
 
 # Run tests with all features
 test-all:
-    cargo nextest rua --config-file nextest.toml --all-features
+    cargo nextest run --config-file nextest.toml --all-features --workspace
+
 # CI: Run tests with coverage and JUnit XML output
 ci-test:
     cargo llvm-cov nextest --config-file nextest.toml --all-features --workspace --lcov --output-path lcov.info
 
 # Check code formatting
 fmt-check:
-    cargo fmt -- --check
+    cargo fmt --all -- --check
 
 # Format code
 fmt:
-    cargo fmt
+    cargo fmt --all
 
 # Run clippy linter
 lint:
-    cargo clippy -- -D warnings
+    cargo clippy --workspace -- -D warnings
 
 # Build the project
 build:
-    cargo build
+    cargo build --workspace
 
 # Build in release mode
 build-release:
-    cargo build --release
+    cargo build --workspace --release
 
 # Run the CLI with a file
 run file:
-    cargo run -- {{file}}
+    cargo run --bin luma -- {{file}}
 
 # Generate code coverage report (requires cargo-llvm-cov, uses nextest)
 coverage:
@@ -52,7 +53,7 @@ coverage-text:
 
 # Run benchmarks
 bench:
-    cargo bench
+    cargo bench --workspace
 
 # Clean build artifacts
 clean:

@@ -11,7 +11,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use crate::diagnostics::{Diagnostic as LumaDiagnostic, LineIndex};
+use luma_core::diagnostics::{Diagnostic as LumaDiagnostic, LineIndex};
 
 /// Document state tracked by the language server
 ///
@@ -58,10 +58,10 @@ impl LumaLanguageServer {
                 },
             },
             severity: Some(match diag.severity {
-                crate::diagnostics::Severity::Error => DiagnosticSeverity::ERROR,
-                crate::diagnostics::Severity::Warning => DiagnosticSeverity::WARNING,
-                crate::diagnostics::Severity::Info => DiagnosticSeverity::INFORMATION,
-                crate::diagnostics::Severity::Hint => DiagnosticSeverity::HINT,
+                luma_core::diagnostics::Severity::Error => DiagnosticSeverity::ERROR,
+                luma_core::diagnostics::Severity::Warning => DiagnosticSeverity::WARNING,
+                luma_core::diagnostics::Severity::Info => DiagnosticSeverity::INFORMATION,
+                luma_core::diagnostics::Severity::Hint => DiagnosticSeverity::HINT,
             }),
             code: None,
             code_description: None,
@@ -80,10 +80,10 @@ impl LumaLanguageServer {
         // Parse the document
         let mut diagnostics = Vec::new();
 
-        match crate::parser::parse(content, &filename) {
+        match luma_core::parser::parse(content, &filename) {
             Ok(ast) => {
                 // Try to typecheck the AST
-                if let Err(type_errors) = crate::typecheck::typecheck_program(&ast) {
+                if let Err(type_errors) = luma_core::typecheck::typecheck_program(&ast) {
                     for err in type_errors {
                         let (start_line, start_col, end_line, end_col) =
                             if let Some(span) = err.span {

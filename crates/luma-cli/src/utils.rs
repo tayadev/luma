@@ -1,8 +1,8 @@
 //! Shared CLI utilities for reading input and formatting errors
 
-use crate::ast;
-use crate::diagnostics;
-use crate::typecheck;
+use luma_core::ast;
+use luma_core::diagnostics;
+use luma_core::typecheck;
 use std::fs;
 use std::io::{self, Read};
 

@@ -1,8 +1,8 @@
 //! Debug subcommands: `ast` and `bytecode`
 
-use crate::bytecode;
-use crate::cli::utils::{format_parse_errors, read_source};
-use crate::parser;
+use crate::utils::{format_parse_errors, read_source};
+use luma_core::bytecode;
+use luma_core::parser;
 use std::process;
 
 /// Print the parsed AST for debugging

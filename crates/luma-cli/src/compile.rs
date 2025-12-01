@@ -1,9 +1,9 @@
 //! `compile` subcommand handler
 
-use crate::bytecode;
-use crate::cli::utils::{format_parse_errors, format_typecheck_errors, read_source};
-use crate::parser;
-use crate::typecheck;
+use crate::utils::{format_parse_errors, format_typecheck_errors, read_source};
+use luma_core::bytecode;
+use luma_core::parser;
+use luma_core::typecheck;
 use std::fs;
 use std::process;
 

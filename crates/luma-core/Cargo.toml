@@ -1,0 +1,22 @@
+[package]
+name = "luma-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Core compiler infrastructure for the Luma programming language"
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "luma_core"
+path = "src/lib.rs"
+
+[dependencies]
+chumsky = { workspace = true }
+ron = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }

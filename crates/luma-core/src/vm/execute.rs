@@ -798,10 +798,15 @@ impl VM {
                     self.exec_native_into(vec![obj, target_type.clone()])
                 } else if is_ffi_dispatch {
                     // Dispatch to FFI function handler
-                    let result = super::native::native_ffi_dispatch(&name, &args)
-                        .map_err(|e| self._error(e))?;
-                    self.stack.push(result);
-                    Ok(())
+                    if let Some(ffi_dispatch) = self.ffi_dispatch {
+                        let result = ffi_dispatch(&name, &args).map_err(|e| self._error(e))?;
+                        self.stack.push(result);
+                        Ok(())
+                    } else {
+                        Err(self._error(format!(
+                            "FFI dispatch not available. FFI function '{name}' cannot be called without stdlib."
+                        )))
+                    }
                 } else {
                     let func = self.native_functions.get(&name).ok_or_else(|| {
                         self._error(format!("Native function '{name}' not found"))

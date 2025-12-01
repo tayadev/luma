@@ -1,7 +1,7 @@
 //! Core native functions: cast, isInstanceOf, into, typeof, iter
 
 use super::helpers::*;
-use crate::vm::value::Value;
+use luma_core::vm::value::Value;
 use std::rc::Rc;
 
 /// Native function: cast(type, value) -> typed_value

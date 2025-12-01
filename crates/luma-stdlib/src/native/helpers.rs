@@ -1,6 +1,6 @@
 //! Helper functions for native function implementations.
 
-use crate::vm::value::Value;
+use luma_core::vm::value::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;

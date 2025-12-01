@@ -18,8 +18,8 @@
 //!
 //! Users should only use FFI with trusted C code and ensure proper type matching.
 
-use crate::vm::value::Value;
 use libffi::middle::{Arg, Builder, CodePtr, Type, arg};
+use luma_core::vm::value::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::{CString, c_void};

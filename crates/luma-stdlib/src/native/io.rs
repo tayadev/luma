@@ -1,7 +1,7 @@
 //! I/O native functions: print, write, read_file, write_file, file_exists, panic
 
 use super::helpers::{make_result_err, make_result_ok};
-use crate::vm::value::Value;
+use luma_core::vm::value::Value;
 
 /// Standard output file descriptor
 const FD_STDOUT: i32 = 1;

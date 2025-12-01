@@ -216,12 +216,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cargo-husky"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b02b629252fe8ef6460461409564e2c21d0c8e77e0944f3d189ff06c4e932ad"
-
-[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1194,25 +1188,52 @@ dependencies = [
 ]
 
 [[package]]
-name = "luma"
+name = "luma-cli"
 version = "0.3.2"
 dependencies = [
  "bytes",
- "cargo-husky",
- "chumsky",
  "clap",
  "criterion",
- "libc",
- "libffi",
- "libloading",
+ "luma-core",
+ "luma-lsp",
+ "luma-stdlib",
  "reqwest",
+ "ron",
+ "tokio",
+ "walkdir",
+ "zip",
+]
+
+[[package]]
+name = "luma-core"
+version = "0.3.2"
+dependencies = [
+ "chumsky",
+ "criterion",
  "ron",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "luma-lsp"
+version = "0.3.2"
+dependencies = [
+ "luma-core",
+ "serde_json",
  "tokio",
  "tower-lsp",
- "walkdir",
- "zip",
+]
+
+[[package]]
+name = "luma-stdlib"
+version = "0.3.2"
+dependencies = [
+ "libc",
+ "libffi",
+ "libloading",
+ "luma-core",
+ "serde_json",
 ]
 
 [[package]]

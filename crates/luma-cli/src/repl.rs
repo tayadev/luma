@@ -1,8 +1,8 @@
 //! `repl` subcommand handler
 
-use crate::bytecode;
-use crate::parser;
-use crate::vm;
+use luma_core::bytecode;
+use luma_core::parser;
+use luma_core::vm;
 use std::io::{self, BufRead, Write};
 
 /// Run the interactive REPL session
@@ -14,7 +14,16 @@ pub fn handle_repl() {
     // Create an empty chunk to initialize the VM
     // The VM will be reused across evaluations to maintain state
     let empty_chunk = bytecode::ir::Chunk::new_empty("<init>".to_string());
-    let mut vm = vm::VM::new_with_file(empty_chunk, Some("<repl>".to_string()));
+    let vm = vm::VM::new_with_file(empty_chunk, Some("<repl>".to_string()));
+
+    // Initialize with stdlib
+    let mut vm = match luma_stdlib::init_vm(vm) {
+        Ok(vm) => vm,
+        Err(e) => {
+            eprintln!("Failed to initialize VM: {}", e.format(None));
+            std::process::exit(1);
+        }
+    };
 
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
