@@ -352,7 +352,7 @@ pub async fn run_server() {
 mod tests {
     use super::*;
     use luma_core::ast::Span;
-    use luma_core::diagnostics::{Diagnostic as LumaDiagnostic, DiagnosticKind, Severity};
+    use luma_core::diagnostics::{Diagnostic as LumaDiagnostic, DiagnosticKind};
 
     #[test]
     fn test_to_lsp_diagnostic_single_line() {
@@ -390,7 +390,7 @@ mod tests {
     #[test]
     fn test_to_lsp_diagnostic_with_info_severity() {
         let source = "let x = 42;";
-        let mut diag = LumaDiagnostic::error(
+        let diag = LumaDiagnostic::error(
             DiagnosticKind::Type,
             "Test info".to_string(),
             Span::new(0, 3),
