@@ -51,7 +51,9 @@ impl TypeEnv {
             }
         }
 
-        for stmt in stmts {
+        let len = stmts.len();
+        for (i, stmt) in stmts.iter().enumerate() {
+            let is_last = i == len - 1;
             match stmt {
                 Stmt::Return { value: expr, span } => {
                     ret_ty = self.check_expr(expr);
@@ -62,11 +64,113 @@ impl TypeEnv {
                         );
                     }
                 }
-                _ => self.check_stmt(stmt),
+                _ => {
+                    self.check_stmt(stmt);
+                    // For the last statement, compute implicit return type from control flow
+                    if is_last {
+                        ret_ty = self.compute_implicit_return_type(stmt, expected_ret);
+                    }
+                }
             }
         }
 
         ret_ty
+    }
+
+    /// Compute the implicit return type of a statement when it's the last statement in a block.
+    /// This handles control flow statements (if, match) that may implicitly return values.
+    fn compute_implicit_return_type(&mut self, stmt: &Stmt, expected_ret: &TcType) -> TcType {
+        match stmt {
+            Stmt::If {
+                then_block,
+                elif_blocks,
+                else_block,
+                span,
+                ..
+            } => {
+                // For an if statement to be a valid implicit return, we need an else block
+                // (otherwise not all paths return a value)
+                if else_block.is_none() {
+                    return TcType::Null;
+                }
+
+                // Compute return type of each branch
+                let then_ret = self.compute_block_return_type(then_block, expected_ret);
+
+                let mut unified = then_ret;
+
+                for (_, block) in elif_blocks {
+                    let elif_ret = self.compute_block_return_type(block, expected_ret);
+                    unified = self.unify_return_types(unified, elif_ret);
+                }
+
+                if let Some(block) = else_block {
+                    let else_ret = self.compute_block_return_type(block, expected_ret);
+                    unified = self.unify_return_types(unified, else_ret);
+                }
+
+                // Check if the unified type matches expected
+                if !unified.is_compatible(expected_ret) && *expected_ret != TcType::Unknown {
+                    self.error(
+                        format!("Return type mismatch: expected {expected_ret}, got {unified}"),
+                        *span,
+                    );
+                }
+
+                unified
+            }
+            Stmt::Match { arms, span, .. } => {
+                if arms.is_empty() {
+                    return TcType::Null;
+                }
+
+                let mut unified: Option<TcType> = None;
+
+                for (_, body) in arms {
+                    let arm_ret = self.compute_block_return_type(body, expected_ret);
+                    unified = Some(match unified {
+                        None => arm_ret,
+                        Some(current) => self.unify_return_types(current, arm_ret),
+                    });
+                }
+
+                let result = unified.unwrap_or(TcType::Null);
+
+                // Check if the unified type matches expected
+                if !result.is_compatible(expected_ret) && *expected_ret != TcType::Unknown {
+                    self.error(
+                        format!("Return type mismatch: expected {expected_ret}, got {result}"),
+                        *span,
+                    );
+                }
+
+                result
+            }
+            _ => TcType::Null,
+        }
+    }
+
+    /// Compute the return type of a block by looking at its last statement.
+    fn compute_block_return_type(&mut self, stmts: &[Stmt], expected_ret: &TcType) -> TcType {
+        if let Some(last) = stmts.last() {
+            match last {
+                Stmt::Return { value: expr, .. } => self.check_expr(expr),
+                _ => self.compute_implicit_return_type(last, expected_ret),
+            }
+        } else {
+            TcType::Null
+        }
+    }
+
+    /// Unify two return types, preferring the more specific type.
+    fn unify_return_types(&self, a: TcType, b: TcType) -> TcType {
+        if a.is_compatible(&b) {
+            a
+        } else if b.is_compatible(&a) {
+            b
+        } else {
+            TcType::Unknown
+        }
     }
 
     /// Type check a single statement.
