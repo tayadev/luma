@@ -16,6 +16,8 @@ pub enum TcType {
     Function {
         params: Vec<TcType>,
         ret: Box<TcType>,
+        /// If Some(idx), the parameter at index idx is variadic (captures remaining args as a list)
+        variadic_index: Option<usize>,
     },
 }
 
@@ -38,15 +40,18 @@ impl TcType {
                 TcType::Function {
                     params: p1,
                     ret: r1,
+                    variadic_index: v1,
                 },
                 TcType::Function {
                     params: p2,
                     ret: r2,
+                    variadic_index: v2,
                 },
             ) => {
                 p1.len() == p2.len()
                     && p1.iter().zip(p2.iter()).all(|(a, b)| a.is_compatible(b))
                     && r1.is_compatible(r2)
+                    && v1 == v2
             }
             _ => false,
         }
@@ -67,13 +72,21 @@ impl std::fmt::Display for TcType {
             TcType::TableWithFields(fields) => {
                 write!(f, "Table({})", fields.join(", "))
             }
-            TcType::Function { params, ret } => {
+            TcType::Function {
+                params,
+                ret,
+                variadic_index,
+            } => {
                 write!(f, "Function(")?;
                 for (i, param) in params.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{param}")?;
+                    if Some(i) == *variadic_index {
+                        write!(f, "...{param}")?;
+                    } else {
+                        write!(f, "{param}")?;
+                    }
                 }
                 write!(f, ") -> {ret}")
             }

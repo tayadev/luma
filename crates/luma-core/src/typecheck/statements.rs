@@ -28,8 +28,15 @@ impl TypeEnv {
             {
                 // Determine function type from signature
                 let mut param_types = Vec::new();
-                for arg in arguments {
-                    param_types.push(Self::type_from_ast(&arg.r#type));
+                let mut variadic_index = None;
+                for (i, arg) in arguments.iter().enumerate() {
+                    if arg.variadic {
+                        variadic_index = Some(i);
+                        // Variadic parameter becomes a List of the specified type
+                        param_types.push(TcType::List(Box::new(Self::type_from_ast(&arg.r#type))));
+                    } else {
+                        param_types.push(Self::type_from_ast(&arg.r#type));
+                    }
                 }
                 let ret_ty_annot = if let Some(rt) = return_type {
                     Self::type_from_ast(rt)
@@ -39,6 +46,7 @@ impl TypeEnv {
                 let func_ty = TcType::Function {
                     params: param_types,
                     ret: Box::new(ret_ty_annot),
+                    variadic_index,
                 };
                 self.declare(
                     name.clone(),

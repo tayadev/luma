@@ -32,6 +32,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Any, TcType::Any],
                     ret: Box::new(TcType::Any),
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -44,6 +45,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Any, TcType::Any],
                     ret: Box::new(TcType::Boolean),
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -56,6 +58,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Any, TcType::Any],
                     ret: Box::new(TcType::Any),
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -68,6 +71,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Any],
                     ret: Box::new(TcType::String),
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -92,6 +96,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Number, TcType::Any],
                     ret: Box::new(TcType::Table), // Returns Result
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -104,6 +109,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::String],
                     ret: Box::new(TcType::Table), // Returns Result
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -116,6 +122,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::String, TcType::Any],
                     ret: Box::new(TcType::Table), // Returns Result
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -128,6 +135,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::String],
                     ret: Box::new(TcType::Boolean),
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -140,6 +148,7 @@ impl TypeEnv {
                 ty: TcType::Function {
                     params: vec![TcType::Any],
                     ret: Box::new(TcType::Any), // Never returns, but use Any
+                    variadic_index: None,
                 },
                 mutable: false,
                 annotated: true,
@@ -410,7 +419,7 @@ impl TypeEnv {
                     .map(Self::type_from_ast)
                     .collect::<Vec<_>>();
                 let ret = Box::new(Self::type_from_ast(return_type));
-                TcType::Function { params, ret }
+                TcType::Function { params, ret, variadic_index: None }
             }
         }
     }

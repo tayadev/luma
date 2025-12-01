@@ -57,6 +57,11 @@ pub struct Argument {
     #[serde(rename = "type")]
     pub r#type: Type,
     pub default: Option<crate::ast::Expr>,
+    /// Whether this is a variadic argument (e.g., `...args: Any`)
+    /// Variadic arguments collect all remaining positional arguments into a list.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default)]
+    pub variadic: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub span: Option<Span>,

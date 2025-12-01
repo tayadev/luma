@@ -703,7 +703,19 @@ impl VM {
                 chunk: fn_chunk,
                 arity: fn_arity,
             } => {
-                if arity != fn_arity {
+                // Handle variadic functions
+                if let Some(variadic_idx) = fn_chunk.variadic_param_index {
+                    // Minimum required arguments is the number of non-variadic parameters
+                    let min_arity = variadic_idx;
+                    if arity < min_arity {
+                        let fn_name = &fn_chunk.name;
+                        return Err(self._error(format!(
+                            "Arity mismatch in function '{fn_name}': expected at least {min_arity} argument(s), got {arity}"
+                        )));
+                    }
+                    // Pack extra arguments into a list for the variadic parameter
+                    self.pack_variadic_args(callee_idx, arity, variadic_idx)?;
+                } else if arity != fn_arity {
                     let fn_name = &fn_chunk.name;
                     return Err(
                         self._error(format!("Arity mismatch in function '{fn_name}': expected {fn_arity} argument(s), got {arity}"))
@@ -730,7 +742,19 @@ impl VM {
                 arity: fn_arity,
                 upvalues: fn_upvalues,
             } => {
-                if arity != fn_arity {
+                // Handle variadic functions
+                if let Some(variadic_idx) = fn_chunk.variadic_param_index {
+                    // Minimum required arguments is the number of non-variadic parameters
+                    let min_arity = variadic_idx;
+                    if arity < min_arity {
+                        let fn_name = &fn_chunk.name;
+                        return Err(self._error(format!(
+                            "Arity mismatch in function '{fn_name}': expected at least {min_arity} argument(s), got {arity}"
+                        )));
+                    }
+                    // Pack extra arguments into a list for the variadic parameter
+                    self.pack_variadic_args(callee_idx, arity, variadic_idx)?;
+                } else if arity != fn_arity {
                     let fn_name = &fn_chunk.name;
                     return Err(
                         self._error(format!("Arity mismatch in function '{fn_name}': expected {fn_arity} argument(s), got {arity}"))
@@ -818,6 +842,31 @@ impl VM {
             }
             _ => Err(self._error("CALL on non-function".into())),
         }
+    }
+
+    /// Pack extra arguments into a list for a variadic parameter.
+    /// This modifies the stack in place, replacing args[variadic_idx..] with a single list value.
+    fn pack_variadic_args(
+        &mut self,
+        callee_idx: usize,
+        _arity: usize,
+        variadic_idx: usize,
+    ) -> Result<(), VmError> {
+        // The arguments are on the stack at positions: callee_idx + 1 to callee_idx + 1 + arity
+        // We need to collect args[variadic_idx..] into a list and replace them with that list
+        let first_variadic_arg_idx = callee_idx + 1 + variadic_idx;
+
+        // Collect variadic arguments
+        let variadic_args: Vec<Value> = self
+            .stack
+            .drain(first_variadic_arg_idx..)
+            .collect();
+
+        // Push the list of variadic arguments
+        self.stack
+            .push(Value::List(Rc::new(RefCell::new(variadic_args))));
+
+        Ok(())
     }
 
     fn exec_native_into(&mut self, args: Vec<Value>) -> Result<(), VmError> {

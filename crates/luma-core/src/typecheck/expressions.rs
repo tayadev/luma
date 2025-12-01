@@ -297,31 +297,91 @@ impl TypeEnv {
     ) -> TcType {
         let callee_ty = self.check_expr(callee);
         match callee_ty {
-            TcType::Function { params, ret } => {
-                if arguments.len() != params.len() {
-                    self.error(
-                        format!(
-                            "Function call: expected {} arguments, got {}",
-                            params.len(),
-                            arguments.len()
-                        ),
-                        span,
-                    );
+            TcType::Function {
+                params,
+                ret,
+                variadic_index,
+            } => {
+                // For variadic functions, minimum arity is the number of non-variadic params
+                let min_arity = variadic_index.unwrap_or(params.len());
+
+                if let Some(var_idx) = variadic_index {
+                    // Variadic function: must have at least min_arity arguments
+                    if arguments.len() < min_arity {
+                        self.error(
+                            format!(
+                                "Function call: expected at least {} arguments, got {}",
+                                min_arity,
+                                arguments.len()
+                            ),
+                            span,
+                        );
+                    } else {
+                        // Check non-variadic arguments
+                        for (i, (arg, param_ty)) in
+                            arguments.iter().take(var_idx).zip(params.iter()).enumerate()
+                        {
+                            let arg_expr = match arg {
+                                CallArgument::Positional(expr) => expr,
+                                CallArgument::Named { value, .. } => value,
+                            };
+                            let arg_ty = self.check_expr(arg_expr);
+                            if !arg_ty.is_compatible(param_ty) {
+                                self.error(
+                                    format!(
+                                        "Function call: argument {i} expected {param_ty}, got {arg_ty}"
+                                    ),
+                                    arg_expr.span(),
+                                );
+                            }
+                        }
+                        // Check variadic arguments against the element type
+                        if let TcType::List(elem_ty) = &params[var_idx] {
+                            for (i, arg) in arguments.iter().skip(var_idx).enumerate() {
+                                let arg_expr = match arg {
+                                    CallArgument::Positional(expr) => expr,
+                                    CallArgument::Named { value, .. } => value,
+                                };
+                                let arg_ty = self.check_expr(arg_expr);
+                                if !arg_ty.is_compatible(elem_ty) {
+                                    self.error(
+                                        format!(
+                                            "Function call: variadic argument {} expected {elem_ty}, got {arg_ty}",
+                                            var_idx + i
+                                        ),
+                                        arg_expr.span(),
+                                    );
+                                }
+                            }
+                        }
+                    }
                 } else {
-                    for (i, (arg, param_ty)) in arguments.iter().zip(params.iter()).enumerate() {
-                        // Extract the expression from the CallArgument
-                        let arg_expr = match arg {
-                            CallArgument::Positional(expr) => expr,
-                            CallArgument::Named { value, .. } => value,
-                        };
-                        let arg_ty = self.check_expr(arg_expr);
-                        if !arg_ty.is_compatible(param_ty) {
-                            self.error(
-                                format!(
-                                    "Function call: argument {i} expected {param_ty}, got {arg_ty}"
-                                ),
-                                arg_expr.span(),
-                            );
+                    // Non-variadic function: must have exact arity
+                    if arguments.len() != params.len() {
+                        self.error(
+                            format!(
+                                "Function call: expected {} arguments, got {}",
+                                params.len(),
+                                arguments.len()
+                            ),
+                            span,
+                        );
+                    } else {
+                        for (i, (arg, param_ty)) in arguments.iter().zip(params.iter()).enumerate()
+                        {
+                            let arg_expr = match arg {
+                                CallArgument::Positional(expr) => expr,
+                                CallArgument::Named { value, .. } => value,
+                            };
+                            let arg_ty = self.check_expr(arg_expr);
+                            if !arg_ty.is_compatible(param_ty) {
+                                self.error(
+                                    format!(
+                                        "Function call: argument {i} expected {param_ty}, got {arg_ty}"
+                                    ),
+                                    arg_expr.span(),
+                                );
+                            }
                         }
                     }
                 }
@@ -358,6 +418,7 @@ impl TypeEnv {
             return TcType::Function {
                 params: vec![TcType::Any], // Target type
                 ret: Box::new(TcType::Any),
+                variadic_index: None,
             };
         }
 
@@ -418,8 +479,15 @@ impl TypeEnv {
         self.push_scope();
 
         let mut param_types = Vec::new();
-        for arg in arguments {
-            let param_ty = Self::type_from_ast(&arg.r#type);
+        let mut variadic_index = None;
+        for (i, arg) in arguments.iter().enumerate() {
+            let param_ty = if arg.variadic {
+                variadic_index = Some(i);
+                // Variadic parameter becomes a List of the specified type
+                TcType::List(Box::new(Self::type_from_ast(&arg.r#type)))
+            } else {
+                Self::type_from_ast(&arg.r#type)
+            };
             param_types.push(param_ty.clone());
             self.declare(
                 arg.name.clone(),
@@ -458,6 +526,7 @@ impl TypeEnv {
         TcType::Function {
             params: param_types,
             ret: Box::new(ret_ty),
+            variadic_index,
         }
     }
 

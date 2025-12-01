@@ -293,6 +293,20 @@ impl Compiler {
         let mut nested = Compiler::new_with_parent("<function>", parent);
         let arity = arguments.len();
 
+        // Find variadic parameter (if any) and validate it's the last one
+        let variadic_param_index = arguments
+            .iter()
+            .enumerate()
+            .find(|(_, arg)| arg.variadic)
+            .map(|(idx, _)| idx);
+
+        // If there's a variadic parameter, it must be the last one
+        if let Some(idx) = variadic_param_index {
+            if idx != arguments.len() - 1 {
+                panic!("Variadic parameter must be the last parameter");
+            }
+        }
+
         // Enter scope for function parameters
         nested.enter_scope();
         // Parameters become locals in order
@@ -317,6 +331,7 @@ impl Compiler {
         nested.exit_scope_with_preserve(does_block_leave_value(body));
         nested.chunk.instructions.push(Instruction::Return);
         nested.chunk.local_count = arity as u16;
+        nested.chunk.variadic_param_index = variadic_param_index;
 
         // Extract upvalue descriptors and chunk
         let upvalue_descriptors: Vec<UpvalueDescriptor> = nested

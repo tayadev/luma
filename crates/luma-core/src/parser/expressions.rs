@@ -77,8 +77,8 @@ where
     S: Parser<'a, &'a str, Stmt, extra::Err<Rich<'a, char>>> + Clone + 'a,
     E: Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> + Clone + 'a,
 {
-    // Argument parsing with default values
-    let argument = ident
+    // Regular argument parsing with default values
+    let regular_argument = ident
         .clone()
         .then_ignore(just(':').padded_by(ws.clone()))
         .then(type_parser.clone())
@@ -93,9 +93,27 @@ where
                 name: name.to_string(),
                 r#type: t,
                 default,
+                variadic: false,
                 span: None,
             },
         );
+
+    // Variadic argument parsing: ...name: Type
+    let variadic_argument = just("...")
+        .padded_by(ws.clone())
+        .ignore_then(ident.clone())
+        .then_ignore(just(':').padded_by(ws.clone()))
+        .then(type_parser.clone())
+        .map(|(name, t): (&str, Type)| Argument {
+            name: name.to_string(),
+            r#type: t,
+            default: None,
+            variadic: true,
+            span: None,
+        });
+
+    // An argument can be either regular or variadic
+    let argument = choice((variadic_argument, regular_argument));
 
     let arg_list = argument
         .separated_by(just(',').padded_by(ws.clone()))
