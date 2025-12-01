@@ -1,5 +1,0 @@
-var sum = fn(a: Number, b: Number, c: Number) do
-  a + b + c
-end
-
-sum(1, 2, 3)

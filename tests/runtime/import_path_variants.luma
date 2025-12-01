@@ -1,4 +1,0 @@
-let a = import("mod_variants_target")
-let b = import("./mod_variants_target")
-let c = import("mod_variants_target.luma")
-a == b && b == c

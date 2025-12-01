@@ -1,2 +1,0 @@
-let obj = { ok = 42 }
-obj

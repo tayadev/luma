@@ -47,6 +47,9 @@ run file:
 coverage:
     cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
 
+coverage-text:
+    cargo llvm-cov nextest --all-features --workspace --text
+
 # Run benchmarks
 bench:
     cargo bench
@@ -61,3 +64,7 @@ check: fmt-check lint test
 # Prepare for commit: format, lint, test
 ready: fmt lint test
     @echo "✓ Ready to commit!"
+
+commit: ready
+    git add .
+    copilot -p "Write a git commit message for the currently staged changes" --allow-tool 'shell(git)'

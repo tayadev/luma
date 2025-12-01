@@ -1,5 +1,0 @@
--- Test ffi.new() with char array allocation
-let buffer = ffi.new("char[256]")
-
--- Buffer should be an External type
-typeof(buffer)

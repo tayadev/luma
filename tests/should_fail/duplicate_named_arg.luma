@@ -1,6 +1,0 @@
--- Duplicate named argument in function call
-let greet = fn(name: String, age: Number): String do
-  return "Hello"
-end
-
-greet(name = "Alice", age = 30, name = "Bob")

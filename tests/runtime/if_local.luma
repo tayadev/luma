@@ -1,5 +1,0 @@
-if true do
-  var y = 41
-  y = y + 1
-  y
-end

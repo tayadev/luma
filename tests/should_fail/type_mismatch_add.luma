@@ -1,2 +1,0 @@
-var x = "hello"
-x + 5

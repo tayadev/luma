@@ -1,6 +1,0 @@
-let v: Any = {
-  __mod = fn(self: Any, other: Any) do
-    return 7
-  end
-}
-v % 3

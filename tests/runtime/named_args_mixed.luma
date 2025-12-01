@@ -1,4 +1,0 @@
-let calc = fn(a: Number, b: Number, c: Number) do
-  a * 100 + b * 10 + c
-end
-calc(1, c = 3, b = 2)

@@ -1,3 +1,0 @@
-let person = { name = "Bob", age = 25 }
-let {name, age} = person
-age

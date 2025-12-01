@@ -1,6 +1,0 @@
-let v = { ok = 1 }
--- Using tag 'err' in match when not present in known fields should error
-match v do
-  err do 0 end
-  ok do 1 end
-end

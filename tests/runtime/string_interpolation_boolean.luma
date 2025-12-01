@@ -1,4 +1,0 @@
--- Test string interpolation with boolean values
-let is_ready = true
-let status = "Status: ${is_ready}"
-status

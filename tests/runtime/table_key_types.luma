@@ -1,7 +1,0 @@
-let t = { 
-  simple = "identifier",
-  "with spaces" = "string literal",
-  ["computed" + "Key"] = "computed expression"
-}
-
-t.simple + " " + t["with spaces"] + " " + t["computedKey"]

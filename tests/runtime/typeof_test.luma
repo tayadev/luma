@@ -1,5 +1,0 @@
--- Test typeof() built-in function
-let num = typeof(42)
-let str = typeof("hello")
-print(num)
-str

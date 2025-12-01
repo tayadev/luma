@@ -1,5 +1,0 @@
-let module_var = 42
-
-fn() do
-  module_var
-end

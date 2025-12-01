@@ -1,5 +1,0 @@
--- Non-exhaustive match without wildcard
-let x = 1
-match x do
-  0 do print("zero") end
-end

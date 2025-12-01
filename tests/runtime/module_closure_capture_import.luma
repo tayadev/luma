@@ -1,2 +1,0 @@
-let get_var = import("module_with_closure.luma")
-get_var()

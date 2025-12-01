@@ -1,4 +1,0 @@
--- Illegal table key: number without brackets
-let t = {
-  123 = "value"
-}

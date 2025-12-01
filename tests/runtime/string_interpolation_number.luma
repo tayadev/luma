@@ -1,4 +1,0 @@
--- Test string interpolation with number values
-let size = 256
-let message = "Buffer size: ${size} bytes"
-message

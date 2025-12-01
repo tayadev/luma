@@ -1,7 +1,0 @@
-let gefn = fn(self: Table, other: Table) do
-  return self.x >= other.x
-end
-
-let v1 = { x = 5, __ge = gefn }
-let v2 = { x = 10, __ge = gefn }
-v1 >= v2

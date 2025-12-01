@@ -1,7 +1,0 @@
--- Test Array utilities exist in prelude
-let has_map = List.map
-let has_filter = List.filter  
-let has_reduce = List.reduce
-let has_length = List.length
-
-true

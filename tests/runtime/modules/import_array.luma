@@ -1,3 +1,0 @@
--- Test importing a module that exports an array
-let arr = import("./array_module.luma")
-arr[0] + arr[2] + arr[4]

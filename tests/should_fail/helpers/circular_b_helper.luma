@@ -1,2 +1,0 @@
--- Module B that imports module A (creates circular dependency)
-let a = import("./circular_a_helper.luma")

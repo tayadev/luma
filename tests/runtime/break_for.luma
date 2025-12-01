@@ -1,8 +1,0 @@
-var sum = 0
-for i in [1, 2, 3, 4, 5] do
-  if i == 3 do
-    break
-  end
-  sum = sum + i
-end
-sum

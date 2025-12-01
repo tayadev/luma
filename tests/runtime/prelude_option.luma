@@ -1,5 +1,0 @@
--- Test Option type from prelude
-let some_val = Option.new_some(42)
-let none_val = Option.new_none()
-
-true

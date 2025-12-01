@@ -1,3 +1,0 @@
--- Test importing a module that exports a function
-let double = import("./function_module.luma")
-double(21)

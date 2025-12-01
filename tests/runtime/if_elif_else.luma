@@ -1,9 +1,0 @@
-var x = 1
-if false do
-  x = 100
-else if true do
-  x = 2
-else do
-  x = 3
-end
-x

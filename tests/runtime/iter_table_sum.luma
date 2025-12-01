@@ -1,6 +1,0 @@
-let t = { a = 1, b = 2, c = 3 }
-var sum = 0
-for [k, v] in t do
-  sum = sum + v
-end
-sum

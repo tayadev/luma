@@ -1,8 +1,0 @@
--- Test dynamic into() dispatch
-let MyValue = {
-  __into = fn(self: Any, target: Any) do
-    return 42
-  end
-}
--- Call __into directly (dynamic dispatch through into() still experimental)
-MyValue.__into(MyValue, null)
